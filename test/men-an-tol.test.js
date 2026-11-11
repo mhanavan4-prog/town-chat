@@ -41,7 +41,7 @@ check('the brass pins from Hunt 1903, and the game says the answer is chance', /
 check('done, the stone keeps to its own lore (Bottrell, Borlase); one plain line, folded, says the real one is protected; no NHS, no symptoms', /Bottrell had it/.test(M.MEN_AN_TOL_DONE) && /'many persons who had crept through this hole'/.test(M.MEN_AN_TOL_DONE) && /protected monument/.test(M.MEN_AN_TOL_NOTE) && M.MEN_AN_TOL_NOTE.split(/\s+/).length <= 25 && !('MEN_AN_TOL_PRACTICAL' in M) && !/NHS|numbness|genital|vitamin/i.test(M.MEN_AN_TOL_DONE + M.MEN_AN_TOL_NOTE + M.MEN_AN_TOL_SOURCE));
 const scene = fs.readFileSync(__dirname + '/../client/wilds-scene.js', 'utf8'), props = fs.readFileSync(__dirname + '/../client/props-menantol.js', 'utf8');
 check('the Wilds draws it, walls the stone either side of the hole, and its lore stone reads like a waymarker', /makeMenAnTol\(w2\.menAnTol, WILDS_WALLS/.test(scene) && /markerId: 'men_an_tol'/.test(scene) && /walls\.push\(\{ x: geo\.x - geo\.stone/.test(props) && /walls\.push\(\{ x: geo\.x \+ geo\.hole/.test(props));
-check('clear of the Shepherd\'s Race, the clootie well and the portal, and inside the ring no tree is scattered into', Math.hypot(X - 5600, Y - 8400) > 445 + 320 && Math.hypot(X - 4400, Y - 8200) > 500 && Math.hypot(X - 5000, Y - 8800) > 600 && Math.hypot(X - 5000, Y - 8800) + 300 < 1300 + 50);
+check('far out from the portal on the western moor, and apart from the Shepherd\'s Race, the clootie well and the Nine-and-Twenty', Math.hypot(X - 7000, Y - 7900) > 1500 && Math.hypot(X - 2900, Y - 8300) > 1500 && Math.hypot(X - 8600, Y - 6600) > 1500 && Math.hypot(X - 5000, Y - 8800) > 1800 && X < 5000);
 
 require('../server.js');
 setTimeout(() => {

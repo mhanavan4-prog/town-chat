@@ -25,7 +25,7 @@ check('the path runs from the gate to the centre without a gap', inward.every((p
 // the figure is clear of the Wilds' fixed places, and inside the spawn keep-out the scatter respects
 const clear = [[5000, 8450, 150], [5000, 8800, 100], [5170, 8820, 90]];
 check('clear of the campfire, the arrival spot and the return portal', clear.every(([x, y, r]) => Math.hypot(x - geo.hub[0], y - geo.hub[1]) > geo.radius + r));
-check('inside the 1300-unit ring round the Wilds spawn that no tree or plant is scattered into', Math.hypot(geo.hub[0] - 5000, geo.hub[1] - 8800) + geo.radius < 1300);
+check('well out to the east of the portal, where the entry is left open', Math.hypot(geo.hub[0] - 5000, geo.hub[1] - 8800) - geo.radius > 1500 && geo.hub[0] > 5000);
 
 // ── The words ────────────────────────────────────────────────────────────────
 check('lore: Matthews\'s names, the treading at Boughton Green, "running it in and out", the wagers; Simpkinson marked as a novel', /'Mizmaze,' 'Julian's Bower,' 'Troy Town,' or 'Shepherd's Race'/.test(T.TROY_TOWN_LORE) && /three days' fair in June/.test(T.TROY_TOWN_LORE) && /'running it in and out'/.test(T.TROY_TOWN_LORE) && /gallons of beer/.test(T.TROY_TOWN_LORE) && /Simpkinson's novel of 1860/.test(T.TROY_TOWN_LORE));

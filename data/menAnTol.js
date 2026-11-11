@@ -20,7 +20,7 @@
 // The stones are drawn twice life size: the real hole is about half a metre
 // across, too small for a player to crawl through here.
 // ---------------------------------------------------------------------------
-const MEN_AN_TOL = { x: 5100, y: 7800 };
+const MEN_AN_TOL = { x: 3700, y: 6000 }; // on the western moor, north-west of the portal
 const MEN_HOLE = 20;        // half-width of the hole, world units (a player is 28 across)
 const MEN_STONE = 52;       // half-width of the holed stone
 const MEN_UPRIGHT = 150;    // the uprights stand this far either side

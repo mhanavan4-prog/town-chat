@@ -1713,6 +1713,28 @@ const CROTAL_STONE_COUNT = 12;
 WILDS_FLORA_HARVEST.crotal_stone = 'crotal';
 WILDS_FLORA_TYPES.push('crotal_stone');
 
+// The four old places of the Wilds stand apart from each other now, well out
+// from the portal, where the scatter above knows nothing of them. Whatever it
+// set down on one of them (a tree in the Shepherd's Race, a bramble on the
+// well's path) is moved straight out to just beyond its edge, and nothing
+// else moves.
+{
+  const keepOff = [
+    { x: WORLD2.countless.x, y: WORLD2.countless.y, r: WORLD2.countless.radius + 140 },
+    { x: WORLD2.clootieWell.x, y: WORLD2.clootieWell.y, r: 310 },
+    { x: WORLD2.troyTown.hub[0], y: WORLD2.troyTown.hub[1], r: WORLD2.troyTown.radius + 90 },
+    { x: WORLD2.menAnTol.x, y: WORLD2.menAnTol.y, r: 330 },
+  ];
+  for (const d of WORLD2.natureDecor) {
+    for (const z of keepOff) {
+      const dx = d.x - z.x, dy = d.y - z.y, dist = Math.hypot(dx, dy);
+      if (dist >= z.r) continue;
+      const ux = dist > 1 ? dx / dist : 1, uy = dist > 1 ? dy / dist : 0;
+      d.x = Math.round(z.x + ux * (z.r + 30)); d.y = Math.round(z.y + uy * (z.r + 30));
+    }
+  }
+}
+
 const HARVEST_TYPES = new Set(['tree', 'shrub', 'flower', ...PLANT_KEYS, ...WILDS_FLORA_TYPES]);
 const HARVEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const WAND_WOOD_COST = 5; // Holly Wood → Holly Wand (craft_wand handler)
