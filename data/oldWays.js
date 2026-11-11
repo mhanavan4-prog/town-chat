@@ -27,9 +27,9 @@ const OLD_WAYS = [
   },
   {
     id: 'poppet', icon: '🪆', name: 'The poppet',
-    how: 'Stitch a figure of cloth and stuff it with a scrap of fur. Name it for yourself or for one of your party standing by, and it takes blows meant for them for a while, or mends them at once.',
+    how: 'Stitch a figure of cloth and stuff it with a scrap of fur. Name it for yourself or for one of your party standing by, and it takes blows meant for them for a while, or mends them at once. Or, underground, name it for the boss and bind it round with thread: the boss drags its feet for a minute.',
     tier: 'record',
-    lore: 'An image made to stand for a person is among the oldest charges in the trials. In 1612 Elizabeth Southerns, "Old Demdike", was recorded as saying that "the speediest way to take a man\'s life away by witchcraft is to make a picture of clay, like unto the shape of the person whom they mean to kill". Figures of wax, cloth and clay stuck with pins have been found hidden in old buildings, one in a Hereford cellar with a name pinned to its skirt. The record is nearly all of harm. Making a poppet to heal or to guard, as the game does, is how modern witches have turned the practice round, and is not in the old accounts.',
+    lore: 'An image made to stand for a person is among the oldest charges in the trials. In 1612 Elizabeth Southerns, "Old Demdike", was recorded as saying that "the speediest way to take a man\'s life away by witchcraft is to make a picture of clay, like unto the shape of the person whom they mean to kill". Figures of wax, cloth and clay stuck with pins have been found hidden in old buildings, one in a Hereford cellar with a name pinned to its skirt. The record is nearly all of harm. Making a poppet to heal or to guard, as the game does, is how modern witches have turned the practice round, and is not in the old accounts. Binding one with thread to hinder an enemy is the old use, turned here on monsters.',
     source: 'Thomas Potts, The Wonderfull Discoverie of Witches in the Countie of Lancaster (1613); the Hereford Museum poppet; R. Merrifield, The Archaeology of Ritual and Magic (1987).',
   },
   {
@@ -97,7 +97,9 @@ const BESOM_SIGHTS = [
 ];
 
 // ── The poppet ───────────────────────────────────────────────────────────────
-const POPPET = { cost: { itemId: 'fur_scrap', qty: 1 }, guard: 0.1, guardMs: 20 * MIN, heal: 0.3, range: 260, restMs: 10 * MIN };
+const POPPET = { cost: { itemId: 'fur_scrap', qty: 1 }, guard: 0.1, guardMs: 20 * MIN, heal: 0.3, range: 260, restMs: 10 * MIN,
+  // Named for a dungeon's boss and bound round with thread, it slows the boss for a minute.
+  bindSlow: 0.6, bindMs: 60 * 1000, bindRange: 700 };
 
 // ── Lead-pouring ─────────────────────────────────────────────────────────────
 // Each shape and what it was said to mean; `xp` is the luck it leaves you.

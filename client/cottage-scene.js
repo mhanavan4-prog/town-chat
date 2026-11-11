@@ -263,6 +263,16 @@ function setWards(w) {
     cross.position.set(W / 2 - 46, WALL_H - WALL_H * 0.13, D - 9);
     wardGroup.add(cross);
   }
+  // The Old Ways that show in the house (lib/oldWays.js): her besom leant by the
+  // door, and the bowl of cream on the hearthstone on a night it is set out.
+  if (w.besom && kkStatic) {
+    const broom = kkStatic('wd_besom', 96, 'height');
+    if (broom) { broom.name = 'besom'; broom.position.set(W / 2 - 62, 0, D - 16); broom.rotation.set(-0.16, 0.4, 0.1); wardGroup.add(broom); }
+  }
+  if (w.cream && kkStatic) {
+    const bowl = kkStatic('wd_cream', 18, 'fit');
+    if (bowl) { bowl.name = 'creamBowl'; bowl.position.set(W / 2 + 44, 0.5, 66); wardGroup.add(bowl); }
+  }
   if (w.sheaf) {
     // The last sheaf (data/lastSheaf.js): the neck from a beam, the Maiden hung
     // up, both by the hearth; the kern baby on a shelf on the west wall, "at
