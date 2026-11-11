@@ -20339,6 +20339,10 @@ if (location.search.includes('testdrive=1')) {
       return { total, inView, distinct: rows.length, instanced: inst, codeBuilt: coded, top: rows.slice(0, top || 20) };
     },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
+    // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
+    look(yaw, pitch) { cameraYawOffset = +yaw || 0; if (pitch != null) cameraPitchOffset = +pitch || 0; return true; },
+    // Step straight into a town building's interior (the look of it; the server still keeps its own doors).
+    enter(roomId) { if (me && world && world.buildings.some((b) => b.id === roomId)) { enterBuilding(roomId); return true; } return false; },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
