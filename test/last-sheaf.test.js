@@ -123,6 +123,9 @@ setTimeout(() => {
   check('the Wards panel has the sheaf card and the plaiting (form, the best ears, its ending)', /function sheafCard/.test(wardsJs) && /function renderSheaf/.test(wardsJs) && /type: 'plait_last_sheaf'/.test(wardsJs) && /type: 'end_last_sheaf'/.test(wardsJs) && /How its year ends/.test(wardsJs));
   check('the cottage draws whichever hangs: the kern baby on a shelf, the neck and the Maiden hung up', /if \(w\.sheaf\)/.test(cottage) && /function makeLastSheaf/.test(cottage) && /sheafShelf/.test(cottage));
 
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  check('on a phone the board keys are tall enough to tap (44px), and a picked ear shows a gold rim and a tick', /@media \(pointer:coarse\) \{ \.kbBtn \{ min-height:44px/.test(html) && /\.sheafEar\.on \{[^}]*border-color:#f0c85a/.test(html) && /\.sheafEar\.on::after \{ content:'✓'/.test(html));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);

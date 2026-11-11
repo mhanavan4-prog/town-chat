@@ -3511,6 +3511,8 @@
   .kbReadout { width:100%; text-align:center; color:#ffd9a0; font-size:12.5px; min-height:1.2em; }
   .ogKeys { display:flex; flex-direction:column; gap:4px; }
   .kbBtn:focus-visible, .ogCastBtn:focus-visible, .monasTool:focus-visible { outline:2px solid #ffd9a0; outline-offset:2px; }
+  /* On a touch screen the board keys are fingers, not a mouse: tall enough to tap. */
+  @media (pointer:coarse) { .kbBtn { min-height:44px; padding:8px 12px; font-size:14px; } }
   .markGuide { fill:none; stroke:#ffd9a0; stroke-width:2; stroke-dasharray:4 4; stroke-linecap:round; opacity:0.8; }
   .pentField { fill:#8a1f1a; stroke:#3a0d0a; stroke-width:4; }
   .pentLine { fill:none; stroke:#e8c25a; stroke-width:5; stroke-linecap:round; }
@@ -3574,9 +3576,13 @@
   .bottlePin.bent { opacity:0.7; }
   /* 🌾 The last sheaf: picking out the best ears */
   .sheafEars { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0; }
-  .sheafEar { width:42px; height:84px; padding:4px; display:flex; align-items:center; justify-content:center; }
+  .sheafEar { width:44px; height:84px; padding:4px; display:flex; align-items:center; justify-content:center; position:relative;
+    background:#2a2118; border:2px solid #5a4a36; box-shadow:none; }
   .sheafEar svg { width:28px; height:72px; }
-  .sheafEar.on { outline:2px solid #e8c25a; background:rgba(232,194,90,0.18); }
+  /* Picked: a gold rim, a warm glow and a tick, unmistakable on a small screen. */
+  .sheafEar.on { background:#4a3a1c; border-color:#f0c85a; box-shadow:0 0 10px rgba(240,200,90,0.55); }
+  .sheafEar.on::after { content:'✓'; position:absolute; top:2px; right:4px; font-size:13px; font-weight:700; color:#f0c85a; }
+  .sheafEar:disabled { opacity:0.75; }
   .sheafStalk { stroke:#b8954a; stroke-width:1.6; }
   .sheafGrain { fill:#e3b94f; stroke:#8a6a24; stroke-width:0.6; }
   .sheafGrain.thin { fill:#a99a72; }
