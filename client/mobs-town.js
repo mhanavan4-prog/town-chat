@@ -5,7 +5,9 @@
 // debug snapshot read it) and is injected via get/set; the active scene and the
 // day/night flag are reassigned lets, injected as getters.
 // ---------------------------------------------------------------------------
-export default function createMobsTown({ getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, mobAttackLungeAmount, getMobAttackLungeDist }) {
+import { critterRigFind, critterRigPose } from './critter-rig.js';
+
+export default function createMobsTown({ kkModel, hasKK, getMobVisuals, setMobVisuals, getOutdoorScene, getLastWildlifeIsNight, lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, mobAttackLungeAmount, getMobAttackLungeDist }) {
 function makeMob() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2a1a33 });
@@ -31,6 +33,18 @@ function makeMob() {
 }
 
 
+// The town's night creature is the black dog of the lanes (Black Shuck, the
+// Barguest, the Padfoot): big, shaggy, with eyes like coals
+// (tools/models/build_critters.py). The dark horned shape above stands in
+// until the model lands.
+function makeTownMob() {
+  const g = kkModel ? kkModel('cr_black_dog', 34, 'height') : null;
+  if (!g) { const blob = makeMob(); blob.userData.standInFor = 'black_dog'; return blob; }
+  g.userData.rig = critterRigFind(g, 'black_dog');
+  g.add(makeHealthBarSprite(42));
+  return g;
+}
+
 function addMobs(scene) {
   for (const id in getMobVisuals()) scene.remove(getMobVisuals()[id].mesh);
   setMobVisuals({});
@@ -39,9 +53,9 @@ function addMobs(scene) {
 function getOrCreateMobVisual(id) {
   let v = getMobVisuals()[id];
   if (!v) {
-    const mesh = makeMob();
+    const mesh = makeTownMob();
     mesh.visible = false;
-    mesh.userData = { kind: 'mob', targetId: id };
+    mesh.userData = { ...mesh.userData, kind: 'mob', targetId: id };
     getOutdoorScene().add(mesh);
     v = getMobVisuals()[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false };
   }
@@ -52,7 +66,13 @@ function applyMobState(list) {
   if (!getOutdoorScene()) return;
   for (const m of list) {
     const v = getOrCreateMobVisual(m.id);
-    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing;
+    { // when a blow lands and when it dies, for the dog's flinch and fall
+      const now = performance.now();
+      if (m.health !== undefined) { if (v.lastHealth !== undefined && m.health < v.lastHealth) v.hitAt = now; v.lastHealth = m.health; }
+      if (m.dead && !v.dead) v.deadAt = v.initialized ? now : 0;
+      v.dead = !!m.dead;
+    }
     v.hasLoot = !!m.hasLoot;
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
@@ -90,6 +110,23 @@ function updateMobVisuals(dt) {
     // blob mobs use.
     const lungeFactor = mobAttackLungeAmount ? mobAttackLungeAmount(v) : 0;
     const lungeDist = lungeFactor * (getMobAttackLungeDist ? getMobAttackLungeDist() : 0);
+    // A stand-in whose model has landed becomes the dog.
+    if (v.mesh.userData.standInFor && hasKK && hasKK('cr_black_dog')) {
+      const real = makeTownMob();
+      if (!real.userData.standInFor) { real.userData = { ...v.mesh.userData, rig: real.userData.rig, standInFor: undefined }; getOutdoorScene().remove(v.mesh); getOutdoorScene().add(real); v.mesh = real; }
+    }
+    const rig = v.mesh.userData.rig;
+    if (rig) {
+      // The dog runs on his legs: no hop, waddle or squash; he lunges, flinches, and falls when he dies.
+      const nowMs = performance.now();
+      v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, v.baseYS, v.y + Math.cos(v.facing) * lungeDist);
+      v.mesh.rotation.y = v.facing;
+      v.mesh.rotation.x = -0.35 * lungeFactor;
+      critterRigPose(rig, v.walkPhase, spd > 4 ? (spd > 60 ? 2 : 1) : 0, nowMs / 1000,
+        { hit: v.hitAt ? 1 - (nowMs - v.hitAt) / 260 : 0, dead: v.dead ? (nowMs - (v.deadAt || 0)) / 900 : 0 });
+      v.mesh.visible = getLastWildlifeIsNight() && (!v.dead || nowMs - (v.deadAt || 0) < 1400);
+      continue;
+    }
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, v.baseYS + hop, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.z = waddle;

@@ -322,6 +322,15 @@ function updateDungeonMobVisuals(dt) {
       continue;
     }
 
+    if (v.dead && v.mesh.userData.rig) {
+      // A real creature falls over where it stood, then is gone.
+      const since = performance.now() - (v.deathAt || 0);
+      critterRigPose(v.mesh.userData.rig, v.gait || 0, 0, performance.now() / 1000, { dead: since / 800 });
+      v.mesh.position.set(v.x, 0, v.y);
+      v.mesh.rotation.x = 0;
+      v.mesh.visible = inDungeon && getMe() && v.room === getMe().room && since < MOB_DEATH_VIS_MS;
+      continue;
+    }
     if (v.dead) {
       // Blob death — crumble: shrink and sink into the ground, then hide.
       if (v._baseScale == null) v._baseScale = v.mesh.scale.x || 1;
@@ -342,7 +351,7 @@ function updateDungeonMobVisuals(dt) {
     if (rig && shouldShow) {
       const speed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
       v.gait = (v.gait || 0) + dt * Math.min(16, 3 + speed * 0.12);
-      critterRigPose(rig, v.gait, speed > 4 ? (speed > 120 ? 2 : 1) : 0, performance.now() / 1000);
+      critterRigPose(rig, v.gait, speed > 4 ? (speed > 120 ? 2 : 1) : 0, performance.now() / 1000, { hit: v.hitAnimStartAt != null ? 1 - (performance.now() - v.hitAnimStartAt) / 260 : 0 });
     }
   }
 }

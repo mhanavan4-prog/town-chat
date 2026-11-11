@@ -163,7 +163,13 @@ function applyMob3State(list) {
   if (!getWildsScene()) return;
   for (const m of list) {
     const v = getOrCreateMob3Visual(m.id, m.mobType);
-    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead; v.provoked = !!m.provoked; v.hasLoot = !!m.hasLoot;
+    v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.provoked = !!m.provoked; v.hasLoot = !!m.hasLoot;
+    { // when a blow lands and when it dies, for the real animal's flinch and fall
+      const now = performance.now();
+      if (m.health !== undefined) { if (v.lastHealth !== undefined && m.health < v.lastHealth) v.hitAt = now; v.lastHealth = m.health; }
+      if (m.dead && !v.dead) v.deadAt = v.initialized ? now : 0;
+      v.dead = !!m.dead;
+    }
     if (!v.initialized) { v.x = m.x; v.y = m.y; v.facing = m.facing; v.initialized = true; }
     if (m.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -195,11 +201,13 @@ function updateMob3Visuals(dt) {
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
-    v.mesh.visible = !v.dead;
+    const nowMs = performance.now();
+    v.mesh.visible = !v.dead || (!!rig && nowMs - (v.deadAt || 0) < 1400); // a real one is seen to fall
     if (rig) {
       const speed = Math.hypot(v.targetX - v.x, v.targetY - v.y) / Math.max(dt, 1e-3);
       v.gait = (v.gait || 0) + dt * Math.min(14, 2 + speed * 0.12);
-      critterRigPose(rig, v.gait, speed > 6 ? (v.provoked ? 2 : 1) : 0, performance.now() / 1000);
+      critterRigPose(rig, v.gait, speed > 6 ? (v.provoked ? 2 : 1) : 0, nowMs / 1000,
+        { hit: v.hitAt ? 1 - (nowMs - v.hitAt) / 260 : 0, dead: v.dead ? (nowMs - (v.deadAt || 0)) / 900 : 0 });
     }
   }
 }

@@ -173,6 +173,22 @@ function realCritter(type) {
   g.add(makeHealthBarSprite(spec[2]));
   return g;
 }
+// When a blow lands (its health drops) and when it dies, by the clock: a real
+// one flinches, and falls over before it is taken away.
+const CRITTER_FALL_MS = 900, CRITTER_FLINCH_MS = 260;
+function critterNoteBlows(v, a) {
+  const now = performance.now();
+  if (a.health !== undefined) { if (v.lastHealth !== undefined && a.health < v.lastHealth) v.hitAt = now; v.lastHealth = a.health; }
+  const dead = !!a.dead;
+  if (dead && !v.dead) v.deadAt = v.initialized ? now : 0; // one already dead when first seen just isn't shown
+  v.dead = dead;
+}
+function critterFx(v) {
+  const now = performance.now();
+  return { hit: v.hitAt ? 1 - (now - v.hitAt) / CRITTER_FLINCH_MS : 0, dead: v.dead ? (now - (v.deadAt || 0)) / CRITTER_FALL_MS : 0 };
+}
+// Shown while alive, and for the moment a real one takes to fall.
+function critterShown(v, rig) { return !v.dead || (!!rig && performance.now() - (v.deadAt || 0) < CRITTER_FALL_MS + 500); }
 function critterOrStandIn(type, standIn) {
   const real = realCritter(type);
   if (real) return real;
@@ -230,7 +246,8 @@ function applyAnimalState(list) {
   if (!getOutdoorScene()) return;
   for (const a of list) {
     const v = getOrCreateAnimalVisual(a.id);
-    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
+    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing;
+    critterNoteBlows(v, a);
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
     if (a.health !== undefined) {
       const hpBar = v.mesh.getObjectByName('healthBar');
@@ -256,8 +273,8 @@ function updateAnimalVisuals(dt) {
     // The real rabbit hops with its legs; the stand-in just bounces.
     v.mesh.position.set(v.x, floorAt('outside', v.x, v.y) + (rig ? hop * 0.6 : hop), v.y);
     v.mesh.rotation.y = v.facing;
-    v.mesh.visible = !v.dead;
-    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000);
+    v.mesh.visible = critterShown(v, rig);
+    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000, critterFx(v));
   }
 }
 
@@ -295,7 +312,8 @@ function applyAnimal2State(list) {
   if (!getWildsScene()) return;
   for (const a of list) {
     const v = getOrCreateAnimal2Visual(a.id, a.type);
-    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing; v.dead = !!a.dead;
+    v.targetX = a.x; v.targetY = a.y; v.targetFacing = a.facing; v.fleeing = !!a.fleeing;
+    critterNoteBlows(v, a);
     v.hasLoot = !!a.hasLoot; // wilds critters (Embermoth etc.) drop materials — surface the claim icon
     if (!v.initialized) { v.x = a.x; v.y = a.y; v.facing = a.facing; v.initialized = true; }
     if (a.health !== undefined) {
@@ -326,8 +344,8 @@ function updateAnimal2Visuals(dt) {
     const lift = !rig || v.fly || v.critterType === 'rabbit' || (v.critterType === 'duskfawn' && v.fleeing) ? bob : 0;
     v.mesh.position.set(v.x, floorAt('wilds', v.x, v.y) + lift, v.y);
     v.mesh.rotation.y = v.facing;
-    v.mesh.visible = !v.dead;
-    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000);
+    v.mesh.visible = critterShown(v, rig);
+    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000, critterFx(v));
   }
 }
 
