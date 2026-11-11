@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 const { TROY_ENDS } = require('./troy');
 
-const TROY_TOWN = { x: 5600, y: 8400, unit: 44 }; // the cross's centre in the Wilds, and one seed unit in world units
+const TROY_TOWN = { x: 7000, y: 7900, unit: 44 }; // the cross's centre in the Wilds, and one seed unit in world units
 const RING = (k) => 2.6 + k;                      // the k-th wall's ring, about a centre half a unit right of the cross
 const C = [0.5, 0];
 const OUTER = RING(7);

@@ -26,7 +26,7 @@ st = null;
 for (const [x, y] of [[W.x + 100, W.y], [W.x, W.y - 100], [W.x - 100, W.y]]) st = C.clootieTurn(st, x, y);
 check('east, then north, then west is widdershins', st.turn < -3, st);
 check('only steps near the spring count', !C.clootieNear(W.x, W.y) && !C.clootieNear(W.x + 400, W.y) && C.clootieNear(W.x + 120, W.y));
-check('the well stands clear of the portal, the campfire and the Shepherd\'s Race, inside the ring no tree is scattered into', Math.hypot(W.x - 5000, W.y - 8800) > 400 && Math.hypot(W.x - 5000, W.y - 8450) > 400 && Math.hypot(W.x - 5600, W.y - 8400) > 800 && Math.hypot(W.x - 5000, W.y - 8800) + 300 < 1300);
+check('the well stands far out from the portal, in the south-west, and apart from the other old places', Math.hypot(W.x - 5000, W.y - 8800) > 1800 && W.x < 5000 && W.y > 5000 && Math.hypot(W.x - 7000, W.y - 7900) > 1500 && Math.hypot(W.x - 3700, W.y - 6000) > 1500 && Math.hypot(W.x - 8600, W.y - 6600) > 1500);
 
 // ── The words ────────────────────────────────────────────────────────────────
 check('polyester refused, in FLS\'s own words', C.CLOOT_CLOTHS.find((c) => c.key === 'polyester').ok === false && /'small, appropriate and biodegradable'/.test(C.CLOOT_CLOTHS.find((c) => c.key === 'polyester').why) && /'Pure wool or pure cotton are best for the environment\.'/.test(C.CLOOT_CLOTHS.find((c) => c.key === 'polyester').why));

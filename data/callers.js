@@ -488,9 +488,9 @@ const CALLERS = [
     caller: 'Old Ned Ashby',
     icon: '🌀',
     title: 'Run It In and Out',
-    plea: "Sixty year back we ran the Troy Town in and out of a May-eve, and the whole village sat up on the bank to watch the sport. My legs won't do it now. There's one cut in the turf out in the Wilds, east of the portal. Run it for me: in at the gate, to the middle and out again, and never a foot over a bank. Then come and tell me.",
+    plea: "Sixty year back we ran the Troy Town in and out of a May-eve, and the whole village sat up on the bank to watch the sport. My legs won't do it now. There's one cut in the turf out in the Wilds, a good way east of the portal. Run it for me: in at the gate, to the middle and out again, and never a foot over a bank. Then come and tell me.",
     steps: [
-      { kind: 'troywalk', label: "Run the Shepherd's Race in the Wilds, in and out, without a false step (east of the portal)" },
+      { kind: 'troywalk', label: "Run the Shepherd's Race in the Wilds, in and out, without a false step (a good way east of the portal)" },
     ],
     resolution: "You come back with grass on your knees and tell him: in at the gate, round and back and round, to the middle, and out the way you came, and not one false step. He laughs, and says that's how it was done, though they did it in boots, at a run, with half the village shouting.",
     note: "Walk or run the old turf mazes, but never recut or dig them: they're protected monuments.",

@@ -26,7 +26,7 @@ check('the later tales are dated as such: the baker in Folk-Lore 1902, Stanton D
 check('no coven woken by a true count: that story is undated, so it is not here', !/coven|Michael Scot/i.test(C.COUNTLESS_LORE));
 check('one plain line, folded under the count: protected, don\'t climb, take nothing; the sources still name Historic England and English Heritage', /protected monuments/.test(C.COUNTLESS_NOTE) && /don't climb/.test(C.COUNTLESS_NOTE) && /take a chip away/.test(C.COUNTLESS_NOTE) && C.COUNTLESS_NOTE.split(/\s+/).length <= 25 && !('COUNTLESS_PRACTICAL' in C) && /Historic England/.test(C.COUNTLESS_SOURCE));
 const X = C.COUNTLESS.x, Y = C.COUNTLESS.y, R = C.COUNTLESS.radius;
-check('clear of the clootie well, the Crick-stone, the Shepherd\'s Race and the portal, and inside the ring no tree is scattered into', Math.hypot(X - 4400, Y - 8200) > R + 200 && Math.hypot(X - 5100, Y - 7800) > R + 300 && Math.hypot(X - 5600, Y - 8400) > R + 445 && Math.hypot(X - 5000, Y - 8800) + R < 1300);
+check('far out from the portal and apart from the clootie well, the Crick-stone and the Shepherd\'s Race', Math.hypot(X - 2900, Y - 8300) > R + 1500 && Math.hypot(X - 3700, Y - 6000) > R + 1500 && Math.hypot(X - 7000, Y - 7900) > R + 1500 && Math.hypot(X - 5000, Y - 8800) > 1800);
 const scene = fs.readFileSync(__dirname + '/../client/wilds-scene.js', 'utf8'), main = fs.readFileSync(__dirname + '/../client/main.js', 'utf8');
 check('the Wilds draws the ring and puts the counting stone outside it', /makeCountlessRing\(w2\.countless, WILDS_WALLS(, KK)?\)/.test(scene) && /npc: 'count_stones'/.test(scene) && /kiosk\.npc === 'count_stones'\) \{ _countStones\.open/.test(main));
 

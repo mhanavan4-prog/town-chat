@@ -24,7 +24,7 @@ setTimeout(() => {
   say(s, { type: 'callers_state' });
   const pl = s.lastOfType('callers_state').places;
   check('four places, each with where and what, none done yet', Array.isArray(pl) && pl.length === 4 && pl.every((x) => x.where && x.what && x.done === false) && pl.map((x) => x.key).join() === 'shepherds_race,clootie,crick_stone,nine_and_twenty');
-  check('where each is matches the Wilds', /east of the portal/.test(pl[0].where) && /west of the portal/.test(pl[1].where) && /north of the portal/.test(pl[2].where) && /north-west/.test(pl[3].where));
+  check('where each is matches the Wilds', /east of the portal/.test(pl[0].where) && /west of the portal/.test(pl[1].where) && /north-west of the portal/.test(pl[2].where) && /north-east/.test(pl[3].where));
   Object.assign(h.accounts.wptr_a, { troyTown: { runs: 1 }, menAnTol: { crawls: 1 }, countless: { beaten: 1 } });
   h.accounts.wptr_a.callers = Object.assign(h.accounts.wptr_a.callers || {}, { byId: { clootie: 1 } });
   say(s, { type: 'callers_state' });

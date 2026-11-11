@@ -10936,7 +10936,12 @@ function kkWildsGroundDetail(scene, w2) {
   const W2 = w2.width || 10000, H2 = w2.height || 10000;
   const keepClear = [{ x: w2.spawn.x, y: w2.spawn.y, r: 300 }, { x: 5000, y: 3000, r: 560 },
     ...VILLAGE_PLOTS, // the outlying plots reach past that 560 circle
-    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 }))];
+    ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 110 })),
+    // no boulder or bush on the four old places, wherever in the Wilds they stand
+    ...(w2.countless ? [{ x: w2.countless.x, y: w2.countless.y, r: w2.countless.radius + 120 }] : []),
+    ...(w2.clootieWell ? [{ x: w2.clootieWell.x, y: w2.clootieWell.y, r: 300 }] : []),
+    ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 80 }] : []),
+    ...(w2.menAnTol ? [{ x: w2.menAnTol.x, y: w2.menAnTol.y, r: 300 }] : [])];
   const clearOf = (x, z) => keepClear.every((c) => Math.hypot(x - c.x, z - c.y) > c.r);
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   // Gather placements per model key, then emit one InstancedMesh each.
@@ -11099,7 +11104,7 @@ function addSpookyDecor(scene, w2) {
     wildsCollide(x, z, 9);
   }
   // Graveyard clusters (two more than before, filling the SE and far west)
-  for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[5000,8500],[8200,8200],[900,6500]]) {
+  for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[6300,9150],[8200,8200],[900,6500]]) {
     for (let i = 0; i < 9; i++) {
       const x = cx + rng(-110, 110), z = cz + rng(-110, 110);
       scene.add(makeGravestone(x, z));

@@ -15,7 +15,7 @@
 // are folk tales collected later. The modern story that a true count wakes a
 // coven at Long Meg rests on a source we could not date, and is left out.
 // ---------------------------------------------------------------------------
-const COUNTLESS = { x: 4500, y: 7800, radius: 165 };
+const COUNTLESS = { x: 8600, y: 6600, radius: 165 }; // in the east of the Wilds, north-east of the portal
 // The stones round the ring: angle (degrees, 0 = east, increasing sunwise),
 // and what each is: 's' standing, 'f' fallen, 'l' low stump.
 const COUNTLESS_STONES = [
