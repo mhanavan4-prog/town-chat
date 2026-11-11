@@ -4963,6 +4963,9 @@ function wardsPublic(key) {
     sator: !!w.sator,
     burn: !!w.burn,
     pentangle: !!w.pentangle,
+    // The Old Ways that show in the house: the besom by the door, the cream set out by the hearth.
+    besom: !!(key && accounts[key] && accounts[key].oldWays && accounts[key].oldWays.besom && accounts[key].oldWays.besom.made),
+    cream: !!(key && accounts[key] && accounts[key].oldWays && accounts[key].oldWays.brownie && accounts[key].oldWays.brownie.creamAt),
     // Which last sheaf hangs in the house, if one does (drawn in the cottage).
     sheaf: w.sheaf ? w.sheaf.form : null,
     // The rowan cross over the door, and which way it was made.
@@ -9001,7 +9004,10 @@ const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKe
 // The Old Ways (data/oldWays.js, lib/oldWays.js): the besom, the poppet,
 // lead-pouring, the bees, the brownie, sin-eating, the toad-bone.
 const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, countItemQty, removeItemFromAccount, addItemToAccount, ensureBankAccount, grantXP, isNightNow, playerParty, parties, playerMaxHealth, WORLD2,
-  itemName: (id) => (ITEM_CATALOG[id] ? ITEM_CATALOG[id].name : id) });
+  itemName: (id) => (ITEM_CATALOG[id] ? ITEM_CATALOG[id].name : id),
+  // the living boss of the dungeon or Delve floor she is in, if it is near enough to name
+  findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
+  bossName: (m) => (DUNGEON_MOB_TYPES[m.mobType] ? DUNGEON_MOB_TYPES[m.mobType].name : 'the boss') });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
 // the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
 const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,

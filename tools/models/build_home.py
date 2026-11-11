@@ -1939,6 +1939,29 @@ def stone_altar():
     return m, '#8e6bff'
 
 
+def besom():
+    """A besom: birch twigs bound to an ash stave with two turns of split willow, worn at the tips."""
+    m = Model('besom')
+    m.add(trim(tube([(0, 0, 0.42), (0.004, 0, 1.0), (0, 0.004, 1.5)], lambda u: 0.02 - 0.004 * u, sides=6, colors=('#8a7a58', '#d8c8a0'))))
+    r = np.random.default_rng(17)
+    for k in range(42):
+        a = r.uniform(0, TAU); d = r.uniform(0.0, 0.05); spread = r.uniform(0.05, 0.16)
+        tip = (spread * math.cos(a), spread * math.sin(a), r.uniform(0.0, 0.06))
+        m.add(trim(tube([(d * math.cos(a), d * math.sin(a), 0.5), (0.6 * tip[0] + 0.4 * d * math.cos(a), 0.6 * tip[1] + 0.4 * d * math.sin(a), 0.26), tip], lambda u: 0.006 - 0.004 * u, sides=3, colors=('#3a2a1a', '#7a5a3a'))))
+    for z in (0.46, 0.38):
+        m.add(trim(lathe([(0.058, z - 0.012), (0.064, z), (0.058, z + 0.012)], sides=9, colors=('#a89058', '#e0cc90'), close_top=False)))
+    return m, None
+
+
+def cream_bowl():
+    """A wooden bowl of cream set on the hearthstone, a horn spoon laid across it."""
+    m = Model('cream_bowl')
+    m.add(trim(lathe([(0.0, 0.0), (0.2, 0.0), (0.42, 0.14), (0.5, 0.3), (0.46, 0.3), (0.38, 0.16), (0.0, 0.06)], sides=14, colors=('#5a3a1e', '#a87a48'), close_top=False)))
+    m.add(trim(lathe([(0.0, 0.25), (0.44, 0.25)], sides=14, colors=('#e8e0c8', '#fffaf0'), close_top=False)))
+    m.add(trim(tube([(-0.5, 0.1, 0.33), (0.1, -0.02, 0.31), (0.36, -0.08, 0.31)], lambda u: 0.02 + 0.03 * max(0, u - 0.7) * 3, sides=5, colors=('#b8a880', '#e8dcb8'))))
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1956,7 +1979,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre,
         'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
         'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
-        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar}
+        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

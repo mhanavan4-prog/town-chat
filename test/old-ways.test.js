@@ -19,7 +19,9 @@ const ow = require('../lib/oldWays')({
   addItemToAccount: (inv, id, q) => { inv[id] = (inv[id] || 0) + q; return true; },
   ensureBankAccount: (k) => bank[k], grantXP: (p, n) => { xp[p.accountKey] += n; }, isNightNow: () => night,
   playerParty, parties, playerMaxHealth: () => 100, WORLD2: { spawn: { x: 5000, y: 9000 } }, now: () => clock, random: () => roll,
+  findBoss: (p, range) => (boss && !boss.dead && boss.room === p.room && Math.hypot(boss.x - p.x, boss.y - p.y) <= range ? boss : null), bossName: () => 'Old Gnawbone',
 });
+let boss = null;
 const ann = mk('ann', 'outside'), bet = mk('bet', 'outside');
 const card = (p, id) => ow.body(p).ways.find((w) => w.id === id);
 const can = (p, id, action) => { const a = (card(p, id).actions || []).find((x) => x.id === action); return !!(a && a.enabled); };
@@ -63,6 +65,16 @@ bet.x = 9000; clock += D.POPPET.restMs + 1; packs.ann.fur_scrap = 1;
 check('someone out of sight cannot be named', ow.act(ann, 'poppet', 'guard', 'bet').error && packs.ann.fur_scrap === 1);
 clock += D.POPPET.guardMs;
 check('the guard wears off', ow.statContrib(bet, 'guard') === 0);
+
+// the binding poppet
+ann.room = 'outside'; packs.ann.fur_scrap = 2; clock += D.POPPET.restMs + 1;
+check('above ground there is no boss to bind', !(card(ann, 'poppet').actions || []).some((x) => x.id === 'bind'));
+ann.room = 'dungeon_t1'; ann.x = 1200; ann.y = 600; boss = { boss: true, dead: false, room: 'dungeon_t1', x: 1200, y: 400 };
+const bind = ow.act(ann, 'poppet', 'bind');
+check('underground, a poppet named for the boss and bound with thread slows it for a minute', /Old Gnawbone/.test(bind.toast) && boss.boundUntil === clock + D.POPPET.bindMs && boss.boundSlow === 0.6 && packs.ann.fur_scrap === 1);
+clock += D.POPPET.restMs + 1; boss.dead = true;
+check('a dead boss, or one out of sight, cannot be bound', !can(ann, 'poppet', 'bind') && ow.act(ann, 'poppet', 'bind').error && packs.ann.fur_scrap === 1);
+ann.room = 'outside'; ann.x = 1600; ann.y = 1100; packs.ann.fur_scrap = 0;
 
 // lead
 roll = 0.5; const pour = ow.act(ann, 'lead', 'pour');
@@ -131,5 +143,8 @@ check('the server answers the panel, saves what was done, and moves whoever ride
 check('a poppet\'s guard and a sin-eater\'s burden count with every other guard; the bone quiets the Wilds\' night creatures until you strike', /function statContrib\(player, statKey\) \{ return oldWays\.statContrib\(player, statKey\) \+/.test(server) && (server.match(/!oldWays\.isCalmed\(nearestP\)/g) || []).length === 2 && /if \(player && player\.toadCalmUntil\) player\.toadCalmUntil = 0;/.test(server));
 check('the panel is in the menu, closes with Escape, and a flight changes the map', /id="menuOldWays"/.test(html) && /id="oldWaysModal" class="floatPanel hidden"/.test(html) && /on\('menuOldWays'/.test(main) && /Modals\.isOpen\('oldWaysOpen'\) && e\.key === 'Escape'/.test(main) && /function broomFlight\(msg\)/.test(main) && /if \(msg\.room === 'wilds'\) \{ swapToWildsMap\(\);/.test(main));
 check('the panel shows why a thing waits, asks before the brownie is clothed, and gives every lore its tier and source', /a\.enabled \? '' : \(a\.why \|\| ''\)/.test(panel) && /if \(a\.confirm && !b\.dataset\.sure\)/.test(panel) && /callerTier-' \+ w\.tier/.test(panel) && /`Source: \$\{w\.source\}`/.test(panel));
+const dung = fs.readFileSync(path.join(root, 'lib/dungeons.js'), 'utf8'), delve = fs.readFileSync(path.join(root, 'lib/delve.js'), 'utf8'), cottage = fs.readFileSync(path.join(root, 'client/cottage-scene.js'), 'utf8');
+check('a bound boss drags its feet in a dungeon and on a Delve floor', /m\.boundUntil > now \? \{ \.\.\.base, speed: base\.speed \* \(m\.boundSlow \|\| 0\.6\) \} : base/.test(dung) && /\(m\.boundUntil > now \? \(m\.boundSlow \|\| 0\.6\) : 1\)/.test(delve) && /findBoss: \(p, range\) => \[\.\.\.dungeonMobs, \.\.\.allDelveMobs\(\)\]\.find\(\(m\) => m\.boss && !m\.dead && m\.room === p\.room/.test(server));
+check('her besom leans by the cottage door, and the cream stands on the hearthstone the night it is set', /besom: !!\(key && accounts\[key\] && accounts\[key\]\.oldWays && accounts\[key\]\.oldWays\.besom && accounts\[key\]\.oldWays\.besom\.made\)/.test(server) && /kkStatic\('wd_besom', 96, 'height'\)/.test(cottage) && /kkStatic\('wd_cream', 18, 'fit'\)/.test(cottage) && /wd_besom: 'kk\/home\/besom\.glb', wd_cream: 'kk\/home\/cream_bowl\.glb'/.test(main) && fs.existsSync(path.join(root, 'public/kk/home/besom.glb')) && fs.existsSync(path.join(root, 'public/kk/home/cream_bowl.glb')));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

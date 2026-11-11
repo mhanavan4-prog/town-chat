@@ -462,6 +462,7 @@ const KK = (() => {
     dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
     dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
+    wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
     furn_vaultdoor: 'kk/home/vault_door.glb', furn_hoard: 'kk/home/coin_hoard.glb', furn_scrytable: 'kk/home/scry_table.glb', furn_altar: 'kk/home/stone_altar.glb',
     wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
