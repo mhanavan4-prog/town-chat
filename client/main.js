@@ -429,6 +429,15 @@ const KK = (() => {
     gv_hawthorn: 'kk/grove/hawthorn.glb', gv_wild_apple: 'kk/grove/wild_apple.glb', gv_ivy_bank: 'kk/grove/ivy_bank.glb', gv_elder: 'kk/grove/elder.glb',
     gv_gorse: 'kk/grove/gorse.glb', gv_heather: 'kk/grove/heather.glb', gv_aspen: 'kk/grove/aspen.glb', gv_yew: 'kk/grove/yew.glb',
     gv_crotal_stone: 'kk/grove/crotal_stone.glb',
+    // Wildflower patches for the town's flower decor (tools/models/build_home.py):
+    // foxgloves, a scrap of meadow, harebells, red campion with bluebells; and the
+    // Green Path herbs growing in Mother Yarrow's beds (build_plants.py, gd_*).
+    fp_foxglove: 'kk/home/fp_foxglove.glb', fp_meadow: 'kk/home/fp_meadow.glb', fp_harebell: 'kk/home/fp_harebell.glb', fp_campion: 'kk/home/fp_campion.glb',
+    gd_chamomile: 'kk/flora/gd_chamomile.glb', gd_lavender: 'kk/flora/gd_lavender.glb', gd_calendula: 'kk/flora/gd_calendula.glb',
+    gd_mugwort: 'kk/flora/gd_mugwort.glb', gd_rosemary: 'kk/flora/gd_rosemary.glb', gd_belladonna: 'kk/flora/gd_belladonna.glb',
+    // The cottage's own: a carved box bed, the stone hearth, an iron candle
+    // stand, and a witch ball for the Wall Charm. furn_ so they stream with the furniture.
+    furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -604,7 +613,8 @@ const KK = (() => {
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv)_/.test(k))];
+    // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -10155,7 +10165,27 @@ function initScene(w) {
     { x: 1040, y: 330, glow: false }, { x: 2080, y: 1930, glow: false },
     { x: 760, y: 1880, glow: false }, { x: 2620, y: 1290, glow: false }
   ];
+  // Each ring becomes the real fairy ring (the Wilds' model) once it has streamed
+  // in; the hand-built circle of red caps stands in until then.
+  const townRings = [];
+  const realRing = (ring) => {
+    const g = KK.staticInstance ? KK.staticInstance('gv_toadring', 96, 'fit') : null;
+    if (!g) return null;
+    g.rotation.y = ring.x * 0.01;
+    g.position.set(ring.x, 0, ring.y);
+    if (ring.glow) { const fae = new THREE.PointLight(0x8a5cf6, 0.8, 130); fae.position.set(0, 14, 0); g.add(fae); }
+    return g;
+  };
+  if (KK.onAssetLoad) KK.onAssetLoad(() => {
+    for (const t of townRings) {
+      if (t.real) continue;
+      const g = realRing(t.ring);
+      if (g) { scene.remove(t.group); scene.add(g); t.group = g; t.real = true; }
+    }
+  });
   for (const ring of FAIRY_RINGS) {
+    const real = realRing(ring);
+    if (real) { scene.add(real); townRings.push({ ring, group: real, real: true }); continue; }
     const g = new THREE.Group();
     const capMat = new THREE.MeshLambertMaterial(ring.glow
       ? { color: 0x8a5cf6, emissive: 0x5a2ad0, emissiveIntensity: 0.6 }
@@ -10180,6 +10210,7 @@ function initScene(w) {
     }
     g.position.set(ring.x, 0, ring.y);
     scene.add(g);
+    townRings.push({ ring, group: g, real: false });
   }
 
   addAnimals(scene);
@@ -13189,12 +13220,33 @@ function buildCottageProp(id, meta, x, z, yaw) {
     case 'potion_station':g = kk('wprop_potionstn', 70, 'fit'); break;
     case 'scholar_desk':  g = kk('furn_desk', 150, 'fit'); break;
     case 'brew_table':    g = kk('wprop_wtable', 72, 'fit'); break;
+    // The cottage's own (tools/models/build_home.py), with the hearth's fire and
+    // the candle's flame lit where the models have them.
+    case 'bed':           g = kk('furn_cbed', 200, 'fit'); break;
+    case 'hearth':        g = kk('furn_hearth', 200, 'fit'); if (g) addCottageFlame(g, 'hearth'); break;
+    case 'candle_stand':  g = kk('furn_candle', 88, 'height'); if (g) addCottageFlame(g, 'candle'); break;
+    case 'wall_charm':    g = kk('furn_witchball', 40, 'height'); if (g) g.position.y = 72; break;
     default: break;
   }
   if (g) return g;
   // ── procedural stand-ins (bed, hearth, candle_stand, potted_herb, wall_charm,
   // and any KayKit model not yet loaded) ──
   return buildProceduralProp(id, meta, x, z, yaw);
+}
+
+// The living fire in the hearth model, and the flame on the candle: the same
+// flickering cone and warm light the hand-built ones had.
+function addCottageFlame(g, kind) {
+  if (kind === 'hearth') {
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(16, 44, 10), new THREE.MeshBasicMaterial({ color: 0xffac3a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fire.position.set(0, 30, 0); fire.onBeforeRender = () => { fire.scale.y = 0.85 + Math.sin(performance.now() * 0.006) * 0.15; }; g.add(fire);
+    const fl = new THREE.PointLight(0xffb060, 1.1, 420, 1.8); fl.position.set(0, 50, 40); g.add(fl);
+  } else {
+    const top = (g.userData.kkHeight || 88);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(3.2, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+    flame.position.set(0, top + 4, 0); flame.onBeforeRender = () => { flame.scale.y = 0.85 + Math.sin(performance.now() * 0.009) * 0.18; }; g.add(flame);
+    const fl = new THREE.PointLight(0xffcf87, 0.7, 240, 2); fl.position.set(0, top + 6, 0); g.add(fl);
+  }
 }
 
 function buildProceduralProp(id, meta, x, z, yaw) {
@@ -13745,7 +13797,7 @@ const { buildWildsScene } = createWildsScene({
   KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
   makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
-  makeFlowerPatch, makePlantBloom, // Mother Yarrow's garden plot (the Green Path)
+  makeFlowerPatch, makePlantBloom, makeGardenHerb, // Mother Yarrow's garden plot (the Green Path)
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
   getAddMobs2: () => addMobs2, getAddMobs3: () => addMobs3,
@@ -14369,6 +14421,28 @@ function applyDecorState(list) {
 // forest doesn't read as clones. Returns null if the model hasn't streamed in
 // yet, so the caller falls back to the procedural version. `extra` tacks on
 // per-species detail (e.g. deadwood's harvestable spirit-glint).
+// A patch of real wildflowers, which kind by where it grows (the same on every
+// client). Null until the models land; the caller falls back to the hand-built patch.
+const WILDFLOWER_PATCHES = ['fp_foxglove', 'fp_meadow', 'fp_harebell', 'fp_campion'];
+function makeWildflowers(x, z, scale) {
+  const h = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
+  const key = WILDFLOWER_PATCHES[Math.floor(h * WILDFLOWER_PATCHES.length)];
+  const g = KK.staticInstance ? KK.staticInstance(key, 30 * (scale || 1), 'fit') : null;
+  if (!g) return null;
+  g.rotation.y = h * Math.PI * 2 * 7;
+  g.position.set(x, 0, z);
+  return g;
+}
+// Mother Yarrow's beds: the Green Path herbs growing in the ground, in turn.
+const GARDEN_HERBS = ['gd_lavender', 'gd_calendula', 'gd_chamomile', 'gd_rosemary', 'gd_mugwort', 'gd_belladonna'];
+function makeGardenHerb(i, x, z) {
+  const g = KK.staticInstance ? KK.staticInstance(GARDEN_HERBS[i % GARDEN_HERBS.length], 34, 'height') : null;
+  if (!g) return null;
+  g.rotation.y = i * 2.4;
+  g.position.set(x, 0, z);
+  return g;
+}
+
 function makeKKFlora(key, d, targetH, extra, opts) {
   const o = opts || {};
   const inst = (KK && KK.staticInstance) ? KK.staticInstance(key, targetH * (d.scale || 1), o.mode || 'height') : null;
@@ -14461,7 +14535,7 @@ function addNatureDecor(scene, w, pool, wallsOut) {
     } else if (d.type === 'rock') {
       group = makeKayRock(d.x, d.y, d.scale) || makeRock(d.x, d.y, d.scale);
     } else if (d.type === 'flower') {
-      group = makeFlowerPatch(d.x, d.y, d.scale);
+      group = makeWildflowers(d.x, d.y, d.scale) || makeFlowerPatch(d.x, d.y, d.scale);
     } else if (PROP_BUILDERS[d.type]) {
       const spec = PROP_BUILDERS[d.type];
       group = spec.make(d);
