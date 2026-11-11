@@ -101,7 +101,8 @@ function buildCottageScene() {
 // ── Threshold & Hearth (blueprint B) — the house's wards, made visible ───────
 // The daisy wheel is cut into the inner face of the door lintel; a buried witch
 // bottle shows as a sealed hearthstone at the north wall (cracked once spent).
-// The concealed shoe is, as it should be, not shown at all. A witch's ladder
+// The concealed shoe is never shown, only the newer plaster it was walled up
+// behind; the bottle is marked where it was set (hearth, threshold or floor). A witch's ladder
 // hangs from the rafters in the north-east corner.
 function setWards(w) {
   pendingWards = w || null;
@@ -120,12 +121,39 @@ function setWards(w) {
     wardGroup.add(mark);
   }
   if (w.bottle && w.bottle !== 'none') {
-    const mat = new THREE.MeshLambertMaterial({ map: makeHearthstoneTexture(w.bottle === 'spent'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const stone = new THREE.Mesh(new THREE.PlaneGeometry(56, 56), mat);
-    stone.name = 'hearthstone';
-    stone.rotation.x = -Math.PI / 2;
-    stone.position.set(W / 2, 0.6, 46);                   // before the north wall, where the hearth sits
-    wardGroup.add(stone);
+    // Marked where it was set: a sealed hearthstone at the north wall, a long
+    // stone slab just inside the door, or a patch of boards lifted and re-laid
+    // in the floor. Cracked (or split) once it is spent.
+    const spent = w.bottle === 'spent';
+    const place = w.bottlePlace || 'hearth';
+    const flat = { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
+    let mark;
+    if (place === 'threshold') {
+      mark = new THREE.Mesh(new THREE.PlaneGeometry(96, 30), new THREE.MeshLambertMaterial({ map: makeHearthstoneTexture(spent), ...flat }));
+      mark.name = 'thresholdStone';
+      mark.position.set(W / 2, 0.6, D - 26);              // just inside the door
+    } else if (place === 'floor') {
+      mark = new THREE.Mesh(new THREE.PlaneGeometry(64, 44), new THREE.MeshLambertMaterial({ map: makeRelaidBoardsTexture(spent), ...flat }));
+      mark.name = 'relaidBoards';
+      mark.position.set(W * 0.3, 0.6, D * 0.55);          // out in the room, under the boards
+    } else {
+      mark = new THREE.Mesh(new THREE.PlaneGeometry(56, 56), new THREE.MeshLambertMaterial({ map: makeHearthstoneTexture(spent), ...flat }));
+      mark.name = 'hearthstone';
+      mark.position.set(W / 2, 0.6, 46);                  // before the north wall, where the hearth sits
+    }
+    mark.rotation.x = -Math.PI / 2;
+    mark.userData.bottlePlace = place;
+    wardGroup.add(mark);
+  }
+  if (w.shoe) {
+    // The concealed shoe: walled up by the chimney, the commonest place for
+    // one (data/wards.js). What shows is only a square of newer plaster on
+    // the chimney breast, never the shoe, so a visitor can't tell what's in it.
+    const mat = new THREE.MeshLambertMaterial({ map: makePlasterPatchTexture(), color: 0x7d6e58, transparent: true, depthWrite: false });
+    const patch = new THREE.Mesh(new THREE.PlaneGeometry(26, 21), mat);
+    patch.name = 'shoePatch';
+    patch.position.set(W / 2 - 30, WALL_H * 0.79, 7.4);   // the north wall's inner face, above the hearth
+    wardGroup.add(patch);
   }
   if (w.marian) {
     // The Marian mark: two interlocking Vs cut into the north wall's beam,
@@ -237,6 +265,36 @@ function makeHearthstoneTexture(cracked) {
     g.strokeStyle = '#140e0a'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(S * 0.2, S * 0.15); g.lineTo(S * 0.48, S * 0.5); g.lineTo(S * 0.42, S * 0.7); g.lineTo(S * 0.8, S * 0.9); g.stroke();
   }
+  return new THREE.CanvasTexture(c);
+}
+
+// Boards lifted and re-laid over a bottle: three short lighter planks with
+// bright new nail heads, across the grain of the floor. Split once spent.
+function makeRelaidBoardsTexture(split) {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#5c4228'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = '#2e1f10'; g.lineWidth = 3;
+  for (const x of [1, 43, 86, 127]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, S); g.stroke(); }
+  g.fillStyle = '#c9b48a';
+  for (const x of [12, 31, 55, 74, 98, 117]) for (const y of [10, S - 10]) { g.beginPath(); g.arc(x, y, 2.4, 0, Math.PI * 2); g.fill(); }
+  if (split) {
+    g.strokeStyle = '#140e0a'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(60, 6); g.lineTo(66, 50); g.lineTo(58, 82); g.lineTo(64, 122); g.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+// A square of newer plaster on the chimney breast, paler than the old wall,
+// with its edges feathered out: where the shoe was walled up.
+function makePlasterPatchTexture() {
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(S / 2, S / 2, S * 0.2, S / 2, S / 2, S * 0.62);
+  grd.addColorStop(0, 'rgba(214,200,172,0.95)'); grd.addColorStop(0.75, 'rgba(196,180,150,0.8)'); grd.addColorStop(1, 'rgba(196,180,150,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(120,104,80,0.45)'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(22, 30); g.quadraticCurveTo(64, 22, 106, 34); g.moveTo(26, 96); g.quadraticCurveTo(70, 104, 100, 92); g.stroke();
   return new THREE.CanvasTexture(c);
 }
 
