@@ -31,5 +31,8 @@ check('…and every one in a colour of wool or cotton the old cloots used', rags
 check('the spring is there either way, and the plain thorn is the fallback', withKK.children.some((o) => o.userData.spring) && without.children.some((o) => o.userData.spring) && without.children.some((o) => o.userData.thorn === 'plain') && !withKK.children.some((o) => o.userData.thorn === 'plain') && rags(without).length === 20);
 check('placed where the well is', withKK.position.x === 4400 && withKK.position.z === 8200);
 
+const thornH = Number(((fs.readFileSync(path.join(root, 'client/props-clootie.js'), 'utf8')).match(/CLOOTIE_THORN_H = (\d+)/) || [])[1]);
+check('the thorn is a tree over the well, well above a person\'s head (a person is about 68)', thornH >= 100 && thornH <= 140, thornH);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

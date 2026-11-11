@@ -10,13 +10,16 @@
 // stones (Rock_5_D) and tufted with grass, and the cloots hang under its
 // crown. Without them, the plain thorn and stones below.
 // ---------------------------------------------------------------------------
+// The thorn's height: a tree over the well, well above a person (about 68).
+// At 84 it stood barely head-high and read as a toadstool on a real screen.
+const CLOOTIE_THORN_H = 112;
 const CLOOTIE_RAG_COLOURS = [0xe8e2d0, 0xb33a2e, 0x3d5a8a, 0x5d7a3a, 0xd9b34a, 0x8a4a6a, 0xcfc6b0, 0x6a8a9a];
 
 // The KayKit version of the thorn, the rim and the grass; false if the
 // models aren't here (the plain ones are drawn instead).
 function clootieKK(g, KK, tx, tz) {
   if (!(KK && KK.has && KK.staticInstance && KK.has('tree_leaf2') && KK.has('rock2'))) return false;
-  const thorn = KK.staticInstance('tree_leaf2', 84, 'height');
+  const thorn = KK.staticInstance('tree_leaf2', CLOOTIE_THORN_H, 'height');
   if (!thorn) return false;
   thorn.position.set(tx, 0, tz); thorn.rotation.y = 2.2; g.add(thorn);
   for (let k = 0; k < 11; k++) {
