@@ -45,6 +45,7 @@ import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprit
 import createWildsScene from './wilds-scene.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
+import createCallersInTown from './callers-in-town.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
 import createMobsTown from './mobs-town.js';
@@ -330,6 +331,12 @@ const KK = (() => {
     npc_werewolf: 'kk/Werewolf_Wolf.glb', // Lexton Greyfur on the Ancient One's balcony
     npc_vampire:  'kk/Vampire.glb',        // the Artificer, lounging on his throne
     npc_witch:    'kk/Witch.glb',          // Mother Yarrow — KayKit Mystery Monthly S5 "The Witch" (CC0): orange hat, round glasses, salmon hair. No clips of her own; borrows the Mage's via the shared KayKit rig (see borrowAnims)
+    // Callers at the Door, standing beside the Town Board (client/callers-in-town.js):
+    // KayKit Mystery Monthly townsfolk (CC0), the same rig as the Witch, so they
+    // borrow the Mage's clips the same way.
+    npc_farmer_a: 'kk/Farmer_A.glb',
+    npc_farmer_b: 'kk/Farmer_B.glb',
+    npc_lorekeeper: 'kk/Lorekeeper.glb',
     // Extra motion clips (KayKit Character Animations 1.1, Rig_Medium, CC0),
     // stripped to animations-only — no mesh. Their clips are appended to every
     // rigged body at load (attachExtraAnims): the whole-body flinch, the death
@@ -554,7 +561,7 @@ const KK = (() => {
   // you. This keeps first-load off the ~17MB cliff that used to dump slow
   // visitors into the classic fallback. Summoned undead stay fully background.
   const CHAR_KEYS = Object.keys(MANIFEST).filter((k) => /^char\d$/.test(k));
-  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil', 'guise_frank',
+  const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'npc_farmer_a', 'npc_farmer_b', 'npc_lorekeeper', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil', 'guise_frank',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
@@ -2096,6 +2103,7 @@ function onWsMessage(ev) {
   if (msg.type === 'callers_state') {
     callersState = msg;
     try { _dowseMarks.update(msg); } catch (e) { /* the marks are dressing; the working goes on */ }
+    try { _callersInTown.update(msg); } catch (e) { /* the callers in town are dressing too */ }
     if (Modals.isOpen('boardModalOpen')) renderBoardModal();
     return;
   }
@@ -10181,6 +10189,7 @@ function initScene(w) {
   // fireflies cluster on the fairy rings, the plaza well and the portal
   GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1850, 600], [900, 1500], [2200, 1500]], 22);
   outdoorScene = scene;
+  try { _callersInTown.update(null); } catch (e) { /* drawn when the callers_state comes */ }
   outdoorCamera = camera;
   applyDrawDistanceTier(GFX.quality); // pull in fog/far if the player is on 'low'
   mode = 'outdoor';
@@ -16151,6 +16160,8 @@ const { openBoardModal, closeBoardModal, renderBoardModal } = _board;
 const _wards = createWards({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
 // 🌳 The Tree Alphabet — ogham few-staves (blueprint C).
 const _monas = createMonas({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
+// The day's callers, standing beside the Town Board (client/callers-in-town.js).
+const _callersInTown = createCallersInTown({ KK, createKayKitByKey, createHumanoid, kkSetState, getTownScene: () => outdoorScene, makeNpcNameSprite, OUTDOOR_KIOSKS });
 // Where you dug for the well, in the Wilds (client/dowse-marks.js).
 const _dowseMarks = createDowseMarks({ KK, getWildsScene: () => wildsScene, heightAt: (x, z) => (typeof wildsHeightAt === 'function' ? wildsHeightAt(x, z) : 0) });
 const _countStones = createCountStones({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); } });
@@ -18475,6 +18486,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'npc') { openNpcShopModal(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'legend') { openLegendShop(); return; }
   if (kiosk && kiosk.npc === 'board') { openBoardModal(); return; }
+  if (kiosk && kiosk.npc === 'caller') { openBoardModal(); return; } // a caller waiting by the Board: hear them out there
   if (kiosk && kiosk.npc === 'seance') { openSeanceModal(); return; }
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
   if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
@@ -18751,6 +18763,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'board') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the town board`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'caller') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} hear ${kiosk.callerName} out`;
     return;
   }
   if (kiosk && kiosk.npc === 'delve') {
@@ -19978,6 +19995,7 @@ if (location.search.includes('testdrive=1')) {
     practices() { _practices.open(); return true; },
     recital(r) { showRecital(r); return true; },
     compass() { return _wards.compassPoints(); },
+    callersInTown() { return _callersInTown.shown(); }, // who stands by the Board (client/callers-in-town.js)
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },
     inventoryPanel(state) { lastInventoryState = state; renderInventoryItemsPanel(); return true; },
