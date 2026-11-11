@@ -457,6 +457,9 @@ const KK = (() => {
     // The Wilds' fires and waymarker stones, and what a witch sets on her altar in the manor.
     wl_campfire: 'kk/home/campfire.glb', wl_waymarker: 'kk/home/waymarker.glb',
     tw_headstone: 'kk/home/headstone.glb', tw_board: 'kk/home/notice_board.glb',
+    dg_wall: 'kk/home/cave_wall.glb', dg_stalag: 'kk/home/stalagmites.glb', dg_column: 'kk/home/rock_column.glb', dg_door: 'kk/home/door_props.glb',
+    dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
+    dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
     tw_pyre: 'kk/home/pyre.glb',
     wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
     wl_tent: 'kk/home/camp_tent.glb', wl_stake: 'kk/home/palisade_stake.glb', wl_tower: 'kk/home/watchtower.glb', wl_rack: 'kk/home/weapon_rack.glb', wl_pennant: 'kk/home/pennant_pole.glb',
@@ -646,7 +649,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw|dg)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -1435,6 +1438,11 @@ function onWsMessage(ev) {
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
+    if (msg.dungeonLayouts) {
+      for (const k of Object.keys(msg.dungeonLayouts)) DUNGEON_LAYOUTS[k] = msg.dungeonLayouts[k];
+      const one = DUNGEON_LAYOUTS[1];
+      if (one) { DUNGEON_WORLD.width = DUNGEON_WORLD.height = one.size; DUNGEON_WORLD.spawn = { x: one.entry.x, y: one.entry.y }; }
+    }
     if (msg.calendar) applyCalendarState(msg.calendar);
     if (msg.delveMods) weeklyDelveModsClient = msg.delveMods;
     if (Array.isArray(msg.craftRecipes)) craftRecipesClient = msg.craftRecipes;
@@ -13882,35 +13890,12 @@ const { buildWildsScene } = createWildsScene({
 // objects never need to be re-parented here. 800×800 dark stone arena with
 // torch-style point lights and stone pillars.
 // ---------------------------------------------------------------------------
-// ── The Rootcellar (Tier 1) — spooky red sigil-cave labyrinth (1200×1200) ──
-// A big winding cave of dark rock lit by glowing lanterns: four staggered rock
-// ridges weave a serpentine from the south entry up to a summoning-circle boss
-// chamber. Each ridge is a single row of spaced boulders (no overlapping pile),
-// and the stone GLOWS with red sigils (emissive map, following the rock's own
-// curvature). Walls block only the PLAYER; mobs sit server-side in the wide
-// lanes between the ridges, leashed.
-const DUNGEON_LAYOUTS = {
-  // 1: Rootcellar (horizontal serpentine)
-  1: { walls: [ { x:0, y:972, w:780, h:28 }, { x:420, y:792, w:780, h:28 }, { x:0, y:612, w:780, h:28 }, { x:420, y:432, w:780, h:28 } ],
-     entry: { x: 600, y: 1080 }, boss: { x: 600, y: 225 }, portal: { x: 300, y: 1120 }, plaque: { x: 840, y: 1080 },
-     lanterns: [ [600,1080], [600,225], [70,1130], [1130,1130], [70,510], [1130,510], [590,850], [170,70], [1030,70], [770,550], [410,550], [930,850] ] },
-  // 2: Weeping Crypts (vertical serpentine)
-  2: { walls: [ { x:990, y:0, w:28, h:800 }, { x:720, y:400, w:28, h:800 }, { x:470, y:0, w:28, h:800 } ],
-     entry: { x: 1080, y: 600 }, boss: { x: 235, y: 600 }, portal: { x: 1090, y: 880 }, plaque: { x: 1080, y: 320 },
-     lanterns: [ [1080,600], [235,600], [1130,70], [1130,1130], [530,70], [530,1130], [830,590], [70,150], [70,1050], [1130,770], [830,950], [530,770] ] },
-  // 3: Howling Forge (central arena)
-  3: { walls: [ { x:300, y:300, w:600, h:28 }, { x:872, y:300, w:28, h:330 }, { x:300, y:872, w:600, h:28 }, { x:300, y:570, w:28, h:330 }, { x:300, y:300, w:28, h:180 }, { x:872, y:720, w:28, h:180 } ],
-     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 600 }, portal: { x: 300, y: 1120 }, plaque: { x: 880, y: 1090 },
-     lanterns: [ [600,1090], [600,600], [70,70], [1130,70], [70,1130], [1130,1130], [590,70], [70,590], [1130,590], [490,1030], [830,930], [330,270] ] },
-  // 4: Starless Deep (concentric rings)
-  4: { walls: [ { x:190, y:190, w:600, h:28 }, { x:190, y:190, w:28, h:600 }, { x:982, y:410, w:28, h:600 }, { x:410, y:982, w:600, h:28 }, { x:360, y:360, w:360, h:28 }, { x:360, y:360, w:28, h:360 }, { x:812, y:600, w:28, h:240 }, { x:600, y:812, w:240, h:28 } ],
-     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 600 }, portal: { x: 320, y: 1110 }, plaque: { x: 880, y: 1090 },
-     lanterns: [ [600,1090], [600,600], [70,70], [1130,70], [70,1130], [1130,1130], [590,70], [70,590], [1130,590], [490,1050], [830,890], [330,330] ] },
-  // 5: The Delve (pillar field)
-  5: { walls: [ { x:250, y:850, w:180, h:28 }, { x:770, y:850, w:180, h:28 }, { x:500, y:700, w:200, h:28 }, { x:250, y:560, w:180, h:28 }, { x:770, y:560, w:180, h:28 }, { x:430, y:400, w:28, h:180 }, { x:742, y:400, w:28, h:180 } ],
-     entry: { x: 600, y: 1090 }, boss: { x: 600, y: 235 }, portal: { x: 320, y: 1120 }, plaque: { x: 880, y: 1090 },
-     lanterns: [ [600,1090], [600,235], [70,1130], [1130,1130], [70,530], [1130,530], [590,830], [150,70], [1050,70], [770,1130], [930,810], [410,1130] ] },
-};
+// ── The dungeons and the Delve: 2400 across, nine chambers joined by doorways ──
+// Their shapes (walls, doorways, where the boss holds court, what lies in the
+// chambers) are the server's, sent on joining (data/dungeonLayouts.js), so the
+// walls drawn and the creatures' posts can never disagree. Walls block only
+// the PLAYER; creatures keep to their chambers on a leash.
+const DUNGEON_LAYOUTS = {};
 const DUNGEON_CAVE_THEMES = {
   1: { bg: 0x160709, amb: 0x6a3226, hemiTop: 0x8a3a26, hemiBot: 0x1e0c0e, floor: 0x281618, rock: 0x2a181b, glow: 0xff3018, accent: 0xff5a3a, lantern: 0xff8a4a, lanternLight: 0xff6030, hook: 0x140709 },
   2: { bg: 0x08150c, amb: 0x2c5238, hemiTop: 0x306040, hemiBot: 0x0a1c12, floor: 0x142418, rock: 0x172c1d, glow: 0x22b84e, accent: 0x46e07a, lantern: 0x8affa0, lanternLight: 0x2fc858, hook: 0x081a0e },

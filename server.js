@@ -8340,8 +8340,8 @@ function tickVillageNpcs(dt) {
 // 32 mob types (8 per tier × 2 instances each = 64 dungeon mob objects).
 // Always active — no day/night gate. Each room is 800×800.
 // ---------------------------------------------------------------------------
-const DUNGEON_SIZE = 1200;
-const DUNGEON_SPAWN = { x: 600, y: 1080 };
+const { DUNGEON_SIZE, DUNGEON_LAYOUTS } = require('./data/dungeonLayouts');
+const DUNGEON_SPAWN = DUNGEON_LAYOUTS[1].entry;
 const DUNGEON_RESPAWN_MS = 60 * 1000;
 const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' };
 
@@ -11786,6 +11786,7 @@ wss.on('connection', (ws, req) => {
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
+        dungeonLayouts: DUNGEON_LAYOUTS,
         calendar: calendarPublicState(),
         delveMods: weeklyDelveMods(Date.now()).map(mid => ({ id: mid, ...DELVE_MODS[mid] })),
         covenSigils: COVEN_SIGILS,
