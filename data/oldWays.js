@@ -101,7 +101,7 @@ const BESOM_SIGHTS = [
 ];
 
 // ── The poppet ───────────────────────────────────────────────────────────────
-const POPPET = { cost: { itemId: 'fur_scrap', qty: 1 }, guard: 0.1, guardMs: 20 * MIN, heal: 0.3, range: 260, restMs: 10 * MIN,
+const POPPET = { cost: { itemId: 'fur_scrap', qty: 1 }, guard: 0.1, guardMs: 10 * MIN, heal: 0.3, range: 260, restMs: 15 * MIN,
   // Named for a dungeon's boss and bound round with thread, it slows the boss for a minute.
   bindSlow: 0.6, bindMs: 60 * 1000, bindRange: 700 };
 
@@ -126,7 +126,7 @@ const LEAD_XP = 18;
 // ── The bees ─────────────────────────────────────────────────────────────────
 // A skep is bartered for (never bought), fills a comb every so often up to a
 // full hive, and stops if the bees have not been told within the time.
-const BEES = { barter: { itemId: 'bone_shard', qty: 3 }, combMs: 3 * HOUR, maxCombs: 6, toldMs: 72 * HOUR, combGold: 9, potionEvery: 4 };
+const BEES = { barter: { itemId: 'bone_shard', qty: 3 }, combMs: 3 * HOUR, maxCombs: 6, toldMs: 72 * HOUR, combGold: 5, potionEvery: 4 };
 const BEE_NEWS = [
   'You tap the skep three times with the door key and tell them, quietly, how things stand.',
   'You tell the bees who has come to the town and who has gone. The hum does not change, which is how you know they heard.',
@@ -136,10 +136,10 @@ const BEE_NEWS = [
 // ── The brownie ──────────────────────────────────────────────────────────────
 const BROWNIE = { creamGold: 3, workMs: 6 * HOUR, staleMs: 48 * HOUR };
 const BROWNIE_WORK = [
-  { text: 'The hearth is swept and the ashes banked. A coin you lost months ago is on the mantel.', gold: [6, 14] },
+  { text: 'The hearth is swept and the ashes banked. A coin you lost months ago is on the mantel.', gold: [3, 8] },
   { text: 'The herbs are stripped and hung to dry, better than you tie them.', xp: 14 },
   { text: 'A hide you had given up on has been scraped and stretched.', item: 'leather_hide' },
-  { text: 'The churn has been worked. There is more butter than there was cream.', gold: [8, 18] },
+  { text: 'The churn has been worked. There is more butter than there was cream.', gold: [4, 10] },
   { text: 'Your boots are by the door, mended. You did not know they wanted mending.', xp: 18 },
   { text: 'Every knife in the house has an edge on it. A few bone offcuts are stacked neatly by.', item: 'bone_shard' },
   { text: 'The bowl is licked clean and nothing else is touched. Even a brownie has a night off.' },
@@ -149,7 +149,7 @@ const BROWNIE_GONE = 'You lay out a little coat and hood, new made. In the morni
 // ── Sin-eating ───────────────────────────────────────────────────────────────
 // Sixpence, and what comes with it: blows land harder until the burden is laid
 // down at the memorial stone in the town.
-const SIN = { gold: 60, xp: 40, guard: -0.1, restMs: 20 * HOUR, stone: { room: 'outside', x: 1760, y: 410, range: 220 }, shedXp: 20 };
+const SIN = { gold: 30, xp: 25, guard: -0.1, restMs: 20 * HOUR, stone: { room: 'outside', x: 1760, y: 410, range: 220 }, shedXp: 20 };
 
 // ── The toad-bone ────────────────────────────────────────────────────────────
 const TOAD = { cleanMs: 10 * MIN, calmMs: 5 * MIN, restMs: 30 * MIN };

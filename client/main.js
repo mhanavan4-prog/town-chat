@@ -462,7 +462,7 @@ const KK = (() => {
     dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
     dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
-    wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb',
+    wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
     furn_vaultdoor: 'kk/home/vault_door.glb', furn_hoard: 'kk/home/coin_hoard.glb', furn_scrytable: 'kk/home/scry_table.glb', furn_altar: 'kk/home/stone_altar.glb',
     wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
@@ -3094,6 +3094,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
+  if (msg.type === 'wilds_finds') { applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
@@ -9163,6 +9164,7 @@ function wildsFlatZones() {
     ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 150 })),
     ...WILDS_WAYMARKERS.map((m) => ({ x: m.x, y: m.y, r: 150 })),
     ...WILDS_NPCS.map((n) => ({ x: n.x, y: n.y, r: 170 })),
+    ...(world2 && world2.finds ? [...world2.finds.caches, ...world2.finds.balefires].map((p) => ({ x: p.x, y: p.y, r: 130 })) : []), // the cairns and balefires stand on level ground
     // The Shepherd's Race: dead level across the whole maze, easing out beyond it.
     ...(world2 && world2.troyTown ? [{ x: world2.troyTown.hub[0], y: world2.troyTown.hub[1], core: world2.troyTown.radius + 40, r: world2.troyTown.radius + 360 }] : []),
     ...(world2 && world2.menAnTol ? [{ x: world2.menAnTol.x, y: world2.menAnTol.y, core: 260, r: 520 }] : []), // the Crick-stone, level to crawl round
@@ -10399,7 +10401,21 @@ function showDungeonFindsHud(msg) {
   el.innerHTML = `<span>🗝️ ${msg.keys || 0}</span>${part('🔥', 'Braziers', g.braziers)}${part('💥', 'Seals', g.seals)}`;
   el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
 }
-setInterval(() => { const el = document.getElementById('dungeonFindsHud'); if (el && !el.classList.contains('hidden') && !(me && String(me.room || '').startsWith('dungeon_'))) showDungeonFindsHud(null); }, 1000);
+// Out in the Wilds the same line counts the day's balefires.
+let wildsFindsAskedAt = 0;
+function showWildsFindsHud(msg) {
+  const el = document.getElementById('dungeonFindsHud');
+  if (!el || !(me && me.room === 'wilds')) return;
+  el.innerHTML = `<span class="${msg.complete ? 'dfDone' : ''}">🔥 Balefires ${msg.complete ? '✓' : `${(msg.lit || []).length}/${msg.total}`}</span>`;
+  el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
+}
+setInterval(() => {
+  const el = document.getElementById('dungeonFindsHud');
+  const room = me ? String(me.room || '') : '';
+  if (el && !el.classList.contains('hidden') && !room.startsWith('dungeon_') && room !== 'wilds') showDungeonFindsHud(null);
+  // in the Wilds with nothing shown yet: ask how the day's finds stand (once a while, in case the first asking was lost)
+  if (room === 'wilds' && el && el.classList.contains('hidden') && Date.now() - wildsFindsAskedAt > 4000 && ws && ws.readyState === WebSocket.OPEN) { wildsFindsAskedAt = Date.now(); ws.send(JSON.stringify({ type: 'wilds_finds_state' })); }
+}, 1000);
 
 function swapToDungeonMap() {
   rebuildDungeonForTier(activeDungeonTier, activeDungeonIsDelve);
@@ -10546,6 +10562,13 @@ function broomFlight(msg) {
     portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
     ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
     if (typeof playSfx === 'function') playSfx('portal');
+    // You come down astride it: the besom is under you for a few moments after you land.
+    const v = visuals[myId], broom = v && v.group && KK.staticInstance ? KK.staticInstance('wd_besom', 96, 'height') : null;
+    if (broom) {
+      broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50);
+      v.group.add(broom);
+      setTimeout(() => { if (broom.parent) broom.parent.remove(broom); }, 3500);
+    }
     return true;
   });
 }
@@ -13910,7 +13933,7 @@ function exitRefuge() {
 // THREE global; layout tables, prop makers, mob/decor helpers injected; scene/
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
-const { buildWildsScene } = createWildsScene({
+const { buildWildsScene, applyWildsFinds } = createWildsScene({
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
@@ -18801,8 +18824,10 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'delve') { openDelveModal(); return; }
   if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
   if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
+  if (kiosk && kiosk.npc === 'oldways') { if (!Modals.isOpen('oldWaysOpen')) _oldWays.open(); return; }
   if (kiosk && kiosk.npc === 'plaque') { openPlaqueModal(); return; }
   if (kiosk && kiosk.npc === 'dfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'dungeon_use', id: kiosk.findId })); return; }
+  if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -19095,6 +19120,11 @@ function updateInteractHint() {
       : `${interactVerb()} ${mootInstanceActive ? 'return through' : 'step through'} the Hagstone`;
     return;
   }
+  if (kiosk && kiosk.npc === 'oldways') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} see to the bees, and the other old ways`;
+    return;
+  }
   if (kiosk && kiosk.npc === 'locksmith') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} see Tumbler the Locksmith`;
@@ -19103,6 +19133,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'wfind') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${kiosk.findKind === 'cache' ? 'search under the cairn' : 'light the balefire'}`;
     return;
   }
   if (kiosk && kiosk.npc === 'dfind') {

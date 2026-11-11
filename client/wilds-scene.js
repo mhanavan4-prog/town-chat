@@ -12,6 +12,16 @@ import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 
 export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+// What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
+let wildsFinds = {}, lastWildsFinds = null;
+function applyWildsFinds(msg) {
+  lastWildsFinds = msg;
+  const used = new Set(msg.used || []), lit = new Set(msg.lit || []);
+  for (const id in wildsFinds) {
+    const f = wildsFinds[id];
+    if (f.kind === 'cache') { if (f.g) f.g.scale.y = used.has(id) ? 0.55 : 1; } else if (f.flame) f.flame.visible = lit.has(id);
+  }
+}
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -393,6 +403,36 @@ function buildWildsScene(w2) {
   if (w2.menAnTol) {
     scene.add(makeMenAnTol(w2.menAnTol, WILDS_WALLS, makeSignSprite, KK));
     WILDS_KIOSKS.push({ x: w2.menAnTol.x, z: w2.menAnTol.y + 80, npc: 'waymark', markerId: 'men_an_tol', npcName: 'the Crick-stone', radius: 60 });
+  }
+
+  // Things to find between the landmarks (data/wildsFinds.js): a cairn over
+  // each cache, a brazier on a cairn for each balefire, both modelled. What
+  // the server says you have had or lit today is shown on them.
+  wildsFinds = {};
+  // the cairn stones are modelled pale, to be stained: weathered grey out here
+  const greyed = (g) => { if (g) g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(0x7c7a74); } }); return g; };
+  if (w2.finds && KK && KK.staticInstance) {
+    for (const c of w2.finds.caches) {
+      const g = greyed(KK.staticInstance('dg_cache', 62, 'fit'));
+      if (g) { g.position.set(c.x, 0, c.y); g.rotation.y = c.x; scene.add(g); }
+      wildsFinds[c.id] = { kind: 'cache', g };
+      WILDS_KIOSKS.push({ x: c.x, z: c.y, npc: 'wfind', findId: c.id, findKind: 'cache', radius: 80 });
+    }
+    for (const f of w2.finds.balefires) {
+      const cairn = greyed(KK.staticInstance('dg_rockfall', 96, 'fit')), g = KK.staticInstance('dg_brazier', 78, 'height');
+      if (cairn) { cairn.position.set(f.x, 0, f.y); scene.add(cairn); }
+      let flame = null;
+      if (g) {
+        g.position.set(f.x, 8, f.y); scene.add(g);
+        flame = new THREE.Mesh(new THREE.ConeGeometry(11, 46, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+        flame.position.y = 96; flame.visible = false;
+        flame.onBeforeRender = () => { flame.scale.y = 0.85 + Math.sin(performance.now() * 0.006 + f.x) * 0.18; };
+        g.add(flame);
+      }
+      wildsFinds[f.id] = { kind: 'balefire', g, flame };
+      WILDS_KIOSKS.push({ x: f.x, z: f.y, npc: 'wfind', findId: f.id, findKind: 'balefire', radius: 90 });
+    }
+    if (lastWildsFinds) applyWildsFinds(lastWildsFinds);
   }
 
   kkWildsDressing(scene, w2);
@@ -1180,5 +1220,5 @@ function buildWildsNPCs(scene) {
   }
 }
 
-  return { buildWildsScene };
+  return { buildWildsScene, applyWildsFinds };
 }
