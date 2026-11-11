@@ -18,22 +18,33 @@
 //     rewriting its copies' matrices and colours (setDecorBatchHarvested).
 //   • Clicking: the plant keeps an invisible stand-in group at its spot, with
 //     its userData, and a hit box that raycasts but is never drawn.
-//   • Anything the camera fades (userData.camFade), or with a light, sprite,
-//     skinned or already-instanced part, is left alone and drawn as before.
+//   • The camera's fade: a tree tagged userData.camFade (it ghosts when it
+//     stands between the camera and you) is batched too, and its stand-in
+//     carries the tag. When the fader picks it, its copies are hidden and a
+//     whole copy of the tree (kept aside, sharing geometry and materials) is
+//     put back in its place to be ghosted; once it has faded back, the copy
+//     goes and the batched copies return (decorBatchFadeSwap).
+//   • Anything with a light, sprite, skinned or already-instanced part, or a
+//     faded part inside it, is left alone and drawn as before.
 // THREE is a global. (Top-level names carry the decorBatch prefix.)
 // ---------------------------------------------------------------------------
 const DECOR_BATCH_CHUNK = 2400;
 const DECOR_BATCH_MIN = 6; // a shape with fewer copies than this in a chunk stays as it was
+// Sparse things (a dead tree here and there, a graveyard's few stones of each
+// kind) rarely make six to a chunk; those are gathered again over a wider
+// stretch, three chunks a side, before being left as they were.
+const DECOR_BATCH_WIDE = DECOR_BATCH_CHUNK * 3;
 const DECOR_BATCH_DULL = 0x6b5a45; // the harvested look (applyDecorHarvestedLook)
 const DECOR_BATCH_SHRINK = 0.42;
 
-// Can this group be batched? Plain meshes and groups only, nothing faded.
+// Can this group be batched? Plain meshes and groups only. The group itself
+// may be one the camera fades; a faded part inside it may not.
 export function decorBatchable(group) {
-  if (!group || group.userData.camFade) return false;
+  if (!group) return false;
   let ok = true, meshes = 0;
   group.traverse((o) => {
     if (!ok) return;
-    if (o.userData && o.userData.camFade) { ok = false; return; }
+    if (o !== group && o.userData && o.userData.camFade) { ok = false; return; }
     if (o.isMesh) {
       if (o.isSkinnedMesh || o.isInstancedMesh || Array.isArray(o.material) || !o.geometry || !o.material) { ok = false; return; }
       meshes++;
@@ -86,16 +97,23 @@ export function batchDecorGroups(scene, entries) {
   const count = new Map();
   for (const { v, group } of entries) {
     group.updateMatrixWorld(true);
+    // A tree the camera fades keeps a whole copy aside, for while it's ghosted.
+    v.fadeGroup = null;
+    if (group.userData.camFade) { v.fadeGroup = group.clone(); v.fadeGroup.userData.camFade = false; v.fadeShown = false; }
     inv.copy(group.matrixWorld).invert();
     const cx = Math.floor(group.position.x / DECOR_BATCH_CHUNK), cz = Math.floor(group.position.z / DECOR_BATCH_CHUNK);
+    const wx = Math.floor(group.position.x / DECOR_BATCH_WIDE), wz = Math.floor(group.position.z / DECOR_BATCH_WIDE);
     group.traverse((o) => {
       if (!o.isMesh) return;
       const n = decorBatchNorm(o.geometry);
-      const key = n.key + '#' + decorBatchMatKey(o.material) + '@' + cx + ',' + cz;
+      const shape = n.key + '#' + decorBatchMatKey(o.material);
+      const key = shape + '@' + cx + ',' + cz;
       count.set(key, (count.get(key) || 0) + 1);
-      parts.push({ v, group, o, n, key });
+      parts.push({ v, group, o, n, key, wide: shape + '@w' + wx + ',' + wz });
     });
   }
+  // Too few in their chunk: try the wider stretch instead.
+  for (const pt of parts) if (count.get(pt.key) < DECOR_BATCH_MIN) { pt.key = pt.wide; count.set(pt.key, (count.get(pt.key) || 0) + 1); }
   // Second pass: shapes common enough are gathered; the rest stay in their plant.
   const gathers = new Map();
   const unit = new THREE.Matrix4();
@@ -126,6 +144,14 @@ export function batchDecorGroups(scene, entries) {
     const proxy = new THREE.Group();
     proxy.position.copy(group.position); proxy.quaternion.copy(group.quaternion); proxy.scale.copy(group.scale);
     proxy.userData = { ...group.userData, decorBatched: true };
+    if (v.fadeGroup) {
+      // The stand-in is what the fader finds; the plant's leftovers aren't.
+      group.userData.camFade = false;
+      v.fadeMaterials = [];
+      v.fadeGroup.traverse((m) => { if (m.isMesh) v.fadeMaterials.push({ mesh: m, material: m.material }); });
+      v.scene = scene;
+      proxy.userData.decorFadeSwap = { group: v.fadeGroup, show: (on) => decorBatchFadeSwap(v, on) };
+    }
     if (!box.isEmpty()) {
       const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
       const hit = new THREE.Mesh(new THREE.BoxGeometry(Math.max(size.x, 4), Math.max(size.y, 4), Math.max(size.z, 4)), new THREE.MeshBasicMaterial({ visible: false }));
@@ -168,9 +194,53 @@ export function batchDecorGroups(scene, entries) {
   return made;
 }
 
+// Each batched copy of a plant, hidden (scaled to nothing) or put back.
+function decorBatchHideCopies(v) {
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  const touched = new Set();
+  for (const part of v.batch) { if (part.im) { part.im.setMatrixAt(part.index, zero); touched.add(part.im); } }
+  for (const im of touched) im.instanceMatrix.needsUpdate = true;
+}
+
+// The whole copy of a faded tree, given the plant's look (harvested or not).
+function decorBatchFadeLook(v) {
+  const k = v.batchHarvested ? DECOR_BATCH_SHRINK : 1;
+  v.fadeGroup.position.copy(v.basePos); v.fadeGroup.quaternion.copy(v.baseQuat);
+  v.fadeGroup.scale.copy(v.baseScale).multiplyScalar(k);
+  for (const { mesh, material } of v.fadeMaterials) {
+    if (v.batchHarvested) {
+      if (!mesh.userData.decorDull) { const dull = material.clone(); if (dull.color) dull.color.set(DECOR_BATCH_DULL); mesh.userData.decorDull = dull; }
+      mesh.material = mesh.userData.decorDull;
+    } else mesh.material = material;
+  }
+}
+
+// The camera's fader wants this tree ghosted (on) or done with it (off): swap
+// the batched copies for the whole copy, or back. Returns the group to fade.
+export function decorBatchFadeSwap(v, on) {
+  if (!v || !v.fadeGroup) return null;
+  if (on && !v.fadeShown) {
+    decorBatchHideCopies(v);
+    if (v.restGroup) v.restGroup.visible = false;
+    decorBatchFadeLook(v);
+    v.scene.add(v.fadeGroup);
+    v.fadeShown = true;
+  } else if (!on && v.fadeShown) {
+    if (v.fadeGroup.parent) v.fadeGroup.parent.remove(v.fadeGroup);
+    if (v.restGroup) v.restGroup.visible = true;
+    v.fadeShown = false;
+    setDecorBatchHarvested(v, !!v.batchHarvested);
+  }
+  return v.fadeGroup;
+}
+
 // The harvested look, on a batched plant: shrunk, and dulled to brown.
 export function setDecorBatchHarvested(v, harvested) {
   if (!v || !v.batch) return false;
+  v.batchHarvested = harvested;
+  // While the tree is ghosted its whole copy stands in; that takes the look,
+  // and the batched copies stay hidden until it's swapped back.
+  if (v.fadeShown) { decorBatchFadeLook(v); return true; }
   const k = harvested ? DECOR_BATCH_SHRINK : 1;
   const base = new THREE.Matrix4().compose(v.basePos, v.baseQuat, v.baseScale.clone().multiplyScalar(k));
   const m = new THREE.Matrix4(), c = new THREE.Color();
