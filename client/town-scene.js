@@ -514,18 +514,22 @@ function kkTownDressing(scene, w) {
 // which is always-lit decor with no on/off state.
 function buildTownRitualTorch(x, z) {
   const g = new THREE.Group();
+  // The stand is the hall's iron cresset once that has loaded; pole and bowl until then.
+  const stand = new THREE.Group();
+  stand.position.set(x, 0, z);
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(3, 4, 60, 6),
     new THREE.MeshLambertMaterial({ color: 0x4a3320 })
   );
-  pole.position.set(x, 30, z);
-  g.add(pole);
+  pole.position.y = 30;
+  stand.add(pole);
   const bowl = new THREE.Mesh(
     new THREE.CylinderGeometry(9, 6, 10, 8),
     new THREE.MeshLambertMaterial({ color: 0x2a2a2a })
   );
-  bowl.position.set(x, 62, z);
-  g.add(bowl);
+  bowl.position.y = 62;
+  stand.add(bowl);
+  g.add(altarModel(stand, 'furn_torch', 68, 'height'));
   const flame = new THREE.Mesh(
     new THREE.ConeGeometry(7, 18, 8),
     new THREE.MeshBasicMaterial({ color: 0xff9d3c })

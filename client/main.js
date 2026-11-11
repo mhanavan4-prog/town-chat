@@ -457,6 +457,7 @@ const KK = (() => {
     // The Wilds' fires and waymarker stones, and what a witch sets on her altar in the manor.
     wl_campfire: 'kk/home/campfire.glb', wl_waymarker: 'kk/home/waymarker.glb',
     tw_headstone: 'kk/home/headstone.glb', tw_board: 'kk/home/notice_board.glb',
+    tw_pyre: 'kk/home/pyre.glb',
     wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
     wl_tent: 'kk/home/camp_tent.glb', wl_stake: 'kk/home/palisade_stake.glb', wl_tower: 'kk/home/watchtower.glb', wl_rack: 'kk/home/weapon_rack.glb', wl_pennant: 'kk/home/pennant_pole.glb',
     alt_chalice: 'kk/home/chalice.glb', alt_bell: 'kk/home/hand_bell.glb', alt_runes: 'kk/home/rune_stones.glb', alt_mirror: 'kk/home/scrying_mirror.glb',
@@ -10597,10 +10598,15 @@ let townBonfireProp = null; // { group, flames, light }
 function buildTownBonfireProp() {
   if (typeof THREE === 'undefined') return null;
   const g = new THREE.Group();
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x5a3a1e });
-  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const log = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 72, 8), woodMat); log.position.set(Math.cos(a) * 14, 24, Math.sin(a) * 14); log.rotation.z = Math.cos(a) * 0.5; log.rotation.x = Math.sin(a) * 0.5; g.add(log); }
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6a5f54 });
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(9), stoneMat); st.position.set(Math.cos(a) * 36, 6, Math.sin(a) * 36); g.add(st); }
+  // The pyre as laid (tools/models/build_home.py) once its model is in; the logs and stones below until then.
+  const laid = (KK.has && KK.has('tw_pyre') && KK.staticInstance) ? KK.staticInstance('tw_pyre', 94, 'fit') : null;
+  if (laid) g.add(laid);
+  else {
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x5a3a1e });
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const log = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 72, 8), woodMat); log.position.set(Math.cos(a) * 14, 24, Math.sin(a) * 14); log.rotation.z = Math.cos(a) * 0.5; log.rotation.x = Math.sin(a) * 0.5; g.add(log); }
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6a5f54 });
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(9), stoneMat); st.position.set(Math.cos(a) * 36, 6, Math.sin(a) * 36); g.add(st); }
+  }
   const flames = [];
   for (const [r, hgt, col] of [[18, 90, 0xffac3a], [11, 120, 0xffd27a], [6, 150, 0xfff0c0]]) {
     const f = new THREE.Mesh(new THREE.ConeGeometry(r, hgt, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
