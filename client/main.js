@@ -395,6 +395,24 @@ const KK = (() => {
     fl_palebirch:  'kk/forest/palebirch.gltf',  // pale tall birch
     fl_bramble:    'kk/forest/bramble.gltf',    // broad bramble bush
     fl_thornsnarl: 'kk/forest/thornsnarl.gltf', // small teal thorn bush
+    // The sixteen Wilds plants, each built in Blender to look like the real plant
+    // it stands for (tools/models/build_plants.py): carrot, male fern, parasol
+    // mushroom, sweet violet, pumpkin, bat flower, heartsease, black hellebore,
+    // darnel, mandrake, fly agaric, monkshood, water lily, self-heal, dandelion,
+    // white clover. Streamed behind the town (the Wilds rebuilds once they land);
+    // makePlant keeps the hand-built shapes until then.
+    pl_swift_root: 'kk/flora/swift_root.glb', pl_featherleaf: 'kk/flora/featherleaf.glb', pl_giants_cap: 'kk/flora/giants_cap.glb',
+    pl_shrinking_violet: 'kk/flora/shrinking_violet.glb', pl_pumpkin_blossom: 'kk/flora/pumpkin_blossom.glb', pl_bats_breath: 'kk/flora/bats_breath.glb',
+    pl_rainbow_petal: 'kk/flora/rainbow_petal.glb', pl_ravens_feather_plant: 'kk/flora/ravens_feather_plant.glb', pl_stumbleweed: 'kk/flora/stumbleweed.glb',
+    pl_gibberish_root: 'kk/flora/gibberish_root.glb', pl_toadstool: 'kk/flora/toadstool.glb', pl_wolfsbane_bloom: 'kk/flora/wolfsbane_bloom.glb',
+    pl_meditation_lotus: 'kk/flora/meditation_lotus.glb', pl_healing_herb: 'kk/flora/healing_herb.glb', pl_regen_root: 'kk/flora/regen_root.glb',
+    pl_cleansing_clover: 'kk/flora/cleansing_clover.glb',
+    // The cottage pots, from the same script: rosemary for the plain potted herb,
+    // and the herbs you pot from your own garden. furn_ so they stream with the
+    // furniture; the cottage redraws when they arrive.
+    furn_pot_herb: 'kk/flora/pot_herb.glb', furn_pot_chamomile: 'kk/flora/pot_chamomile.glb', furn_pot_lavender: 'kk/flora/pot_lavender.glb',
+    furn_pot_calendula: 'kk/flora/pot_calendula.glb', furn_pot_mugwort: 'kk/flora/pot_mugwort.glb', furn_pot_yarrow: 'kk/flora/pot_yarrow.glb',
+    furn_pot_belladonna: 'kk/flora/pot_belladonna.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -568,7 +586,9 @@ const KK = (() => {
   const BG_KEYS = ['anim_general', 'anim_movebasic', 'anim_moveadv', 'anim_combat', 'skel_minion', 'skel_warrior', 'skel_rogue', 'skel_mage', 'skel_golem', 'npc_werewolf', 'mon_beast', 'npc_vampire', 'npc_witch', 'npc_farmer_a', 'npc_farmer_b', 'npc_lorekeeper', 'prop_throne', 'guise_skull', 'guise_antlers', 'guise_hat', 'guise_devil', 'guise_frank',
     // Mother Yarrow's garden props (stream in after the player body; the Wilds
     // scene rebuilds once KayKit finishes loading, so they appear then).
-    'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom'];
+    'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
+    // The real-plant models: the Wilds rebuilds once everything has landed.
+    ...Object.keys(MANIFEST).filter((k) => /^pl_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -13045,6 +13065,7 @@ function renderCottageFurniture(layout) {
     o.traverse && o.traverse((c) => { if (c.geometry) c.geometry.dispose && c.geometry.dispose(); if (c.material) { const m = c.material; if (m.map) m.map.dispose && m.map.dispose(); m.dispose && m.dispose(); } });
   }
   cottagePlacedProps.length = 0;
+  cottageAwaitingKK.clear();
   lastCottageBedAt = null;
   const newWalls = [];
   if (!st || !Array.isArray(st.pieces)) { cottageWalls = newWalls; if (activeScene === cottageScene) walls = cottageWalls; return; }
@@ -13111,9 +13132,30 @@ const HOME_CATALOG_FALLBACK = {
 // id → a THREE object for the cottage floor. KayKit models where we have a good
 // match; small procedural props otherwise. Sized so its footprint roughly fills
 // its grid cells (COTTAGE_CELL per cell).
+// The pots, by piece: the plain potted herb and the herbs you grow and pot yourself.
+const COTTAGE_POT_MODELS = { potted_herb: 'furn_pot_herb', decor_chamomile: 'furn_pot_chamomile', decor_lavender: 'furn_pot_lavender',
+  decor_calendula: 'furn_pot_calendula', decor_mugwort: 'furn_pot_mugwort', decor_yarrow: 'furn_pot_yarrow', decor_belladonna: 'furn_pot_belladonna' };
+// Models a piece wanted but that had not streamed in yet: when one lands, the
+// cottage is drawn again so the stand-in is swapped for it.
+const cottageAwaitingKK = new Set();
+if (KK.onAssetLoad) KK.onAssetLoad(() => {
+  if (!cottageAwaitingKK.size || !cottageScene || !lastCottageLayout) return;
+  for (const k of cottageAwaitingKK) if (KK.has(k)) { renderCottageFurniture(lastCottageLayout); return; }
+});
 function buildCottageProp(id, meta, x, z, yaw) {
   const long = Math.max(meta.w || 1, meta.h || 1) * COTTAGE_CELL * 0.82; // target footprint of the long axis
-  const kk = (key, size, mode) => { const g = KK.staticInstance(key, size, mode || 'fit'); if (g) { g.rotation.y = yaw; g.position.set(x, 0, z); } return g; };
+  const kk = (key, size, mode) => {
+    const g = KK.staticInstance(key, size, mode || 'fit');
+    if (g) { g.rotation.y = yaw; g.position.set(x, 0, z); } else if (KK.MANIFEST && KK.MANIFEST[key]) cottageAwaitingKK.add(key);
+    return g;
+  };
+  const pot = COTTAGE_POT_MODELS[id];
+  if (pot) {
+    // A hanging bunch is hung on the wall at the height its peg was; a pot stands on the floor.
+    const g = meta && meta.hang ? kk(pot, 72, 'height') : kk(pot, 76, 'height');
+    if (g && meta && meta.hang) g.position.y = 34;
+    if (g) return g;
+  }
   let g = null;
   switch (id) {
     // Rug lifted a hair off the floor so its flat mesh doesn't z-fight the floor plane.
@@ -14238,7 +14280,24 @@ const {
 
 // species with a faint magical glow (breathes with the night bloom pass)
 const PLANT_GLOWY = new Set(['shrinking_violet', 'bats_breath', 'wolfsbane_bloom', 'meditation_lotus', 'rainbow_petal', 'featherleaf']);
+// How tall each real plant stands in the Wilds (the player is 68), or how wide
+// for the ones that sprawl. Bigger than life, as KayKit is, so a violet or a
+// clover can still be found in the heather.
+const PLANT_MODEL_SIZE = {
+  swift_root: [21, 'height'], featherleaf: [27, 'height'], giants_cap: [26, 'height'], shrinking_violet: [14, 'height'],
+  pumpkin_blossom: [36, 'fit'], bats_breath: [25, 'height'], rainbow_petal: [16, 'height'], ravens_feather_plant: [21, 'height'],
+  stumbleweed: [28, 'height'], gibberish_root: [34, 'fit'], toadstool: [19, 'height'], wolfsbane_bloom: [38, 'height'],
+  meditation_lotus: [40, 'fit'], healing_herb: [16, 'height'], regen_root: [16, 'height'], cleansing_clover: [24, 'fit'],
+};
 function makePlant(type, x, z) {
+  const size = PLANT_MODEL_SIZE[type];
+  const real = size && KK.staticInstance ? KK.staticInstance('pl_' + type, size[0], size[1]) : null;
+  if (real) {
+    // Turned by its place, as the hand-built ones are, so every client grows the same plant.
+    real.rotation.y = (Math.abs(Math.sin(x * 12.9898 + z * 78.233)) % 1) * Math.PI * 2;
+    real.position.set(x, 0, z);
+    return real;
+  }
   const v = PLANT_VISUALS[type] || PLANT_VISUALS.healing_herb;
   const glowy = PLANT_GLOWY.has(type);
   if (v.shape === 'bloom') return makePlantBloom(x, z, v.color, glowy);
