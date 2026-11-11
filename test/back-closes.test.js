@@ -19,5 +19,9 @@ check('backing out of a panel that came from the menu lands on the menu', /if \(
 check('back closes the newest panel only, by its own close button where it has one', /let order = \[\]/.test(src) && /const btn = backCloseButton\(top\);/.test(src));
 check('on a touch screen, a ✕ over a panel whose own Close is out of sight', /pointer:coarse/.test(src) && /backCloseInReach/.test(src) && /#backCloseFab \{ position:fixed;/.test(html) && /width:44px; height:44px/.test(html));
 check('…and every panel\'s buttons, tabs and toggles at least 44px to a finger', /@media \(pointer:coarse\) \{\s*\.overlay \.btn, \.floatPanel \.btn, \[id\$="Modal"\] \.btn,/.test(html) && /\.skillBuy \{ min-height:44px; min-width:44px; \}/.test(html));
+const main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8');
+check('on a phone the chat sheet (and the Log in it) closes on the back gesture too; on a desktop the chat is not a panel', sel.includes('#chatPanel') && /BACK_TOUCH_ONLY = new Set\(\['chatPanel'\]\)/.test(src) && /BACK_TOUCH_ONLY\.has\(el\.id\) && !document\.body\.classList\.contains\('touchMode'\)/.test(src) && /chatPanel: \(\) => toggleMobileChat\(false\)/.test(main));
+check('…as do the menu on a player and the spy glass', sel.includes('#playerContextMenu') && sel.includes('#spyGlassPanel') && /if \(backClosers\[top\.id\]\) \{ backClosers\[top\.id\]\(\); return; \}/.test(src));
+check('a struck creature flashes alone: it takes its own copy of the shared material, and keeps its own glow after', /if \(!child\.userData\.ownMaterial\) \{ child\.material = child\.material\.clone\(\); child\.userData\.ownMaterial = true; \}/.test(main) && /child\.material\.emissive\.setHex\(child\.userData\.restEmissive\)/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

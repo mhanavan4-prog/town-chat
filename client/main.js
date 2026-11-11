@@ -13991,14 +13991,18 @@ function flashCreatureHit(kind, targetId) {
   else if (kind === 'crypt_mob') v = cryptMobVisuals[targetId];
   const root = v && (v.mesh || v.group); // ember mobs are humanoid (group), everything else is a bare mesh
   if (!root) return;
+  // Models of one kind share their materials, so the struck one takes its own
+  // copy first (else the whole pack flashes), and gets its own glow back after
+  // (a coal-red eye stays lit).
+  const lit = [];
   root.traverse(child => {
-    if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0xff2200);
+    if (!(child.isMesh && child.material && child.material.emissive) || Array.isArray(child.material)) return;
+    if (!child.userData.ownMaterial) { child.material = child.material.clone(); child.userData.ownMaterial = true; }
+    if (child.userData.restEmissive == null) child.userData.restEmissive = child.material.emissive.getHex();
+    child.material.emissive.set(0xff2200);
+    lit.push(child);
   });
-  setTimeout(() => {
-    root.traverse(child => {
-      if (child.isMesh && child.material && child.material.emissive) child.material.emissive.set(0x000000);
-    });
-  }, 180);
+  setTimeout(() => { for (const child of lit) child.material.emissive.setHex(child.userData.restEmissive); }, 180);
 }
 
 let mobVisuals = {}; // id -> { mesh, x, y, targetX, targetY, facing, targetFacing, initialized }
@@ -19083,7 +19087,11 @@ function updateInteractHint() {
 // refreshes the menu's live labels (graphics, moonstones, …).
 // The back gesture (a phone's swipe, the browser's back) closes the open menu
 // instead of leaving the site (client/back-closes.js).
-const _backCloses = installBackCloses();
+const _backCloses = installBackCloses({
+  chatPanel: () => toggleMobileChat(false),   // the phone's chat sheet, and the Log in it
+  playerContextMenu: () => hidePlayerContextMenu(),
+  spyGlassPanel: () => closeSpyGlassPanel(),
+});
 void _backCloses;
 
 function backToMenu() {
