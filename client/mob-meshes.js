@@ -66,6 +66,7 @@ function makeMob2(mobType) {
     }
     return withHealthBar(makeGloomBat(), 24);
   }
+  if (mobType === 'will_o_wisp') return withHealthBar(makeWisp(visual), 30);
   if (mobType === 'fen_hexer')   return withHealthBar(makeFenHexer(), 28);
   if (mobType === 'barrow_maw')  return withHealthBar(makeBarrowMaw(), 34);
   if (mobType === 'old_marrowe') return withHealthBar(makeOldMarrowe(), 64);
@@ -77,6 +78,32 @@ function makeMob2(mobType) {
     child.material.color.set(isEye ? visual.eyeColor : visual.color);
   });
   g.scale.setScalar(visual.scale);
+  return g;
+}
+
+// A will-o'-the-wisp is a light, not a beast: ignis fatuus, the pale flame that
+// stands over the fen and draws walkers off the path. A bright heart, a
+// flame's taper above it, soft shells of glow, and it flickers. (It was a
+// horned blob with eyes.)
+function makeWisp(visual) {
+  const g = new THREE.Group();
+  const col = new THREE.Color(visual.color || 0x6fd8ff);
+  const glow = (r, op) => new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const flame = new THREE.Group(); flame.position.y = 16;
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(3.2, 12, 10), new THREE.MeshBasicMaterial({ color: 0xf2fdff }));
+  flame.add(heart);
+  const taper = new THREE.Mesh(new THREE.ConeGeometry(3.4, 13, 10), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending }));
+  taper.position.y = 7; flame.add(taper);
+  flame.add(glow(6.5, 0.45), glow(11, 0.18), glow(17, 0.07));
+  const seed = Math.random() * 10;
+  flame.onBeforeRender = null;
+  heart.onBeforeRender = () => {
+    const t = performance.now() / 1000 + seed;
+    const f = 0.88 + 0.12 * Math.sin(t * 9) + 0.06 * Math.sin(t * 23);
+    flame.scale.set(f, 0.9 + 0.2 * Math.sin(t * 6 + 1), f);
+    taper.rotation.z = Math.sin(t * 4) * 0.18;
+  };
+  g.add(flame);
   return g;
 }
 
