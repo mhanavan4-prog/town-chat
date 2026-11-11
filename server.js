@@ -4945,7 +4945,7 @@ function wardContrib(player, statKey) {
   if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
   // The last sheaf, while it hangs: Campbell's Maiden was hung up "to aid in keeping them out".
-  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0) + (w.sheaf ? each : 0);
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0) + (w.sheaf ? each : 0) + (w.rowan ? each : 0);
 }
 function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
@@ -4963,10 +4963,14 @@ function wardsPublic(key) {
     pentangle: !!w.pentangle,
     // Which last sheaf hangs in the house, if one does (drawn in the cottage).
     sheaf: w.sheaf ? w.sheaf.form : null,
+    // The rowan cross over the door, and which way it was made.
+    rowan: w.rowan ? w.rowan.way : null,
   };
 }
 // The taper burn mark's window (data/wards.js).
 const { BURN_ANGLE, BURN_HOLD, burnProblem } = require('./data/wards');
+// The rowan cross, the Scots way or the Manx (data/wards.js).
+const { ROWAN_WAYS, rowanProblem } = require('./data/wards');
 // Filling and setting a witch bottle, as the record has it (data/wards.js).
 const { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem } = require('./data/wards');
 // The last sheaf, plaited at harvest and kept in the house (data/lastSheaf.js).
@@ -4985,6 +4989,7 @@ function wardsStateBody(player) {
     haveBottle: inv ? countItemQty(inv, 'witch_bottle') : 0,
     ladderParts: LADDER_PARTS.map((pt) => ({ id: pt.id, qty: pt.qty, name: (ITEM_CATALOG[pt.id] && ITEM_CATALOG[pt.id].name) || pt.id, have: inv ? countItemQty(inv, pt.id) : 0 })),
     ladderForage: hearth ? LADDER_FORAGE_HEARTH : LADDER_FORAGE,
+    rowanWays: Object.fromEntries(Object.entries(ROWAN_WAYS).map(([k, r]) => [k, { label: r.label, how: r.how, parts: r.parts.map((pt) => ({ id: pt.id, qty: pt.qty, name: (ITEM_CATALOG[pt.id] && ITEM_CATALOG[pt.id].name) || (PLANT_CATALOG[pt.id] && PLANT_CATALOG[pt.id].name) || pt.id, have: inv ? countItemQty(inv, pt.id) : 0 })) }])),
     feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
     atHome: inOwnCottage(player),
     pentangleVitality: PENTANGLE_VITALITY,
@@ -9533,7 +9538,8 @@ const NPC_SHOPS = {
     { id: 'order_signet', price: 40 }, { id: 'spirit_robe', price: 40 },
     { id: 'bent_pins', price: 4 }, // a paper of pins — bent, for a witch bottle
     { id: 'hemp_cord', price: 5 }, // a length of cord — to tie a wind into
-    { id: 'cock_feathers', price: 6 } // milliner's stock — for a witch's ladder
+    { id: 'cock_feathers', price: 6 }, // milliner's stock — for a witch's ladder
+    { id: 'red_thread', price: 3 } // a skein of red — to bind a rowan cross
   ]},
   npc_armorer: { name: 'Armorer Beck', items: [
     { id: 'steel_shield', price: 45 }, { id: 'knights_helm', price: 40 },
@@ -16605,7 +16611,7 @@ wss.on('connection', (ws, req) => {
       broadcastCottageLayout(player.accountKey); // the sheaf shows in the house for anyone inside
       return;
     }
-    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark') {
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark' || msg.type === 'make_rowan_cross') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
       if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
@@ -16649,6 +16655,19 @@ wss.on('connection', (ws, req) => {
         if (problem) { fail(problem); return; }
         w.sator = { at: Date.now() };
         toast = '🍽️ SATOR AREPO TENET OPERA ROTAS, written on both faces of the plate, and the plate set by the hearth. It reads the same whichever way you hold it.';
+      } else if (msg.type === 'make_rowan_cross') {
+        if (w.rowan) { fail('A rowan cross is already over your door.'); return; }
+        const way = ROWAN_WAYS[msg.way];
+        const problem = rowanProblem(msg);
+        if (problem) { fail(problem); return; }
+        const short = way.parts.find((pt) => countItemQty(inv, pt.id) < pt.qty);
+        if (short) { fail(short.id === 'red_thread' ? 'You need red thread: Tailor Ines sells it.' : 'You need a sprig of rowan: the Green Path brings you a cutting, and your garden grows more.'); return; }
+        for (const pt of way.parts) removeItemFromAccount(inv, pt.id, pt.qty);
+        w.rowan = { way: msg.way, at: Date.now() };
+        saveInventories();
+        toast = msg.way === 'manx'
+          ? '✝️ Two twigs of rowan, broken by hand and never cut, one put through the other, and the cross stuck over your door.'
+          : '✝️ Two twigs of rowan, bound crosswise with red thread, the end tucked under and never knotted, and set over your door.';
       } else if (msg.type === 'hang_witch_ladder') {
         if (w.ladder) { fail("A witch's ladder already hangs in your rafters."); return; }
         const short = LADDER_PARTS.find((pt) => countItemQty(inv, pt.id) < pt.qty);

@@ -56,6 +56,7 @@ module.exports = {
   yew_wood:       { name: 'Yew Wood',       icon: '🪵', slot: null },
   hemp_cord:      { name: 'Hemp Cord',      icon: '🧶', slot: null },
   cock_feathers:  { name: "Cock's Feathers", icon: '🪶', slot: null }, // a bundle — for a witch's ladder
+  red_thread:     { name: 'Red Thread',     icon: '🧵', slot: null }, // a skein — to bind a rowan cross
   wind_cord_3:    { name: 'Wind Cord (three knots)', icon: '🪢', slot: null },
   wind_cord_2:    { name: 'Wind Cord (two knots)',   icon: '🪢', slot: null },
   wind_cord_1:    { name: 'Wind Cord (one knot)',    icon: '🪢', slot: null },

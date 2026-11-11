@@ -83,7 +83,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
-    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'sheaf') { renderSheaf(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
+    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'rowan') { renderRowan(body); return; } if (draw.kind === 'sheaf') { renderSheaf(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -194,8 +194,51 @@ export default function createWards({ send }) {
       card.appendChild(loreBox(state.lore.ladder));
       cols.appendChild(card);
     }
+    rowanCard(cols, pct);
     sheafCard(cols, pct);
     pentangleCard(cols);
+  }
+
+  // ✝️ The rowan cross over the door: the Scots way or the Manx (data/wards.js).
+  function rowanCard(cols, pct) {
+    if (!state.lore.rowan || !state.rowanWays) return;
+    const card = wardCard('rowan', state.rowan ? `Over the door, made the ${state.rowan === 'manx' ? 'Manx' : 'Scots'} way · +${pct}% damage resist` : 'Not yet made', !!state.rowan);
+    if (!state.rowan) {
+      const can = Object.values(state.rowanWays).some((r) => r.parts.every((pt) => pt.have >= pt.qty));
+      const b = el('button', 'btn wardBtn', can ? 'Make a rowan cross' : 'Need a sprig of rowan');
+      b.disabled = !state.atHome || !can;
+      b.addEventListener('click', () => { draw = { kind: 'rowan', way: null, tool: null, finish: null, slips: 0, note: 'Which way will you make it?' }; render(); });
+      card.appendChild(b);
+      card.appendChild(el('div', 'wardHow', Object.values(state.rowanWays).map((r) => `${r.label}: ${r.parts.map((pt) => `${pt.name} ${Math.min(pt.have, pt.qty)}/${pt.qty}`).join(', ')}`).join(' · ') + '. Red thread from Tailor Ines.'));
+    }
+    card.appendChild(loreBox(state.lore.rowan));
+    cols.appendChild(card);
+  }
+
+  function renderRowan(body) {
+    const W = state.rowanWays;
+    body.appendChild(el('div', 'wardIntro', '✝️ Make a rowan cross and set it over the door'));
+    keysPanel(body, 'Which way', Object.entries(W).map(([k, r]) => {
+      const short = r.parts.find((pt) => pt.have < pt.qty);
+      return { text: `${draw.way === k ? '✓ ' : ''}${r.label}${short ? ` (need ${short.name})` : ''}`, aria: `${r.label}. ${r.how}`, disabled: draw.pending || draw.done || !!short,
+        on: () => { draw.way = k; draw.tool = null; draw.finish = null; draw.note = r.how; render(); } };
+    }));
+    if (draw.way) {
+      keysPanel(body, 'Take two twigs from the rowan', [
+        { text: `${draw.tool === 'hand' ? '✓ ' : ''}Break them off by hand`, disabled: draw.pending || draw.done, on: () => { draw.tool = 'hand'; draw.note = 'Two twigs, broken off by hand.'; render(); } },
+        { text: `${draw.tool === 'knife' ? '✓ ' : ''}Cut them with your knife`, disabled: draw.pending || draw.done, on: () => { draw.tool = 'knife'; draw.note = 'Two twigs, cut clean.'; render(); } },
+      ]);
+    }
+    if (draw.way === 'scots' && draw.tool) {
+      keysPanel(body, 'Bind them crosswise with the red thread, then', [
+        { text: `${draw.finish === 'knot' ? '✓ ' : ''}Tie it off with a knot`, disabled: draw.pending || draw.done, on: () => { draw.finish = 'knot'; draw.note = 'A good tight knot.'; render(); } },
+        { text: `${draw.finish === 'tuck' ? '✓ ' : ''}Tuck the end under the winding`, disabled: draw.pending || draw.done, on: () => { draw.finish = 'tuck'; draw.note = 'The end tucked under, no knot anywhere in it.'; render(); } },
+      ]);
+    }
+    const ready = draw.way && draw.tool && (draw.way !== 'scots' || draw.finish);
+    keysPanel(body, 'And', [{ text: '✝️ Set it over the door', disabled: draw.pending || draw.done || !ready,
+      on: () => { draw.pending = true; draw.note = 'You reach up to the lintel…'; send({ type: 'make_rowan_cross', way: draw.way, tool: draw.tool, finish: draw.finish }); render(); } }]);
+    drawFooter(body, 'Put the rowan down');
   }
 
   // 🌾 The last sheaf: plaited at harvest, kept for its year (data/lastSheaf.js).
