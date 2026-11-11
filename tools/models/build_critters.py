@@ -125,7 +125,7 @@ def hedgehog():
             d = nrm + np.array([-0.9, 0, 0.25]); d /= np.linalg.norm(d)
             L = r.uniform(0.13, 0.17)
             sp = lathe([(0.022, 0.0), (0.012, L * 0.7), (0.0, L)], sides=3, colors=('#3a2a1a', '#efe2c8'), close_top=False, phase=r.uniform(0, 1))
-            m.add(sp.xf(look_rot(d, up=(0, 0, 1)) @ ry(-math.pi / 2), (x, y, z)))
+            m.add(sp.xf(look_rot(d, up=(0, 0, 1)) @ ry(math.pi / 2), (x, y, z)))
     with m.node('head', (0.24, 0, 0.18)):
         m.add(blob(0.16, 0.13, 0.12, seg=9, rings=6, colors=('#d8bfa0', '#a07c58')).xf(ry(0.25), (0.33, 0, 0.16)))
         m.add(lathe([(0.075, 0), (0.05, 0.08), (0.02, 0.14)], sides=8, colors=('#a07c58', '#c8a888'), close_top=False).xf(ry(math.pi / 2 + 0.25), (0.42, 0, 0.13)))  # the snout
