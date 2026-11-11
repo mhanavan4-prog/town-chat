@@ -103,6 +103,17 @@ const WARDS = {
     tier: 'record',
     source: "Pitt Rivers Museum 1911.32.7 · A. Colles, \"A Witches' Ladder\", The Folk-Lore Journal 5 (1887) · E. B. Tylor, International Folk-Lore Congress, Papers and Transactions (1892)",
   },
+  // Two twigs of rowan made into a cross and set over the door: the Scots way
+  // bound with red thread and never knotted, the Manx way made without a knife.
+  rowan: {
+    name: 'Rowan Cross',
+    icon: '✝️',
+    where: 'over the door',
+    blurb: 'Two twigs of rowan made into a cross and set over the door: the Scots way bound with red thread, never knotted; the Manx way made without a knife.',
+    lore: "\"Rawn-tree in red-threed / Gars the witches tyne their speed\", went the rhyme in the north-east of Scotland (Gregor, 1881). On Beltane Eve in the Highlands the rowan was brought in from the woods and, \"formed into the shape of a cross, by means of a red thread\", \"inserted in the different door-lintels in the town\", with one in the midden too; a small one could go \"between the lining and cloth of your garment\" (Stewart, 1823). Walter Gregor told the antiquary George Black \"that upon no account must there be a knot on the thread, or the charm will be of no use\" (1893). On the Isle of Man the crosses were made on May Eve \"without the aid of a knife, which was on no account to be used\", and stuck \"over the doors of the dwelling-houses and cow-houses\" (Moore, 1891).",
+    tier: 'folk',
+    source: "W. Grant Stewart, The Popular Superstitions and Festive Amusements of the Highlanders of Scotland (1823; ed. of 1851), pp. 35, 181 · W. Gregor, Notes on the Folk-Lore of the North-East of Scotland (1881), p. 188 · G. F. Black, \"Scottish Charms and Amulets\", Proceedings of the Society of Antiquaries of Scotland 27 (1893) · A. W. Moore, The Folk-Lore of the Isle of Man (1891), p. 110",
+  },
   // Not a mark but a keeping: the last of the harvest, plaited and kept in the
   // house for its year (data/lastSheaf.js has the three forms and endings).
   sheaf: {
@@ -204,6 +215,31 @@ function satorProblem(rows) {
   return null;
 }
 
+// The rowan cross, two ways, each with the one rule its record gives.
+const ROWAN_WAYS = {
+  scots: {
+    label: 'The Scots way',
+    parts: [{ id: 'rowan_berry', qty: 1 }, { id: 'red_thread', qty: 1 }],
+    how: 'Two twigs of rowan bound crosswise with red thread, and set over the door lintel (Stewart; Gregor).',
+  },
+  manx: {
+    label: 'The Manx way',
+    parts: [{ id: 'rowan_berry', qty: 1 }],
+    how: 'Two twigs of rowan broken by hand, never cut, made into a cross and stuck over the door (Moore). How the two were held together Moore does not say; Clague (1911) split one stick and put the other through it, as S. Miller\'s compilation (2018) gives it.',
+  },
+};
+// null if the cross is made as the record allows, else why not.
+function rowanProblem(m) {
+  if (!m || typeof m !== 'object' || !ROWAN_WAYS[m.way]) return 'Choose the way: the Scots way, or the Manx.';
+  if (m.tool !== 'hand' && m.tool !== 'knife') return 'Take the two twigs from the rowan first.';
+  if (m.way === 'manx' && m.tool === 'knife') return 'Not with a knife: on Man the crosses were made "without the aid of a knife, which was on no account to be used" (Moore).';
+  if (m.way === 'scots') {
+    if (m.finish === 'knot') return 'No knot: "upon no account must there be a knot on the thread, or the charm will be of no use" (Gregor, to Black). Wind it and tuck the end under.';
+    if (m.finish !== 'tuck') return 'Bind the twigs with the red thread first.';
+  }
+  return null;
+}
+
 // The ladder's pull: harvest luck while it hangs (more for a Hearth Witch).
 const LADDER_FORAGE = 0.05;
 const LADDER_FORAGE_HEARTH = 0.08;
@@ -258,4 +294,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem, WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
+module.exports = { ROWAN_WAYS, rowanProblem, BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem, WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };

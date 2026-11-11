@@ -203,6 +203,31 @@ function setWards(w) {
     ladder.position.set(W - 46, 0, 46);
     wardGroup.add(ladder);
   }
+  if (w.rowan) {
+    // The rowan cross over the door, on the inside of the lintel beside the
+    // daisy wheel: two peeled twigs, bound with red thread the Scots way, or
+    // one put through the other the Manx way.
+    const cross = new THREE.Group();
+    cross.name = 'rowanCross';
+    cross.userData.rowanWay = w.rowan;
+    const bark = new THREE.MeshLambertMaterial({ color: 0x7a6656 }); // rowan's grey-brown bark
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 20, 6), bark);
+    const across = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 18, 6), bark);
+    across.rotation.z = Math.PI / 2;
+    cross.add(up, across);
+    if (w.rowan !== 'manx') {
+      // The red thread wound crosswise over the join, several turns each way.
+      const red = new THREE.MeshLambertMaterial({ color: 0xd0202a });
+      for (let k = 0; k < 6; k++) {
+        const turn = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.42, 5, 12), red);
+        turn.rotation.y = Math.PI / 2; turn.rotation.z = (k % 2 ? 1 : -1) * Math.PI / 4;
+        turn.position.set(((k >> 1) - 1) * 0.5, 0, 0); turn.name = 'redThread';
+        cross.add(turn);
+      }
+    }
+    cross.position.set(W / 2 - 46, WALL_H - WALL_H * 0.13, D - 9);
+    wardGroup.add(cross);
+  }
   if (w.sheaf) {
     // The last sheaf (data/lastSheaf.js): the neck from a beam, the Maiden hung
     // up, both by the hearth; the kern baby on a shelf on the west wall, "at
