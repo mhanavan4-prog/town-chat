@@ -457,6 +457,7 @@ const KK = (() => {
     // The Wilds' fires and waymarker stones, and what a witch sets on her altar in the manor.
     wl_campfire: 'kk/home/campfire.glb', wl_waymarker: 'kk/home/waymarker.glb',
     tw_headstone: 'kk/home/headstone.glb', tw_board: 'kk/home/notice_board.glb',
+    wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
     wl_tent: 'kk/home/camp_tent.glb', wl_stake: 'kk/home/palisade_stake.glb', wl_tower: 'kk/home/watchtower.glb', wl_rack: 'kk/home/weapon_rack.glb', wl_pennant: 'kk/home/pennant_pole.glb',
     alt_chalice: 'kk/home/chalice.glb', alt_bell: 'kk/home/hand_bell.glb', alt_runes: 'kk/home/rune_stones.glb', alt_mirror: 'kk/home/scrying_mirror.glb',
     alt_pentacle: 'kk/home/pentacle_plaque.glb', alt_crystals: 'kk/home/crystal_cluster.glb', alt_grimoire: 'kk/home/open_grimoire.glb',
