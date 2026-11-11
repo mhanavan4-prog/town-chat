@@ -675,6 +675,15 @@ function addUnboundCircleSet(scene) {
   const runeMat   = new THREE.MeshLambertMaterial({ color: 0x7722cc, emissive: 0x4411aa, emissiveIntensity: 0.6 });
   const fireMat   = new THREE.MeshLambertMaterial({ color: 0x8800ff, emissive: 0x5500cc, emissiveIntensity: 1 });
 
+  // Each stone is its model (tools/models/build_home.py) once that has loaded,
+  // turned to face the middle; else null, and the hand-built one is made.
+  const real = (key, size, mode, x, z, rot, y) => {
+    const g = (KK && KK.has && KK.has(key) && KK.staticInstance) ? KK.staticInstance(key, size, mode) : null;
+    if (!g) return null;
+    g.position.set(x, y || 0, z); g.rotation.y = rot || 0;
+    scene.add(g);
+    return g;
+  };
   // 8 standing megaliths arranged in a ring, radius 110
   const stoneHeights = [105, 88, 115, 78, 98, 120, 85, 95];
   const stoneWidths  = [22,  18, 25,  16, 20, 24,  17, 21];
@@ -683,6 +692,7 @@ function addUnboundCircleSet(scene) {
     const sx = CX + Math.sin(angle) * 110;
     const sz = CZ + Math.cos(angle) * 110;
     const h  = stoneHeights[i], w = stoneWidths[i];
+    if (real('wl_megalith', h, 'height', sx, sz, angle + Math.PI + 0.08 * (i % 3 - 1))) continue;
     const stone = new THREE.Mesh(new THREE.BoxGeometry(w, h, 15), stoneMat);
     stone.position.set(sx, h / 2, sz);
     stone.rotation.y = angle + 0.08 * (i % 3 - 1);   // slight individual tilt
@@ -696,13 +706,15 @@ function addUnboundCircleSet(scene) {
   }
 
   // Flat central altar slab
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(70, 18, 45), altarMat);
-  altar.position.set(CX, 9, CZ);
-  scene.add(altar);
-  // Glowing rune surface on top of altar
-  const runeTop = new THREE.Mesh(new THREE.BoxGeometry(58, 1, 35), runeMat);
-  runeTop.position.set(CX, 18.5, CZ);
-  scene.add(runeTop);
+  if (!real('wl_altarslab', 74, 'fit', CX, CZ, 0)) {
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(70, 18, 45), altarMat);
+    altar.position.set(CX, 9, CZ);
+    scene.add(altar);
+    // Glowing rune surface on top of altar
+    const runeTop = new THREE.Mesh(new THREE.BoxGeometry(58, 1, 35), runeMat);
+    runeTop.position.set(CX, 18.5, CZ);
+    scene.add(runeTop);
+  }
 
   // Ritual fire above altar — two concentric spheres
   const outerFlame = new THREE.Mesh(new THREE.SphereGeometry(9, 9, 9), fireMat);
@@ -725,10 +737,12 @@ function addUnboundCircleSet(scene) {
   for (let i = 0; i < 4; i++) {
     const angle = (i / 4) * Math.PI * 2 + Math.PI / 8;
     const tx = CX + Math.sin(angle) * 70, tz = CZ + Math.cos(angle) * 70;
-    const stick = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3, 55, 6),
-      new THREE.MeshLambertMaterial({ color: 0x3a2208 }));
-    stick.position.set(tx, 27.5, tz);
-    scene.add(stick);
+    if (!real('furn_torch', 58, 'height', tx, tz, angle)) {
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3, 55, 6),
+        new THREE.MeshLambertMaterial({ color: 0x3a2208 }));
+      stick.position.set(tx, 27.5, tz);
+      scene.add(stick);
+    }
     const flame = new THREE.Mesh(new THREE.SphereGeometry(5, 7, 7),
       new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0x8800bb, emissiveIntensity: 1 }));
     flame.scale.y = 1.5; flame.position.set(tx, 60, tz);
@@ -743,6 +757,7 @@ function addUnboundCircleSet(scene) {
     const angle = (i / 12) * Math.PI * 2;
     const bx = CX + Math.sin(angle) * 155, bz = CZ + Math.cos(angle) * 155;
     const bh = 20 + (i % 3) * 8;
+    if (real('wl_megalith', bh, 'height', bx, bz, angle + Math.PI + i * 1.3)) continue;
     const bstone = new THREE.Mesh(new THREE.BoxGeometry(10, bh, 8), stoneMat);
     bstone.position.set(bx, bh / 2, bz);
     bstone.rotation.y = angle;

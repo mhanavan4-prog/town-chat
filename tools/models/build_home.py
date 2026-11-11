@@ -1411,6 +1411,58 @@ def notice_board():
     return m, None
 
 
+def megalith():
+    """A standing stone: a tall weathered slab, leaning a hair, grey with lichen, a cup-and-ring and a spiral pecked into its face and holding a violet light."""
+    m = Model('megalith')
+    r = np.random.default_rng(77)
+    prof = [(0.17, 0.0), (0.165, 0.15), (0.16, 0.45), (0.15, 0.72), (0.12, 0.9), (0.07, 0.99), (0.0, 1.0)]
+    st = lathe(prof, sides=8, colors=('#4c4c5a', '#a6a6b4'), close_bottom=True)
+    for i, v in enumerate(st.v):
+        v[1] *= 0.4                                   # a slab, not a post
+        k = 1 + r.uniform(-0.09, 0.09)
+        v[0] *= k; v[1] *= k
+        v[0] += 0.03 * v[2]                           # the lean
+        st.t[i] = min(1.0, max(0.0, 0.2 + 0.6 * v[2] + r.uniform(-0.15, 0.15)))
+    st2 = Part(st.v, st.f, st.t, ('#4c4c5a', '#a6a6b4'), smooth=False)
+    m.add(trim(st2))
+    G = ('#6a22c0', '#c890ff')
+    def ring(x, z, r0, r1, n=10):
+        p = lathe([(r0, 0.0), (r1, 0.0)], sides=n, colors=G, close_top=False)
+        return glowing(p).xf(rx(math.pi / 2), (x + 0.03 * z, -0.064, z))
+    m.add(ring(0.0, 0.62, 0.0, 0.012)); m.add(ring(0.0, 0.62, 0.025, 0.035)); m.add(ring(0.0, 0.62, 0.05, 0.058))
+    sp = [(0.045 * (u / 9) * math.cos(u), -0.066, 0.36 + 0.045 * (u / 9) * math.sin(u)) for u in np.linspace(0.6, 9, 22)]
+    sp = [(x + 0.03 * z, y, z) for (x, y, z) in sp]
+    m.add(glowing(tube(sp, 0.005, sides=3, colors=G)))
+    m.add(glowing(tube([(0.0 + 0.03 * 0.56, -0.066, 0.56), (0.0 + 0.03 * 0.41, -0.066, 0.41)], 0.004, sides=3, colors=G)))
+    for (x, z, rr) in ((-0.07, 0.8, 0.03), (0.08, 0.5, 0.035), (-0.08, 0.25, 0.03), (0.05, 0.14, 0.025)):
+        m.add(trim(blob(rr, 0.006, rr * 0.8, seg=6, rings=3, colors=('#7a8a4a', '#c8c880'), jitter=0.25, seed=int(z * 100))).xf(None, (x + 0.03 * z, -0.06, z)))
+    for a in (0.4, 2.2, 3.9, 5.3):  # packing stones and grass at the foot
+        m.add(trim(blob(0.05, 0.04, 0.03, seg=6, rings=3, colors=('#3a3a40', '#70707a'), jitter=0.25, seed=int(a * 10))).xf(None, (0.15 * math.cos(a), 0.1 * math.sin(a), 0.015)))
+    tuft(m, -0.14, 0.05, n=4, h=0.12, seed=3); tuft(m, 0.12, -0.08, n=4, h=0.1, seed=4)
+    return m, '#a060ff'
+
+
+def altar_slab():
+    """A low altar of three stones: a great capstone on two bearers, a spiral and a ring of cups cut in its top and alight, wax and soot where fires have been."""
+    m = Model('altar_slab')
+    DARK = ('#22202c', '#5a5868')
+    for sx in (-0.24, 0.24):
+        m.add(trim(box(0.14, 0.36, 0.12, DARK, jitter=0.05, seed=int(sx * 100 + 50))).xf(None, (sx, 0, 0)))
+    cap = box(0.72, 0.46, 0.07, ('#2a2836', '#6a6878'), jitter=0.035, seed=8)
+    m.add(trim(cap).xf(None, (0, 0, 0.115)))
+    G = ('#6a22c0', '#c890ff')
+    sp = [(0.13 * (u / 11) * math.cos(u), 0.13 * (u / 11) * math.sin(u) * 0.8, 0.19) for u in np.linspace(0.5, 11, 30)]
+    m.add(glowing(tube(sp, 0.007, sides=3, colors=G)))
+    for k in range(9):
+        a = TAU * k / 9
+        m.add(glowing(lathe([(0.0, 0.0), (0.016, 0.0)], sides=6, colors=G, close_top=False)).xf(None, (0.27 * math.cos(a), 0.17 * math.sin(a), 0.189)))
+    m.add(trim(blob(0.05, 0.04, 0.008, seg=6, rings=3, colors=('#0c0c0c', '#2a2a2a'), jitter=0.3)).xf(None, (0.0, 0.0, 0.19)))
+    for (x, y) in ((-0.3, 0.16), (0.31, -0.15)):
+        m.add(trim(lathe([(0.02, 0.185), (0.02, 0.23), (0.0, 0.235)], sides=6, colors=('#1c1a1a', '#5a5650'))).xf(None, (x, y, 0)))
+        m.add(trim(blob(0.035, 0.03, 0.006, seg=6, rings=3, colors=('#1c1a1a', '#4a4640'), jitter=0.3)).xf(None, (x, y, 0.188)))
+    return m, '#a060ff'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1425,7 +1477,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'relic_planchette': relic_planchette, 'herb_bundle': herb_bundle, 'pumpkin': pumpkin, 'lectern': lectern, 'vigil_candle': vigil_candle,
         'marble_perch': marble_perch,
         'camp_tent': camp_tent, 'palisade_stake': palisade_stake, 'watchtower': watchtower, 'weapon_rack': weapon_rack, 'pennant_pole': pennant_pole,
-        'headstone': headstone, 'notice_board': notice_board}
+        'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
