@@ -34,7 +34,7 @@ const cal = OLD_CALENDAR.find((e) => e.key === 'childermas');
 check('the Commonplace Book\'s Childermas no longer says the coronation was put off', cal && cal.month === 12 && cal.day === 28 && /only the pageants waited/.test(cal.text) && /a rumour/.test(cal.text));
 const c = CALLERS.find((x) => x.id === 'childermas_carrier');
 check('Joss Wardle the carrier, dated by it, for two days', c && c.when && c.when.calendar === 'childermas' && c.when.days === 2 && c.steps.length === 1 && c.steps[0].rite === 'childermas');
-check('the Year\'s Round now runs from New Year\'s morning to Childermas', /from New Year's morning to Childermas/.test(TITLES.years_round.desc));
+check('the Year\'s Round now runs from New Year\'s morning to Hogmanay', /from New Year's morning to Hogmanay/.test(TITLES.years_round.desc));
 
 require('../server.js');
 
@@ -61,7 +61,7 @@ setTimeout(() => {
   check('working it gives one of its signs', step.done && R.outcomes.some((o) => step.note.endsWith(o)), step);
   const ch = buildCharmBook({ acct: h.accounts.joss, prog: {}, seasonKey: null }).chapters.find((x) => x.key === 'feasts');
   const e = ch.entries.find((x) => x.id === 'childermas');
-  check('…and writes Keeping Childermas into The Turning Year, dated 28 December, the last of the dated days', e && e.met && /· Childermas$/.test(e.title) && e.date === '28 December' && ch.entries.filter((x) => x.date).pop().id === 'childermas', e);
+  check('…and writes Keeping Childermas into The Turning Year, dated 28 December, the last of the dated days before Hogmanay', e && e.met && /· Childermas$/.test(e.title) && e.date === '28 December' && ch.entries.filter((x) => x.date).slice(-2).map((x) => x.id).join() === 'childermas,saining', ch.entries.filter((x) => x.date).slice(-2).map((x) => x.id));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
