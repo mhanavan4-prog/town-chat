@@ -1699,6 +1699,41 @@ const CALLERS = [
     source: "W. Hone, The Every-Day Book, vol. I (1826), 25 November · C. C. Channer & M. E. Roberts, Lace-making in the Midlands (1900) · J. O. Halliwell, Popular Rhymes and Nursery Tales (1849)",
     reward: { gold: 40, xp: 35 },
   },
+  // Hogmanay only (data/saining.js), dated by the old calendar.
+  {
+    id: 'hogmanay_saining',
+    caller: 'Isobel Gordon, of Strathdown',
+    icon: '🌿',
+    title: 'Saining the House',
+    when: { calendar: 'hogmanay_saining', days: 1, label: 'Hogmanay' },
+    plea: "Father always sained the house at the New Year: the water from the ford, the juniper, the beasts. His chest won't let him do the smoke this year and my brother laughs at it. But the year's coming in whether we're ready or not, and I'd sooner it came into a sained house. Will you do it with me?",
+    steps: [
+      { kind: 'rite', rite: 'saining', label: 'Water from the dead and living ford, juniper smoke, the beasts' },
+    ],
+    resolution: "You carry the water up from the ford without a word, the pitcher held off the ground the whole way, and in the morning you go round the beds with the brush. Then the crevices are stopped, the juniper kindled, and the whole house sneezes in the New Year before you throw the vent open. The byre after; then Isobel's father, wrapped up by the door where the air is clear, has the first of the bottle dhu.",
+    note: "Smoke in a shut room can kill. Keep a window open, and never burn anything where someone is sleeping.",
+    lore: "Saining the house at the New Year, as W. Grant Stewart saw it in Strathdown: water from \"the dead and living ford\", carried \"observing all the time the most profound silence\", sprinkled on the household; the house stopped \"even to the key-hole\" and filled with juniper smoke until it rang with \"hiccupping, sneezing, wheezing, and coughing\"; then the vent opened and the beasts done too. J. G. Campbell called New Year's Day \"a great saining day\" (1902).",
+    tier: 'record',
+    source: "W. Grant Stewart, The Popular Superstitions and Festive Amusements of the Highlanders of Scotland (1823; ed. of 1851), \"New-Year's Eve\", pp. 172–177 · J. G. Campbell, Witchcraft & Second Sight in the Highlands & Islands of Scotland (1902), pp. 241–2 · Greater Manchester Fire & Rescue, \"Ceremonial burning practices\"",
+    reward: { gold: 50, xp: 40 },
+  },
+  // Stir-up Sunday only (data/stirUp.js), dated by the old calendar.
+  {
+    id: 'stir_up_sunday',
+    caller: 'Mrs Pettifer, cook at the vicarage',
+    icon: '🥄',
+    title: 'Stir-up Sunday',
+    when: { calendar: 'stir_up_sunday', days: 2, label: 'Stir-up Sunday' },
+    plea: "Parson's read the collect, so the pudding's to be made today. But my new girl says there must be thirteen things in it, for Our Lord and the twelve, and everyone stirring east to west for the Wise Men, and a wish apiece. My mother never said a word of it. Will you help me make it the way she did?",
+    steps: [
+      { kind: 'rite', rite: 'stir_up', label: 'The collect, then the pudding, and the children\'s rhyme' },
+    ],
+    resolution: "You count what goes in: suet, flour, crumbs, sugar, the fruit, the peel, the spice, the eggs, the milk, a little brandy; Mrs Pettifer neither knows nor cares whether it comes to thirteen. Everyone has a turn with the spoon, any way they please, and the boys chant \"the pudding in the pot\" till they're sent out. It goes into its cloth to hang till Christmas.",
+    lore: "Stir-up Sunday took its name from the collect for the Sunday next before Advent, \"Stir up, we beseech thee, O Lord, the wills of thy faithful people\" (Book of Common Prayer, 1549), which schoolboys turned to \"the pudding in the pot\" (Dyer, 1876, after Brand). The thirteen ingredients, the stirring east to west and the wishes have no source we could find before the twentieth century.",
+    tier: 'folk',
+    source: "The Book of Common Prayer (1549) · T. F. Thiselton Dyer, British Popular Customs (1876), p. 431, citing Brand, Popular Antiquities (1859) · S. Pepys, Diary, 25 December 1662",
+    reward: { gold: 40, xp: 35 },
+  },
   // St Nicholas' Day only (data/boyBishop.js), dated by the old calendar.
   {
     id: 'boy_bishop',

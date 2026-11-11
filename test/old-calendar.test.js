@@ -35,7 +35,7 @@ check("15 July is St Swithin's, with its rhyme", swithin.today.length === 1 && s
 const gap = oldCalendarDay(Date.UTC(2026, 10, 7, 12));
 check('on a quiet day, the next custom is named with its date and how far off', gap.today.length === 0 && gap.next && gap.next.key === 'martinmas' && gap.next.inDays === 4 && gap.next.month === 11 && gap.next.day === 11);
 const yearEnd = oldCalendarDay(Date.UTC(2026, 11, 30, 12));
-check('the year wraps: after Childermas comes the cream of the well on New Year\'s Day', yearEnd.next && yearEnd.next.key === 'cream_of_the_well' && yearEnd.next.inDays === 2);
+check('the year wraps: after Childermas comes Hogmanay\'s saining, then the cream of the well on New Year\'s Day', yearEnd.next && yearEnd.next.key === 'hogmanay_saining' && yearEnd.next.inDays === 1 && (() => { const nd = oldCalendarDay(Date.UTC(2026, 11, 31, 12)); return nd.next && nd.next.key === 'cream_of_the_well' && nd.next.inDays === 1; })());
 check('the client shows it on the HUD tag, in the Commonplace Book, and once a day as a notice', /calendarState\.oldDay/.test(CLIENT) && /renderOldCalendarSec\(\)/.test(CLIENT) && /maybeToastOldDay\(\)/.test(CLIENT));
 
 require('../server.js');

@@ -250,6 +250,10 @@ const OLD_CALENDAR = [
     text: "Scotland's saint, from time out of mind; Scots far from home met on his day. Advent Sunday is the Sunday nearest it.",
     quote: 'regarded, from time immemorial, as the patron saint of Scotland', source: `${CHAMBERS}, 30 November` },
   // ── December ──
+  // The Sunday next before Advent: the Sunday from 20 to 26 November.
+  { key: 'stir_up_sunday', rule: firstWeekdayAfter(0, 11, 19), icon: '🥄', title: 'Stir-up Sunday', tier: 'folk',
+    text: 'The Sunday next before Advent, named from its collect, "Stir up, we beseech thee, O Lord"; the schoolboys made it the pudding in the pot. The pudding-making itself was added later.',
+    quote: 'Stir up, we beseech thee, The pudding in the pot', source: 'The Book of Common Prayer (1549); T. F. Thiselton Dyer, British Popular Customs (1876), p. 431' },
   { key: 'boy_bishop', month: 12, day: 6, icon: '🧒', title: 'St Nicholas: the Boy Bishop', tier: 'record',
     text: 'The choristers chose one of their own for bishop, in the cathedrals and some schools, and he held a mock rule till Childermas; Henry VIII suppressed it in 1541, Mary brought it back, and under Elizabeth it fell out of use.',
     quote: 'chosen by his fellow Children upon S. Nicholas daie', source: `J. Gregory, Gregorii Posthuma (1649); ${CHAMBERS}, 6 December` },
@@ -265,6 +269,9 @@ const OLD_CALENDAR = [
   { key: 'wren_boys', month: 12, day: 26, icon: '🐦', title: "St Stephen's Day: the Wren Boys", tier: 'folk',
     text: 'In Ireland the wren, king of the birds, was hunted and carried from door to door in a bush of holly and ivy, with songs for money and food; on Man its feathers were kept against shipwreck.',
     source: 'E. A. Armstrong, The Folklore of Birds (1958); G. Waldron, Description of the Isle of Man (1731)' },
+  { key: 'hogmanay_saining', month: 12, day: 31, icon: '🌿', title: 'Hogmanay: saining the house', tier: 'record',
+    text: 'In Strathdown the New Year came in with water from "the dead and living ford", carried home in silence and sprinkled over the household, then the house stopped up and filled with juniper smoke until everyone coughed, and the beasts done the same.',
+    quote: 'as much in request this night as kail is on Hallowe\'en', source: 'W. Grant Stewart, The Popular Superstitions and Festive Amusements of the Highlanders of Scotland (1823), "New-Year\'s Eve"' },
   { key: 'childermas', month: 12, day: 28, icon: '⚠️', title: 'Childermas: the unluckiest day', tier: 'record',
     text: "Holy Innocents' was the unluckiest day of the year, and nothing was begun on it that could wait; the weekday it fell on was unlucky all the next year. In 1461 a rumour had Edward IV's coronation put off a day for it, but only the pageants waited.",
     quote: 'about the most unlucky through-out the year', source: `${CHAMBERS}, 28 December` },
