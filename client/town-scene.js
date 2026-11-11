@@ -526,6 +526,25 @@ function buildTownRitualTorch(x, z) {
   return { group: g, flame, light };
 }
 
+// An altar trinket as its real model, once that has loaded: the hand-built one
+// is made first and swapped out when the model lands (the temple is built
+// before the models are in). `dress` adds what the model doesn't carry (a
+// flame, the smoke).
+function altarModel(g, key, size, mode, dress) {
+  const swap = () => {
+    if (g.userData.altarReal || !KK || !KK.staticInstance) return;
+    const real = KK.staticInstance(key, size, mode);
+    if (!real) return;
+    g.userData.altarReal = true;
+    for (const c of [...g.children]) g.remove(c);
+    g.add(real);
+    if (dress) dress(g, real.userData.kkHeight || size);
+  };
+  swap();
+  if (!g.userData.altarReal && KK && KK.onAssetLoad) KK.onAssetLoad(swap);
+  return g;
+}
+
 function makeAltarSkull(x, y, z) {
   const g = new THREE.Group();
   const boneMat = new THREE.MeshLambertMaterial({ color: 0xe4dcc4 });
@@ -542,7 +561,8 @@ function makeAltarSkull(x, y, z) {
     g.add(socket);
   }
   g.position.set(x, y, z);
-  return g;
+  // KayKit's skull, sat on the slab (the hand-built one floats at its centre).
+  return altarModel(g, 'prop_skull', 11, 'height', (grp) => { grp.children[0].position.y = -5; });
 }
 
 function makeAltarCandle(x, y, z) {
@@ -562,7 +582,12 @@ function makeAltarCandle(x, y, z) {
     g.add(flicker);
   }
   g.position.set(x, y, z);
-  return g;
+  // A beeswax stub on its saucer, with the same flame and light on its wick.
+  return altarModel(g, 'alt_candle', 13, 'height', (grp, h) => {
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(1.4, 4, 8), new THREE.MeshBasicMaterial({ color: 0xffaa44 }));
+    fl.position.y = h + 2; grp.add(fl);
+    if (!mobileLite) { const li = new THREE.PointLight(0xffaa44, 0.5, 50); li.position.y = h + 2; grp.add(li); }
+  });
 }
 
 function makeAltarDagger(x, y, z, rotY) {
@@ -585,7 +610,8 @@ function makeAltarDagger(x, y, z, rotY) {
   g.add(pommel);
   g.rotation.y = rotY || 0;
   g.position.set(x, y, z);
-  return g;
+  // A black-hafted knife, lying with its point the way the hand-built one lay.
+  return altarModel(g, 'alt_athame', 26, 'fit', (grp) => { grp.children[0].rotation.y = Math.PI / 2; });
 }
 
 function makeIncenseBowl(x, y, z) {
@@ -611,7 +637,10 @@ function makeIncenseBowl(x, y, z) {
     g.add(puff);
   }
   g.position.set(x, y, z);
-  return g;
+  // A brass censer with a cone smouldering in its ash, under the same curl of smoke.
+  return altarModel(g, 'alt_censer', 10, 'fit', (grp, h) => {
+    for (const [sx, sy, sz, sr] of smokeOffsets) { const puff = new THREE.Mesh(new THREE.SphereGeometry(sr, 6, 6), smokeMat); puff.position.set(sx, sy + h - 2, sz); grp.add(puff); }
+  });
 }
 
 function makePentacleMedallion(x, y, z) {

@@ -14,6 +14,11 @@ from trlib import *  # noqa
 OUT = os.path.join(os.path.dirname(__file__), '../../public/kk/critters')
 
 
+def glowing(p):
+    p.glow = True
+    return p
+
+
 def eye(m, p, r, iris=('#0a0808', '#2a2020'), shine=True, look=(1, 0, 0)):
     m.add(blob(r, r, r, seg=7, rings=5, colors=iris).xf(None, p))
     if shine:
@@ -513,9 +518,48 @@ def adder():
     return m, '#e05a2a'
 
 
+def dragon():
+    """A worm of the old kind, as the Lambton Worm and the Sockburn Worm were told: a long scaled body in coils, a horned head, a ridge of spines, and (for the chaos in it) a pair of ragged wings."""
+    m = Model('dragon', forward_x=True)
+    SCALE = ('#3a0a08', '#c8301a')
+    pts = []
+    for i in range(40):
+        u = i / 39
+        a = u * TAU * 1.5 + 0.6
+        rr = 0.42 - 0.2 * u
+        pts.append((rr * math.cos(a) - 0.08, rr * math.sin(a), 0.09 + 0.3 * max(0, u - 0.7) / 0.3))
+    m.add(tube(pts, lambda s: (0.02 + 0.09 * math.sin(math.pi * min(1, s * 1.15 + 0.03)) ** 0.6) if s < 0.98 else 0.05, sides=8, colors=SCALE))
+    for i in range(2, 38, 2):  # the ridge of spines along the back
+        p = np.array(pts[i]); w = 0.02 + 0.09 * math.sin(math.pi * min(1, (i / 39) * 1.15 + 0.03)) ** 0.6
+        m.add(lathe([(0.022, 0), (0.0, 0.08)], sides=4, colors=('#1a0606', '#5a1410'), close_top=False).xf(None, p + [0, 0, w * 0.9]))
+    belly = [(x, y, z - 0.02) for (x, y, z) in pts[4:36]]
+    m.add(tube(belly, lambda s: 0.07 * math.sin(math.pi * min(1, s + 0.05)) ** 0.6, sides=5, colors=('#c88a3a', '#f0c870')))  # the pale belly showing
+    neck = np.array(pts[-1])
+    with m.node('head', tuple(neck)):
+        hp = neck + [0.1, 0.02, 0.16]
+        m.add(tube([neck, neck + [0.02, 0.0, 0.1], hp], 0.055, sides=8, colors=SCALE))
+        m.add(blob(0.11, 0.08, 0.07, seg=9, rings=6, colors=SCALE).xf(ry(0.15), hp + [0.06, 0, 0.0]))
+        m.add(lathe([(0.065, 0), (0.05, 0.1), (0.03, 0.17)], sides=7, colors=('#5a1410', '#d84a2a'), close_top=True).xf(ry(math.pi / 2 + 0.1), hp + [0.1, 0, -0.01]))  # the snout
+        for sgn in (-1, 1):
+            m.add(lathe([(0.022, 0), (0.012, 0.1), (0.0, 0.18)], sides=5, colors=('#2a2420', '#d8d0b8'), close_top=False).xf(rx(sgn * -0.35) @ ry(-0.9), hp + [0.0, sgn * 0.05, 0.05]))  # horns
+            m.add(glowing(blob(0.018, 0.018, 0.018, seg=5, rings=3, colors=('#ff7a00', '#ffe060'))).xf(None, hp + [0.12, sgn * 0.055, 0.03]))
+            m.add(lathe([(0.01, 0), (0.0, 0.035)], sides=4, colors=('#d8d0b8', '#ffffff'), close_top=False).xf(rx(math.pi), hp + [0.22, sgn * 0.025, -0.02]))  # fangs
+    web = lambda s: math.sin(math.pi * min(1, s * 0.95 + 0.04)) ** 0.6 * (1.0 - 0.3 * abs(math.sin(s * math.pi * 3)))
+    for sgn, nm in ((1, 'wing_L'), (-1, 'wing_R')):
+        root = np.array([-0.02, sgn * 0.1, 0.24])
+        with m.node(nm, tuple(root)):
+            m.add(blade(0.6, 0.4, web, segs=6, cols=5, fold=0.05, rise=0.5, droop=0.5, colors=('#2a0808', '#8a2a1a')).xf(rz(sgn * (math.pi / 2 + 0.3)), root))
+            for a in (0.5, 0.1, -0.35):
+                d = rz(sgn * (math.pi / 2 + 0.3)) @ np.array([math.cos(a) * 0.55, math.sin(a) * 0.55, 0.22])
+                m.add(tube([root, root + d], lambda s_: 0.014 * (1 - 0.6 * s_), sides=4, colors=('#1a0606', '#4a1410')))
+    with m.node('tail', tuple(pts[0])):
+        m.add(lathe([(0.03, 0), (0.05, 0.03), (0.0, 0.12)], sides=4, colors=('#1a0606', '#5a1410'), close_top=False).xf(ry(math.pi / 2) @ rz(0), np.array(pts[0]) + [0.0, 0.03, 0.0]))  # the barb
+    return m, '#ff8a10'
+
+
 CRITTERS = {'rabbit': rabbit, 'embermoth': embermoth, 'thistlehog': hedgehog, 'duskfawn': fawn, 'mirefowl': moorhen,
             'bramble_boar': boar, 'mossback_tortoise': tortoise, 'gravewing_crow': crow,
-            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder}
+            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

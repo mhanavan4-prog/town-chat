@@ -425,6 +425,7 @@ const KK = (() => {
     // no body for: a horseshoe bat, the brown rat, a rat king, a cave spider, a
     // dor beetle, a great centipede, the leopard slug, the adder.
     cr_bat: 'kk/critters/bat.glb', cr_rat: 'kk/critters/rat.glb', cr_rat_king: 'kk/critters/rat_king.glb', cr_spider: 'kk/critters/spider.glb',
+    cr_dragon: 'kk/critters/dragon.glb', // the Chaos Dragon: a worm of the old kind, coiled, horned and winged
     cr_beetle: 'kk/critters/beetle.glb', cr_centipede: 'kk/critters/centipede.glb', cr_slug: 'kk/critters/slug.glb', cr_adder: 'kk/critters/adder.glb',
     // The Wilds' own trees and bushes, the ogham grove and the crotal stone, as the
     // real trees, shrubs and stones (tools/models/build_grove.py): weeping willow,
@@ -444,6 +445,8 @@ const KK = (() => {
     gd_mugwort: 'kk/flora/gd_mugwort.glb', gd_rosemary: 'kk/flora/gd_rosemary.glb', gd_belladonna: 'kk/flora/gd_belladonna.glb',
     // The cottage's own: a carved box bed, the stone hearth, an iron candle
     // stand, and a witch ball for the Wall Charm. furn_ so they stream with the furniture.
+    // The altar's trinkets (the skull is KayKit's own): a beeswax stub, a black-hafted knife, a brass censer.
+    alt_candle: 'kk/home/altar_candle.glb', alt_athame: 'kk/home/athame.glb', alt_censer: 'kk/home/censer.glb',
     furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
@@ -10942,6 +10945,17 @@ function makeRuinedWall(x, z) {
 }
 
 function makeBonePile(x, z) {
+  // KayKit's own bones: a ribcage, a skull and long bones, tumbled together.
+  if (KK && KK.has && KK.has('prop_ribcage') && KK.has('prop_skull') && KK.has('prop_bone_a')) {
+    const pile = new THREE.Group();
+    const put = (key, size, mode, px, pz, ry, rz) => { const o = KK.staticInstance(key, size, mode); if (!o) return; o.position.set(px, 0, pz); o.rotation.y = ry; if (rz) o.children[0].rotation.z = rz; pile.add(o); };
+    const r = () => Math.random();
+    put('prop_ribcage', 15, 'fit', 0, 0, r() * 6.28, 0);
+    put('prop_skull', 8, 'height', 8 + r() * 4, -5 + r() * 4, r() * 6.28, 0);
+    for (let i = 0; i < 3; i++) put(i % 2 ? 'prop_bone_c' : 'prop_bone_a', 12 + r() * 4, 'fit', (r() - 0.5) * 22, (r() - 0.5) * 22, r() * 6.28, 0);
+    pile.position.set(x, 0, z);
+    return pile;
+  }
   const g = new THREE.Group();
   const boneMat = new THREE.MeshLambertMaterial({ color: 0xd8d2c0 });
   const oldBoneMat = new THREE.MeshLambertMaterial({ color: 0xb8b09a });

@@ -283,13 +283,59 @@ def witch_ball():
     return m, '#5ab0d0'
 
 
+def altar_candle():
+    """A stub of beeswax candle on a little pewter saucer, run with drips."""
+    m = Model('altar_candle')
+    m.add(lathe([(0.0, 0), (0.3, 0.0), (0.34, 0.04), (0.3, 0.05), (0.12, 0.05)], sides=10, colors=('#5a5a60', '#a8a8b0'), close_top=False))
+    m.add(lathe([(0.17, 0.05), (0.17, 0.85), (0.13, 0.9), (0.0, 0.88)], sides=10, colors=('#c89a48', '#f4dc98')))
+    r = np.random.default_rng(81)
+    for k in range(5):
+        a = r.uniform(0, TAU); L = r.uniform(0.2, 0.6)
+        m.add(tube([(0.175 * math.cos(a), 0.175 * math.sin(a), 0.86), (0.18 * math.cos(a), 0.18 * math.sin(a), 0.86 - L)], lambda s_: 0.035 * (1 - 0.3 * s_), sides=4, colors=('#d8b060', '#f4dc98')))
+    m.add(blob(0.2, 0.16, 0.03, seg=6, rings=3, colors=('#d8b060', '#f0d48a'), jitter=0.3).xf(None, (0.1, 0.05, 0.06)))  # a pool of wax
+    m.add(tube([(0, 0, 0.88), (0.01, 0, 1.0)], 0.012, sides=3, colors=('#1a1410', '#2a2018')))
+    return m, None
+
+
+def athame():
+    """A black-hafted knife: a plain double-edged steel blade, a brass guard and pommel, the haft bound with cord."""
+    m = Model('athame')
+    # lying flat along +X, edge-on to the ground
+    blade_ = lathe([(0.0, 0.0), (0.075, 0.12), (0.085, 0.5), (0.08, 0.62)], sides=4, colors=('#8a909a', '#e4e8f0'), close_top=False, phase=math.pi / 4)
+    blade_.v[:, 0] *= 0.22  # flatten the diamond section
+    m.add(blade_.xf(ry(-math.pi / 2), (0.64, 0, 0.025)))
+    m.add(box(0.05, 0.26, 0.05, ('#8a6a2a', '#d8b050')).xf(None, (0.0, 0, 0.0)))  # the guard
+    m.add(lathe([(0.035, 0), (0.042, 0.1), (0.04, 0.24), (0.035, 0.3)], sides=8, colors=('#0e0c0c', '#2e2a2a'), close_top=False).xf(ry(-math.pi / 2), (-0.02, 0, 0.025)))
+    for k in range(4):
+        m.add(lathe([(0.044, 0), (0.046, 0.012), (0.044, 0.024)], sides=8, colors=('#3a2a1a', '#6a4a2a'), close_top=False).xf(ry(-math.pi / 2), (-0.07 - 0.06 * k, 0, 0.025)))
+    m.add(blob(0.05, 0.05, 0.05, seg=7, rings=5, colors=('#8a6a2a', '#e0b858')).xf(None, (-0.36, 0, 0.03)))
+    return m, None
+
+
+def censer():
+    """A little brass bowl on three feet, full of ash, a cone of incense smouldering in it."""
+    m = Model('censer')
+    BRASS = ('#6a4a1a', '#d8a848')
+    m.add(lathe([(0.0, 0.1), (0.2, 0.1), (0.36, 0.2), (0.42, 0.36), (0.4, 0.42), (0.36, 0.4)], sides=12, colors=BRASS, close_top=False))
+    m.add(lathe([(0.42, 0.34), (0.45, 0.37), (0.42, 0.4)], sides=12, colors=BRASS, close_top=False))
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(tube([(0.24 * math.cos(a), 0.24 * math.sin(a), 0.14), (0.3 * math.cos(a), 0.3 * math.sin(a), 0.0)], lambda s_: 0.05 * (1 - 0.3 * s_), sides=5, colors=BRASS))
+    m.add(lathe([(0.0, 0.36), (0.36, 0.37)], sides=12, colors=('#3a3632', '#8a8680'), close_top=False))  # ash
+    cone = lathe([(0.06, 0.37), (0.0, 0.56)], sides=6, colors=('#2a1a14', '#5a3a2a'), close_top=False)
+    m.add(cone)
+    m.add(glowing(blob(0.025, 0.025, 0.025, seg=5, rings=3, colors=('#ff5a1a', '#ffb060'))).xf(None, (0, 0, 0.56)))  # the ember at its tip
+    return m, '#ff7a2a'
+
+
 def glowing(p):
     p.glow = True
     return p
 
 
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
-        'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball}
+        'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
+        'altar_candle': altar_candle, 'athame': athame, 'censer': censer}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

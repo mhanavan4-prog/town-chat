@@ -164,6 +164,7 @@ const DUNGEON_CRITTER_MODELS = {
   crypt_spider: ['spider', 50], boss_crypt_weaver: ['spider', 50], rock_beetle: ['beetle', 40],
   venom_crawler: ['centipede', 52], moss_crawler: ['slug', 46],
   dark_adder: ['adder', 44], void_serpent: ['adder', 44],
+  chaos_dragon: ['dragon', 60],
 };
 function realDungeonCritter(mobType, visual) {
   const spec = DUNGEON_CRITTER_MODELS[mobType];
@@ -173,10 +174,10 @@ function realDungeonCritter(mobType, visual) {
   const c = new THREE.Color(visual.color), hsl = {};
   c.getHSL(hsl);
   const tint = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.2), 0.82);
-  const tintAmt = /blood|void|moss|venom|weaver/.test(mobType) ? 0.75 : 0.25;
+  const tintAmt = /dragon/.test(mobType) ? 0 : /blood|void|moss|venom|weaver/.test(mobType) ? 0.75 : 0.25; // the dragon is its own red
   const white = new THREE.Color(0xffffff);
   g.traverse((o) => { if (o.isMesh && o.material && !o.material.emissiveIntensity) { o.material = o.material.clone(); o.material.color.copy(white).lerp(tint, tintAmt); } });
-  g.userData.rig = critterRigFind(g, spec[0]);
+  g.userData.rig = critterRigFind(g, spec[0] === 'dragon' ? 'adder' : spec[0]); // the dragon sways its head as the adder does
   // flyers fly: lift the bat to where the hand-built one hovered
   if (spec[0] === 'bat') g.children[0].position.y += 16;
   return g;
