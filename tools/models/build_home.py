@@ -1962,6 +1962,26 @@ def cream_bowl():
     return m, None
 
 
+def bee_skep():
+    """A bee skep: a dome of coiled straw rope with a flight hole, on a flat stone, a hackle of straw over its crown against the rain, a few bees about the door."""
+    m = Model('bee_skep')
+    m.add(blob(0.3, 0.26, 0.05, seg=8, rings=3, colors=ROCKP, jitter=0.12).xf(None, (0, 0, 0.05)))
+    coils = 9
+    for k in range(coils):
+        u = k / (coils - 1)
+        z = 0.12 + 0.34 * math.sin(u * math.pi / 2)
+        r = 0.22 * math.cos(u * math.pi / 2) + 0.025
+        ring = [(r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 13)]
+        m.add(trim(tube(ring, 0.03, sides=5, colors=('#8a6a24', '#e8c868'))))
+    m.add(trim(lathe([(0.0, 0.6), (0.1, 0.5), (0.17, 0.4), (0.19, 0.36)], sides=9, colors=('#7a5a1e', '#c8a850'), close_top=False)))  # the hackle
+    m.add(trim(lathe([(0.03, 0.56), (0.035, 0.62), (0.0, 0.64)], sides=6, colors=ROPE)))
+    m.add(trim(blob(0.035, 0.02, 0.025, seg=6, rings=3, colors=('#0a0806', '#1a1410'))).xf(None, (0, -0.235, 0.15)))   # the flight hole
+    r = np.random.default_rng(23)
+    for k in range(7):
+        m.add(glowing(blob(0.012, 0.008, 0.008, seg=4, rings=3, colors=('#c88a10', '#ffe070'))).xf(None, (r.uniform(-0.18, 0.18), -0.26 - r.uniform(0, 0.16), 0.12 + r.uniform(0, 0.3))))
+    return m, '#ffd860'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1979,7 +1999,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre,
         'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
         'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
-        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl}
+        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

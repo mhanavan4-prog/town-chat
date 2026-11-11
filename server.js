@@ -1567,6 +1567,7 @@ const { PLANT_CATALOG } = require('./data/world'); // Tier 3.4 Phase A: extracte
 WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
 // The Nine-and-Twenty, a stone circle no one counts the same twice (data/countlessStones.js).
 const COUNT = require('./data/countlessStones');
+WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns and six balefires, between the landmarks
 WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, note: COUNT.COUNTLESS_NOTE, source: COUNT.COUNTLESS_SOURCE };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
@@ -9030,6 +9031,8 @@ const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, coun
   // the living boss of the dungeon or Delve floor she is in, if it is near enough to name
   findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
   bossName: (m) => (DUNGEON_MOB_TYPES[m.mobType] ? DUNGEON_MOB_TYPES[m.mobType].name : 'the boss') });
+// Out in the Wilds: caches under cairns, and six balefires to light in a day (lib/wildsFinds.js).
+const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
 // the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
 const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,
@@ -14960,6 +14963,8 @@ wss.on('connection', (ws, req) => {
 
     // Use a thing in a dungeon or the Delve: a chest, a cache, a vein, a brazier, a seal.
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
+    if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead

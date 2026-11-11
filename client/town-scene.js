@@ -27,6 +27,7 @@ function buildTownNPCs(scene) {
   buildMootStone(scene);
   buildMemorialStone(scene);
   buildLocksmith(scene);
+  buildBeeGarth(scene);
 }
 
 // ── The Town Board (Session L) — the leaderboards' physical home, a big
@@ -201,6 +202,29 @@ function stoneFlame(x, y, z, k) {
   flame.scale.set(7 * k, 9 * k, 1);
   flame.position.set(x, y, z);
   return flame;
+}
+
+// ── The bee garth: three skeps on their stones, south-west of the square.
+// The way to the Old Ways (lib/oldWays.js) in the world, not only the menu.
+const BEE_GARTH_SPOT = { x: 1400, y: 1400 };
+function buildBeeGarth(scene) {
+  const g = new THREE.Group();
+  [[-34, 0, 0.2], [0, -8, -0.1], [36, 2, 0.3]].forEach(([dx, dz, rot]) => {
+    const one = new THREE.Group();
+    const straw = new THREE.Mesh(new THREE.SphereGeometry(11, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xc9a24a }));
+    straw.scale.y = 1.3; straw.position.y = 4; one.add(straw);
+    const slab = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 4, 8), new THREE.MeshLambertMaterial({ color: 0x8a8780 }));
+    slab.position.y = 2; one.add(slab);
+    one.position.set(dx, 0, dz); one.rotation.y = rot;
+    g.add(altarModel(one, 'tw_skep', 34, 'height'));
+  });
+  g.position.set(BEE_GARTH_SPOT.x, 0, BEE_GARTH_SPOT.y);
+  g.rotation.y = Math.atan2(1600 - BEE_GARTH_SPOT.x, 1100 - BEE_GARTH_SPOT.y);
+  scene.add(g);
+  const label = makeNpcNameSprite('🐝 The Bee Garth', 'the old ways');
+  label.position.set(BEE_GARTH_SPOT.x, 66, BEE_GARTH_SPOT.y);
+  scene.add(label);
+  OUTDOOR_KIOSKS.push({ x: BEE_GARTH_SPOT.x, z: BEE_GARTH_SPOT.y + 30, npc: 'oldways', npcName: '🐝 the bee garth' });
 }
 
 function buildMemorialStone(scene) {

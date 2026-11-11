@@ -38,21 +38,21 @@ check('a chest is locked without a bone key', a.gold === 0 && said(a, /Locked/))
 roll = 0.99; finds.onKill(a, { boss: false });
 check('most creatures carry no key', (a.dungeonKeys || 0) === 0);
 roll = 0.01; finds.onKill(a, { boss: false });
-check('about one in seven does', a.dungeonKeys === 1 && finds.KEY_DROP_CHANCE === 0.15);
+check('about one in twelve does', a.dungeonKeys === 1 && finds.KEY_DROP_CHANCE === 0.08);
 roll = 0.99; finds.onKill(a, { boss: true });
 check('a boss always does', a.dungeonKeys === 2);
 roll = 0.5; finds.use(a, chest.id);
-check('a key opens a chest: gold and two rolls of the dungeon\'s loot, and the key is spent', a.gold >= 25 && a.gold <= 45 && a.items.bone_shard === 2 && a.dungeonKeys === 1);
+check('a key opens a chest: gold and two rolls of the dungeon\'s loot, and the key is spent', a.gold >= 8 && a.gold <= 13 && a.items.bone_shard === 2 && a.dungeonKeys === 1);
 const g1 = a.gold; finds.use(a, chest.id);
 check('…once: the same chest gives nothing more until half an hour has passed', a.gold === g1 && a.dungeonKeys === 1);
 at(a, bossChest); finds.use(a, bossChest.id);
-check('the boss\'s chest pays more: three rolls', a.gold - g1 >= 60 && a.items.bone_shard === 5 && a.dungeonKeys === 0);
+check('the boss\'s chest pays more: three rolls', a.gold - g1 >= 18 && a.gold - g1 <= 28 && a.items.bone_shard === 5 && a.dungeonKeys === 0);
 clock += finds.TAKE_AGAIN_MS + 1; a.dungeonKeys = 1; at(a, chest); finds.use(a, chest.id);
 check('after half an hour it is worth opening again', a.items.bone_shard === 7);
 
 // caches and gathering
 const g2 = a.gold; at(a, l1.caches[0]); finds.use(a, l1.caches[0].id); finds.use(a, l1.caches[0].id);
-check('a cache needs no key and is searched once', a.gold - g2 >= 10 && a.gold - g2 <= 20);
+check('a cache needs no key and is searched once', a.gold - g2 >= 4 && a.gold - g2 <= 8);
 const ore = l1.nodes.find((n) => n.kind === 'ore'), shroom = l1.nodes.find((n) => n.kind === 'mushroom'), crystal = l1.nodes.find((n) => n.kind === 'crystal');
 roll = 0.9; at(a, ore); finds.use(a, ore.id); finds.use(a, ore.id);
 check('an ore seam gives iron ore, once until it has had ten minutes', a.items.iron_ore === 1 && finds.NODE_AGAIN_MS === 600000);
@@ -68,7 +68,7 @@ check('only things that already exist are given', ['iron_ore', 'stone_block', 'g
 const b = mk('b', 'dungeon_t1'); finds.onEnter(b, { fresh: true });
 const gA = a.gold, gB = b.gold;
 l1.braziers.forEach((br, i) => { const p = i % 2 ? a : b; at(p, br); finds.use(p, br.id); });
-check('lighting every brazier pays everyone in the room, gold and experience', a.gold - gA >= 30 && b.gold - gB >= 30 && a.xp === 20 && b.xp === 20 && said(b, /need-fire/));
+check('lighting every brazier pays everyone in the room, gold and experience', a.gold - gA >= 8 && a.gold - gA <= 13 && b.gold - gB >= 8 && a.xp === 20 && b.xp === 20 && said(b, /need-fire/));
 const st = finds.payloadFor(a);
 check('…and the room shows them all burning, the goal complete', st.lit.length === l1.braziers.length && st.goals.braziers.complete === true);
 const xa = a.xp; at(a, l1.seals[0]);
@@ -111,7 +111,7 @@ check('a trap never takes your last point of health', a.health === 1 && a.isDead
 const run = { floor: 1, tier: 2 }; delveRunsByRoom.set('dungeon_delve_9', run);
 const d = mk('d', 'dungeon_delve_9'); finds.onEnter(d, { fresh: true });
 const l5 = L[5]; d.dungeonKeys = 2; at(d, l5.caches[0]); finds.use(d, l5.caches[0].id);
-check('in the Delve a cache pays by the floor\'s tier', d.gold >= 20 && d.gold <= 40 && d.items.leather_hide === 1);
+check('in the Delve a cache pays by the floor\'s tier', d.gold >= 10 && d.gold <= 20 && d.items.leather_hide === 1);
 run.floor = 2; finds.onEnter(d, { fresh: false });
 const gd = d.gold; finds.use(d, l5.caches[0].id);
 check('a new floor is all fresh, and the keys you hold come down with you', d.gold > gd && d.dungeonKeys === 2);
@@ -123,6 +123,10 @@ const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8'), main = fs.
 check('the server ticks the traps, takes the use, drops keys on kills, and tells arrivals how things stand', /dungeonFinds\.tick\(\);/.test(server) && /if \(msg\.type === 'dungeon_use'\) \{ dungeonFinds\.use\(player, msg\.id\); return; \}/.test(server) && /dungeonFinds\.onKill\(player, t\);/.test(server) && (server.match(/dungeonFinds\.onEnter\(/g) || []).length >= 3 && /dungeonFinds\.resetRoom\(room\);/.test(server));
 check('the client draws each thing, offers it on the action button, and shows what the server says of it', /npc: 'dfind', findId: t\.id, findKind: kind/.test(scene) && /ws\.send\(JSON\.stringify\(\{ type: 'dungeon_use', id: kiosk\.findId \}\)\)/.test(main) && /if \(msg\.type === 'dungeon_finds'\) \{ applyDungeonFinds\(msg\); showDungeonFindsHud\(msg\); return; \}/.test(main) && /FIND_VERBS\[kiosk\.findKind\]/.test(main) && /dungeonTrapWarn\(msg\.trap, msg\.ms\)/.test(main));
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
-check('a standing line underground shows your bone keys and how the two goals stand, and goes when you are out', /<div id="dungeonFindsHud" class="hidden"/.test(html) && /function showDungeonFindsHud\(msg\)/.test(main) && /part\('🔥', 'Braziers', g\.braziers\)/.test(main) && /String\(me\.room \|\| ''\)\.startsWith\('dungeon_'\)\)\) showDungeonFindsHud\(null\);/.test(main));
+check('a standing line underground shows your bone keys and how the two goals stand, and goes when you are out', /<div id="dungeonFindsHud" class="hidden"/.test(html) && /function showDungeonFindsHud\(msg\)/.test(main) && /part\('🔥', 'Braziers', g\.braziers\)/.test(main) && /!room\.startsWith\('dungeon_'\) && room !== 'wilds'\) showDungeonFindsHud\(null\);/.test(main));
+// balance: everything findable in half an hour is worth about what the dungeon's creatures drop in one clearing
+const mid = (t) => { const g = LOOT_TABLES['dungeon_t' + t].find((d) => d.gold); return ((g.min + g.max) / 2) * g.chance * 33; };
+const haul = (t) => { const c = finds.TIER_COIN[t], P = finds.PURSES, m = (k) => ((P[k][0] + P[k][1]) / 2) * c; return m('chest') + m('bossChest') + 2 * m('cache') + m('braziers') + m('seals'); };
+check('what can be found in half an hour is worth between one and two clearings of the dungeon\'s creatures, in every tier', [1, 2, 3, 4].every((t) => haul(t) / mid(t) > 0.9 && haul(t) / mid(t) < 2.1), [1, 2, 3, 4].map((t) => +(haul(t) / mid(t)).toFixed(2)));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
