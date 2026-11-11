@@ -765,6 +765,16 @@ function addThornwardenCamp(scene) {
   const metalMat  = new THREE.MeshLambertMaterial({ color: 0x6a6a74 });
   const fireMat   = new THREE.MeshLambertMaterial({ color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 1 });
 
+  // Each piece of the camp is its model (tools/models/build_home.py) when it
+  // has loaded, set down and added; else false, and the hand-built one is made.
+  const real = (key, size, mode, x, z, rot, dye, y) => {
+    const g = (KK && KK.has && KK.has(key) && KK.staticInstance) ? KK.staticInstance(key, size, mode) : null;
+    if (!g) return null;
+    g.position.set(x, y || 0, z); g.rotation.y = rot || 0;
+    if (dye != null) g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(dye); } });
+    scene.add(g);
+    return g;
+  };
   // Palisade perimeter: staked posts in a rough rectangle 320×240
   const pW = 320, pH = 240, postSpacing = 38;
   const perimeter = [];
@@ -772,6 +782,7 @@ function addThornwardenCamp(scene) {
   for (let z = -pH/2 + postSpacing; z < pH/2; z += postSpacing) perimeter.push([-pW/2, z], [pW/2, z]);
   for (const [px, pz] of perimeter) {
     const h = 72 + Math.sin(px * 0.3 + pz * 0.2) * 12;
+    if (real('wl_stake', h + 18, 'height', CX + px, CZ + pz, px * 1.7 + pz)) continue;
     const post = new THREE.Mesh(new THREE.CylinderGeometry(5, 7, h, 5), postMat);
     post.position.set(CX + px, h / 2, CZ + pz);
     post.rotation.y = Math.sin(px + pz) * 0.08;
@@ -791,6 +802,7 @@ function addThornwardenCamp(scene) {
 
   // Tent 1 — western half (pyramid/cone tent)
   function addTent(tx, tz, rot) {
+    if (real('wl_tent', 190, 'fit', tx, tz, -Math.PI / 2 + (tx < CX ? 0.25 : -0.25))) return;
     const base = new THREE.Mesh(new THREE.BoxGeometry(110, 4, 80), tentDkMat);
     base.position.set(tx, 2, tz);
     scene.add(base);
@@ -809,6 +821,7 @@ function addThornwardenCamp(scene) {
   // Supply crates — stacked in corner
   for (let ci = 0; ci < 5; ci++) {
     const cw = 35 + (ci % 2) * 5, ch = 30 + (ci % 3) * 5;
+    if (real('prop_crate', cw, 'fit', CX - 110 + (ci % 3) * 38, CZ + 70, (ci * 0.37) % 0.5 - 0.25, null, Math.floor(ci / 3) * cw * 0.95)) continue;
     const crate = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, 30),
       new THREE.MeshLambertMaterial({ color: 0x5a3a18 }));
     const row = Math.floor(ci / 3), col = ci % 3;
@@ -822,6 +835,7 @@ function addThornwardenCamp(scene) {
 
   // Watch tower — north-east corner
   const twX = CX + 120, twZ = CZ - 95;
+  if (!real('wl_tower', 230, 'height', twX, twZ, 0)) {
   for (const [ox, oz] of [[-22,-22],[22,-22],[-22,22],[22,22]]) {
     const pillar = new THREE.Mesh(new THREE.CylinderGeometry(6, 8, 130, 6), postMat);
     pillar.position.set(twX + ox, 65, twZ + oz);
@@ -847,8 +861,10 @@ function addThornwardenCamp(scene) {
     rung.position.set(twX, 18 + ri * 18, twZ + 23);
     scene.add(rung);
   }
+  }
 
   // Central bonfire
+  if (!real('wl_campfire', 78, 'fit', CX, CZ + 55, 0.6)) {
   const fireBase = new THREE.Mesh(new THREE.CylinderGeometry(24, 28, 8, 10),
     new THREE.MeshLambertMaterial({ color: 0x555544 }));
   fireBase.position.set(CX, 4, CZ + 55);
@@ -862,6 +878,7 @@ function addThornwardenCamp(scene) {
     log.position.set(CX + Math.sin(angle) * 12, 8, CZ + 55 + Math.cos(angle) * 12);
     scene.add(log);
   }
+  }
   const fireFlame = new THREE.Mesh(new THREE.SphereGeometry(14, 9, 9), fireMat);
   fireFlame.scale.y = 1.8; fireFlame.position.set(CX, 28, CZ + 55);
   scene.add(fireFlame);
@@ -871,6 +888,7 @@ function addThornwardenCamp(scene) {
 
   // Weapon rack — crossed swords shape
   const rackX = CX + 90, rackZ = CZ + 40;
+  if (!real('wl_rack', 92, 'fit', rackX, rackZ, -0.5)) {
   const rackPost = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 80, 6), postMat);
   rackPost.position.set(rackX, 40, rackZ);
   scene.add(rackPost);
@@ -884,8 +902,11 @@ function addThornwardenCamp(scene) {
     scene.add(sword);
   }
 
+  }
+
   // Flag pole with pennant
   const flagX = CX, flagZ = CZ - 108;
+  if (!real('wl_pennant', 150, 'height', flagX, flagZ, 0, 0x8a1010)) {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 140, 5), metalMat);
   pole.position.set(flagX, 70, flagZ);
   scene.add(pole);
@@ -893,6 +914,7 @@ function addThornwardenCamp(scene) {
     new THREE.MeshLambertMaterial({ color: 0x8a1010 }));
   pennant.position.set(flagX + 25, 135, flagZ);
   scene.add(pennant);
+  }
 
   // Camp sign
   const campSign = makeNpcNameSprite('Thornwarden Scout Camp');

@@ -39,7 +39,7 @@ check('every tree, bush, grass tuft and dead tree points at a real model that is
 check('no tree, bush or grass still uses a recoloured stock shape', !/kk\/nature\/(Tree|Bush|Grass)_|kk\/forest\//.test(main.replace(/\/\/.*$/gm, '')));
 check("the town's share, which loads with its first paint, stays under 700 KB", gate > 0 && gate < 700 * 1024, gate);
 check('grass tufts, scattered by the hundred, are a few KB each', ['grass_tussock', 'grass_rush', 'grass_seeding'].every((f) => fs.statSync(path.join(root, 'public/kk/grove', f + '.glb')).size < 8 * 1024));
-check("the Wilds' named trees stream in behind the town", /\/\^\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\)_\//.test(main));
+check("the Wilds' named trees stream in behind the town", /\/\^\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\)_\//.test(main));
 const real = ['Pinus sylvestris', 'Quercus robur', 'Betula pendula', 'Rubus fruticosus', 'Prunus spinosa', 'Sorbus aucuparia', 'Fagus sylvatica', 'Corylus avellana', 'Ilex aquifolium', 'Rosa canina'];
 check('each names the real species', real.every((w) => script.includes(w)));
 // The Wolf's Pact spots are drawn.

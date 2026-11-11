@@ -56,6 +56,8 @@ function buildTownBoard(scene) {
     page.rotation.z = (px % 5) * 0.02;
     g.add(page);
   }
+  // The board as its model once that has loaded, its panel stained the old violet.
+  altarModel(g, 'tw_board', 74, 'height', (grp) => grp.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(0x5a4a80); } }));
   g.position.set(BOARD_SPOT.x, 0, BOARD_SPOT.y);
   g.rotation.y = -0.4;
   scene.add(g);
@@ -193,6 +195,14 @@ function buildMootStone(scene) {
 // 'way_memorial' is in the server's WAYMARKER_LORE (data/memorial.js).
 // Client-only dressing, no collider; the spot was checked clear of props.
 const MEMORIAL_SPOT = { x: 1760, y: 410 };
+// A candle's flame at the foot of a stone.
+function stoneFlame(x, y, z, k) {
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: 0xffc46a, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  flame.scale.set(7 * k, 9 * k, 1);
+  flame.position.set(x, y, z);
+  return flame;
+}
+
 function buildMemorialStone(scene) {
   const g = new THREE.Group();
   const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8a8780 });
@@ -223,6 +233,8 @@ function buildMemorialStone(scene) {
     flame.position.set(dx, 15, 8);
     g.add(flame);
   }
+  // The stone as its model once that has loaded, its two candles still lit.
+  altarModel(g, 'tw_headstone', 64, 'height', (grp) => { for (const dx of [-14, 14]) grp.add(stoneFlame(dx, 15, 8, 1)); });
   // Face the square.
   g.rotation.y = Math.atan2(1600 - MEMORIAL_SPOT.x, 1100 - MEMORIAL_SPOT.y);
   g.position.set(MEMORIAL_SPOT.x, 0, MEMORIAL_SPOT.y);
@@ -259,6 +271,7 @@ function buildAfterTheLawStone(scene, stoneMat, cut) {
   flame.scale.set(6, 8, 1);
   flame.position.set(0, 13, 7);
   g.add(flame);
+  altarModel(g, 'tw_headstone', 41, 'height', (grp) => { for (const dx of [-9, 9]) grp.add(stoneFlame(dx, 9.6, 5.1, 0.7)); });
   g.rotation.y = Math.atan2(1600 - AFTER_LAW_SPOT.x, 1100 - AFTER_LAW_SPOT.y);
   g.position.set(AFTER_LAW_SPOT.x, 0, AFTER_LAW_SPOT.y);
   scene.add(g);
