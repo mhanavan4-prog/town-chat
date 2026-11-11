@@ -9,7 +9,7 @@
 // global, and the built scene/camera are handed back via setters so a build
 // that throws mid-way still leaves a usable (if bare) room.
 
-export default function createCottageScene({ makeSignSprite, COTTAGE_WORLD, setCottageScene, setCottageCamera }) {
+export default function createCottageScene({ makeSignSprite, COTTAGE_WORLD, setCottageScene, setCottageCamera, kkStatic }) {
 let builtScene = null;
 let wardGroup = null;
 let pendingWards = null;
@@ -303,6 +303,19 @@ function makeLastSheaf(form) {
   const g = new THREE.Group();
   g.name = 'lastSheaf';
   g.userData.sheafForm = form;
+  // The charm as its model (tools/models/build_home.py) once loaded: the kern
+  // baby in her red skirt and crown of ears, or the hank hung by its cord with
+  // the Maiden's red ribbon or the neck's plain straw tie.
+  const real = kkStatic ? kkStatic(form === 'kern' ? 'wd_kern' : 'wd_sheaf', form === 'kern' ? 30 : 38, 'height') : null;
+  if (real) {
+    if (form !== 'kern') {
+      real.position.y = -38;
+      const dye = form === 'maiden' ? 0xb33a3a : 0xc9a24a;
+      real.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(dye); } });
+    }
+    g.add(real);
+    return g;
+  }
   const straw = new THREE.MeshLambertMaterial({ color: 0xd9b45a });
   const ear = new THREE.MeshLambertMaterial({ color: 0xc89a3c });
   if (form === 'kern') {

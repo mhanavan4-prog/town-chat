@@ -1751,6 +1751,194 @@ def seal_stone():
     return m, '#ffffff'
 
 
+# ── The last pieces: harvest charms, the bank, the manor ───────────────────
+STRAW = ('#a8842e', '#f0d880')
+EARC = ('#9a7420', '#e0b850')
+
+
+def wheat_ear(L=0.12, colors=EARC):
+    """An ear of wheat lying along +X: a knobbled head and a few awns."""
+    parts = []
+    head = lathe([(0.0, 0.0), (0.014, 0.1), (0.008, 0.2), (0.016, 0.3), (0.009, 0.42), (0.015, 0.54), (0.008, 0.66), (0.012, 0.78), (0.0, 1.0)], sides=4, colors=colors)
+    head.v[:, 2] *= L
+    parts.append(head.xf(ry(math.pi / 2), (0, 0, 0)))
+    for sy in (-1, 1):
+        parts.append(tube([(L * 0.5, sy * 0.008, 0), (L * 1.25, sy * 0.035, 0.004)], 0.0014, sides=3, colors=colors))
+    return parts
+
+
+def kern_baby():
+    """A kern baby: the last of the corn plaited into a figure, in a skirt of red ribbon, arms out, crowned with wheat ears."""
+    m = Model('kern_baby')
+    # the skirt of straw, splayed, and the plaited body
+    for k in range(14):
+        a = TAU * k / 14
+        m.add(tube([(0.01 * math.cos(a), 0.01 * math.sin(a), 0.34), (0.09 * math.cos(a), 0.09 * math.sin(a), 0.03), (0.105 * math.cos(a), 0.105 * math.sin(a), 0.0)], 0.008, sides=3, colors=STRAW))
+    body = [(0.012 * math.cos(u * 5), 0.012 * math.sin(u * 5), 0.3 + 0.24 * u) for u in np.linspace(0, 1, 9)]
+    m.add(tube(body, 0.03, sides=6, colors=STRAW))
+    for k in range(5):
+        m.add(lathe([(0.032, 0.32 + k * 0.045), (0.036, 0.33 + k * 0.045), (0.032, 0.34 + k * 0.045)], sides=6, colors=('#8a6a20', '#d0b060'), close_top=False))
+    m.add(blob(0.05, 0.05, 0.055, seg=7, rings=5, colors=STRAW).xf(None, (0, 0, 0.6)))
+    for sx in (-1, 1):
+        m.add(tube([(0, 0, 0.5), (sx * 0.1, 0, 0.46), (sx * 0.17, 0, 0.4)], 0.014, sides=4, colors=STRAW))
+        for p in wheat_ear(0.07):
+            m.add(p.xf(rz(0 if sx > 0 else math.pi) @ ry(0.6), (sx * 0.17, 0, 0.4)))
+    # her dress: a red ribbon skirt, tied at the waist
+    RED = ('#7a1a1a', '#d04040')
+    m.add(trim(lathe([(0.04, 0.33), (0.075, 0.2), (0.105, 0.1)], sides=10, colors=RED, close_top=False)))
+    m.add(trim(lathe([(0.036, 0.33), (0.042, 0.34), (0.036, 0.35)], sides=8, colors=('#5a1010', '#a02828'), close_top=False)))
+    # the crown of ears
+    for k in range(7):
+        a = TAU * k / 7
+        for p in wheat_ear(0.1):
+            m.add(p.xf(rz(a) @ ry(-1.15), (0.03 * math.cos(a), 0.03 * math.sin(a), 0.64)))
+    return m, None
+
+
+def sheaf_hung():
+    """The neck of the harvest hung to keep: a cord, a hank of the last-cut straw bound at the throat, the ears hanging, a ribbon and its two tails."""
+    m = Model('sheaf_hung')
+    m.add(trim(tube([(0, 0, 0.0), (0, 0, -0.14)], 0.004, sides=3, colors=ROPE)))
+    r = np.random.default_rng(88)
+    TIE = -0.24
+    for k in range(15):
+        a = TAU * k / 15; rr = 0.009 + (k % 3) * 0.005
+        m.add(trim(tube([(rr * 0.6 * math.cos(a), rr * 0.6 * math.sin(a), -0.12), (rr * math.cos(a), rr * math.sin(a), TIE), (rr * 2.4 * math.cos(a), rr * 2.4 * math.sin(a), TIE - 0.1 - r.uniform(0, 0.03))], 0.0035, sides=3, colors=STRAW)))
+        tip = (rr * 2.4 * math.cos(a), rr * 2.4 * math.sin(a), TIE - 0.1)
+        for p in wheat_ear(0.075):
+            m.add(trim(p).xf(rz(a) @ ry(math.pi / 2 - 0.25), tip))
+    m.add(lathe([(0.022, TIE - 0.012), (0.027, TIE), (0.022, TIE + 0.012)], sides=9, colors=('#9a9a9a', '#ffffff'), close_top=False))   # the tie, which takes a dye
+    for sx in (-1, 1):
+        m.add(blade(0.1, 0.018, lambda s_: 1.0, segs=3, cols=2, fold=0.0, rise=-math.pi / 2 + sx * 0.25, droop=0.2, colors=('#9a9a9a', '#ffffff')).xf(rz(-math.pi / 2), (sx * 0.012, -0.024, TIE - 0.005)))
+    return m, None
+
+
+def skeleton_key():
+    """A locksmith's sign: a great brass key, a trefoil bow, a turned stem, a warded bit."""
+    m = Model('skeleton_key')
+    for a in (math.pi / 2, math.pi / 2 + TAU / 3, math.pi / 2 - TAU / 3):
+        ring = [(0.035 * math.cos(a) + 0.03 * math.cos(u), 0, 0.2 + 0.035 * math.sin(a) + 0.03 * math.sin(u)) for u in np.linspace(0, TAU, 11)]
+        m.add(glowing(tube(ring, 0.009, sides=5, colors=BRASS)))
+    m.add(glowing(tube([(0, 0, 0.16), (0, 0, -0.02)], 0.011, sides=6, colors=BRASS)))
+    for z in (0.15, 0.12):
+        m.add(glowing(lathe([(0.011, z - 0.006), (0.018, z), (0.011, z + 0.006)], sides=6, colors=BRASS, close_top=False)))
+    for (z, w) in ((0.0, 0.05), (0.022, 0.035), (0.044, 0.05)):
+        m.add(glowing(box(w, 0.012, 0.014, BRASS)).xf(None, (w / 2, 0, z - 0.02)))
+    return m, '#ffd27a'
+
+
+def vault_door():
+    """The vault's round door: riveted iron, a brass hexafoil cut in a ring about a three-spoked handwheel, bolts round the rim. It stands in the XZ plane, its face to -Y."""
+    m = Model('vault_door')
+    R = 0.7
+    disc = lathe([(0.0, 0.0), (R, 0.0), (R, 0.16), (0.0, 0.16)], sides=28, colors=('#3a3e48', '#9aa0aa'))
+    m.add(trim(disc).xf(rx(math.pi / 2), (0, 0.08, R)))
+    def ring(r0, r1, colors, y, sides=28, glow=False):
+        p = lathe([(r0, 0.0), (r1, 0.0), (r1, 0.03), (r0, 0.03)], sides=sides, colors=colors, close_top=False)
+        p = glowing(p) if glow else trim(p)
+        return p.xf(rx(math.pi / 2), (0, y, R))
+    m.add(ring(R - 0.09, R, ('#22252c', '#5a606a'), -0.08))
+    m.add(ring(0.5, 0.53, BRASS, -0.085))
+    for k in range(12):
+        a = TAU * k / 12
+        m.add(trim(blob(0.04, 0.03, 0.04, seg=6, rings=4, colors=BRASS)).xf(None, ((R - 0.045) * math.cos(a), -0.115, R + (R - 0.045) * math.sin(a))))
+    # the hexafoil (a daisy wheel: the mark cut by doors and hearths to keep harm out), in brass
+    for k in range(6):
+        a = TAU * k / 6
+        cx, cz = 0.245 * math.cos(a), 0.245 * math.sin(a)
+        arc = [(cx + 0.245 * math.cos(a + math.pi + u), -0.09, R + cz + 0.245 * math.sin(a + math.pi + u)) for u in np.linspace(-math.pi / 3, math.pi / 3, 7)]
+        m.add(trim(tube(arc, 0.012, sides=4, colors=BRASS)))
+    m.add(ring(0.235, 0.255, BRASS, -0.086, sides=24))
+    # the handwheel
+    m.add(trim(lathe([(0.0, 0.0), (0.1, 0.0), (0.1, 0.12), (0.06, 0.16), (0.0, 0.16)], sides=12, colors=BRASS)).xf(rx(math.pi / 2), (0, -0.08, R)))
+    wheel = [(0.34 * math.cos(u), -0.2, R + 0.34 * math.sin(u)) for u in np.linspace(0, TAU, 25)]
+    m.add(trim(tube(wheel, 0.028, sides=6, colors=BRASS)))
+    for k in range(3):
+        a = TAU * k / 6
+        m.add(trim(tube([(-0.34 * math.cos(a), -0.2, R - 0.34 * math.sin(a)), (0.34 * math.cos(a), -0.2, R + 0.34 * math.sin(a))], 0.022, sides=5, colors=BRASS)))
+    # hinge knuckles on the left edge
+    for z in (R - 0.35, R + 0.35):
+        m.add(trim(lathe([(0.06, -0.09), (0.06, 0.09)], sides=8, colors=('#22252c', '#5a606a'), close_top=True, close_bottom=True)).xf(None, (R + 0.02, 0.08, z)))
+    return m, None
+
+
+def coin_hoard():
+    """A hoard: drifts of coin, stacked bars, a chalice on its side, loose stones catching the light."""
+    m = Model('coin_hoard')
+    GOLD = ('#a06a08', '#ffe070')
+    r = np.random.default_rng(99)
+    for (x, y, rr, h) in ((0, 0, 0.3, 0.2), (0.32, 0.08, 0.2, 0.12), (-0.3, -0.06, 0.22, 0.14), (0.1, -0.26, 0.18, 0.09)):
+        heap = lathe([(rr, 0.0), (rr * 0.8, h * 0.45), (rr * 0.45, h * 0.85), (0.0, h)], sides=11, colors=GOLD, close_bottom=True)
+        for i in range(len(heap.v)):
+            heap.v[i][0] *= 1 + r.uniform(-0.1, 0.1); heap.v[i][1] *= 1 + r.uniform(-0.1, 0.1)
+        m.add(glowing(Part(heap.v, heap.f, heap.t, GOLD, smooth=False)).xf(None, (x, y, 0)))
+    for k in range(34):   # coins lying on the heaps
+        a = r.uniform(0, TAU); d = r.uniform(0, 0.42)
+        z = max(0.004, 0.2 * (1 - d / 0.34)) if d < 0.34 else 0.004
+        c = lathe([(0.0, 0.0), (0.03, 0.0), (0.03, 0.007), (0.0, 0.007)], sides=8, colors=('#c08a10', '#fff0a0'))
+        m.add(glowing(c).xf(rx(r.uniform(-0.5, 0.5)) @ ry(r.uniform(-0.5, 0.5)), (d * math.cos(a), d * math.sin(a) * 0.8, z)))
+    for k, (x, y, z, a) in enumerate(((-0.42, 0.22, 0.0, 0.2), (-0.36, 0.26, 0.0, 0.25), (-0.4, 0.24, 0.05, 0.9))):
+        m.add(glowing(box(0.16, 0.07, 0.045, GOLD)).xf(rz(a), (x, y, z)))
+    ch = lathe([(0.0, 0), (0.05, 0.0), (0.055, 0.01), (0.015, 0.03), (0.012, 0.08), (0.05, 0.12), (0.06, 0.2), (0.055, 0.2), (0.045, 0.13), (0.0, 0.11)], sides=9, colors=SILVER, close_top=False)
+    m.add(trim(ch).xf(ry(1.3), (0.34, -0.22, 0.06)))
+    for k, col in enumerate((('#8a1020', '#ff5a70'), ('#10408a', '#6aa8ff'), ('#0a6a3a', '#5ae89a'), ('#5a1a8a', '#c080ff'), ('#8a1020', '#ff5a70'))):
+        a = r.uniform(0, TAU); d = r.uniform(0.1, 0.36)
+        gm = lathe([(0.0, -0.02), (0.022, 0.0), (0.0, 0.028)], sides=5, colors=col)
+        m.add(trim(gm).xf(rx(r.uniform(-0.6, 0.6)), (d * math.cos(a), d * math.sin(a) * 0.8, 0.03 + 0.14 * max(0, 1 - d / 0.3))))
+    return m, '#ffd860'
+
+
+def scry_table():
+    """A talking-board table: a round top of dark wood on a turned pedestal and three feet, the ring of letters and the yes and no inlaid pale, a planchette resting on it."""
+    m = Model('scry_table')
+    DARKW = ('#1a1226', '#4a3a66')
+    m.add(trim(lathe([(0.0, 0.42), (0.64, 0.42), (0.66, 0.45), (0.66, 0.48), (0.64, 0.5), (0.0, 0.5)], sides=28, colors=DARKW)))
+    m.add(trim(lathe([(0.2, 0.0), (0.22, 0.03), (0.1, 0.07), (0.08, 0.2), (0.12, 0.26), (0.08, 0.32), (0.14, 0.42)], sides=10, colors=('#120c1c', '#3a2c54'), close_top=False)))
+    for k in range(3):
+        a = TAU * k / 3 + 0.3
+        m.add(trim(tube([(0.1 * math.cos(a), 0.1 * math.sin(a), 0.1), (0.3 * math.cos(a), 0.3 * math.sin(a), 0.05), (0.42 * math.cos(a), 0.42 * math.sin(a), 0.0)], lambda u: 0.04 - 0.012 * u, sides=5, colors=('#120c1c', '#3a2c54'))))
+    PALE2 = ('#8ad8c8', '#e8fff8')
+    m.add(glowing(lathe([(0.52, 0.502), (0.55, 0.502)], sides=28, colors=PALE2, close_top=False)))
+    m.add(glowing(lathe([(0.36, 0.502), (0.375, 0.502)], sides=28, colors=PALE2, close_top=False)))
+    for k in range(26):   # the letters, as marks round the ring
+        a = math.pi * (0.1 + 0.8 * k / 25) + (math.pi if k % 2 else 0) * 0
+        a = TAU * k / 26
+        m.add(glowing(box(0.012, 0.05, 0.003, PALE2)).xf(rz(a + math.pi / 2), (0.455 * math.cos(a), 0.455 * math.sin(a), 0.5)))
+    for sx in (-1, 1):
+        m.add(glowing(lathe([(0.03, 0.502), (0.045, 0.502)], sides=10, colors=PALE2, close_top=False)).xf(None, (sx * 0.2, 0.12, 0)))
+    pl = lathe([(0.0, 0.0), (0.09, 0.0), (0.08, 0.02), (0.0, 0.025)], sides=3, colors=('#c8bca0', '#f0e8d4'))
+    pl.v[:, 0] *= 1.25
+    m.add(trim(pl).xf(rz(0.4), (0.1, -0.08, 0.5)))
+    return m, '#7fe8d0'
+
+
+def stone_altar():
+    """A witch's altar of dressed stone: a stepped foot, a waist-high block, an overhanging table slab with a cloth runner (which takes a dye), a pentacle cut in the front and alight, and two iron candle-posts at the back."""
+    m = Model('stone_altar')
+    ST = ('#221c2a', '#6a6078')
+    W, L = 0.8, 1.2      # across (X) and along (Y); the front is -Y
+    m.add(trim(box(L + 0.06, W + 0.06, 0.1, ST, jitter=0.01, seed=1)).xf(None, (0, 0, 0)))
+    m.add(trim(box(L - 0.1, W - 0.1, 0.4, ('#18141e', '#4a4258'), jitter=0.012, seed=2)).xf(None, (0, 0, 0.1)))
+    m.add(trim(box(L, W, 0.1, ST, jitter=0.008, seed=3)).xf(None, (0, 0, 0.48)))
+    m.add(box(L + 0.08, W * 0.5, 0.016, ('#9a9a9a', '#ffffff')).xf(None, (0, 0, 0.58)))       # the runner
+    for sx in (-1, 1):
+        for k in range(9):
+            y = -W * 0.25 + (k + 0.5) * W * 0.5 / 9
+            m.add(tube([(sx * (L / 2 + 0.04), y, 0.585), (sx * (L / 2 + 0.05), y, 0.5)], 0.004, sides=3, colors=('#9a9a9a', '#ffffff')))
+    G = ('#6a3ad0', '#c8a8ff')
+    Y = -(W - 0.1) / 2 - 0.004
+    m.add(glowing(lathe([(0.12, 0.0), (0.135, 0.0)], sides=20, colors=G, close_top=False)).xf(rx(math.pi / 2), (0, Y, 0.3)))
+    pts = [(0.12 * math.sin(TAU * k * 2 / 5), Y - 0.002, 0.3 + 0.12 * math.cos(TAU * k * 2 / 5)) for k in range(6)]
+    for k in range(5):
+        m.add(glowing(tube([pts[k], pts[k + 1]], 0.006, sides=3, colors=G)))
+    for sx in (-1, 1):
+        x, y = sx * (L / 2 - 0.08), W / 2 - 0.08
+        m.add(trim(tube([(x, y, 0.58), (x, y, 0.95)], 0.03, sides=6, colors=IRON)))
+        m.add(trim(lathe([(0.03, 0.93), (0.07, 0.96), (0.075, 0.98), (0.06, 0.98)], sides=8, colors=IRON)).xf(None, (x, y, 0)))
+        m.add(trim(lathe([(0.035, 0.98), (0.035, 1.12), (0.0, 1.13)], sides=8, colors=WAXEN)).xf(None, (x, y, 0)))
+    return m, '#8e6bff'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1767,7 +1955,8 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'camp_tent': camp_tent, 'palisade_stake': palisade_stake, 'watchtower': watchtower, 'weapon_rack': weapon_rack, 'pennant_pole': pennant_pole,
         'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre,
         'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
-        'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone}
+        'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
+        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

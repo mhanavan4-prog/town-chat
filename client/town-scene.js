@@ -377,6 +377,7 @@ function buildLocksmith(scene) {
   // whole key reads, not just the bow poking out of his skull (prior y64 sat
   // the key AT head level, burying the shaft/tooth behind his head).
   const KEY_FLOAT_Y = 86;
+  altarModel(keyGrp, 'tw_key', 26, 'height', (grp) => { grp.children[0].position.y = -11; }); // his sign as a real key: trefoil bow, turned stem, warded bit
   keyGrp.position.set(0, KEY_FLOAT_Y, 10); g.add(keyGrp);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: LEGEND_FX.glowTexture(), color: 0xffd27a, transparent: true, opacity: 0.5,

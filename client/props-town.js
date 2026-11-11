@@ -249,6 +249,13 @@ function makeFallenLog(d) {
 }
 
 function makeNoticeboard(d) {
+  // The modelled pentice board (the Town Board's, smaller, its panel left the colour of old oak) once it has loaded.
+  const real = (KK && KK.has && KK.has('tw_board') && KK.staticInstance) ? KK.staticInstance('tw_board', 48, 'height') : null;
+  if (real) {
+    real.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(0x8a6a44); } });
+    real.position.set(d.x, 0, d.y); real.rotation.y = d.rot || 0;
+    return real;
+  }
   const g = new THREE.Group();
   const dark = new THREE.MeshLambertMaterial({ color: PROP_WOOD_DARK });
   for (const px of [-14, 14]) {

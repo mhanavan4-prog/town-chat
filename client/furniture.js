@@ -1947,6 +1947,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       spoke.rotation.z = (i / 3) * Math.PI; // 3 bars → 6 spokes
       vaultHinge.add(spoke);
     }
+    // The door as its model once loaded: riveted iron, a brass hexafoil (the
+    // daisy wheel cut by doors to keep harm out) round the handwheel.
+    const ironDoor = hallModel('furn_vaultdoor', 142, 'height', 70, 24, 0, Math.PI);
+    if (ironDoor) { for (const c of [...vaultHinge.children]) vaultHinge.remove(c); vaultHinge.add(ironDoor); }
     scene.add(vaultHinge);
 
     // Recessed treasure chamber — dark panels framing the opening, filled
@@ -1974,6 +1978,9 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // swallowed. Clamp to the inner face instead; anything already clear of it
     // keeps the position it was composed at.
     const hoardZ = (z, proud = 12) => Math.min(z, WALL.southZ(roomD, proud));
+    const hoard = hallModel('furn_hoard', 132, 'fit', cx, 0, hoardZ(roomD - 26), 0);
+    if (hoard) scene.add(hoard);
+    else {
     // Coin piles: a few short wide cylinders stacked slightly askew
     for (const [px, pz] of [[cx - 45, hoardZ(roomD - 20)], [cx - 10, hoardZ(roomD - 15)], [cx + 35, hoardZ(roomD - 22)]]) {
       for (let i = 0; i < 3; i++) {
@@ -2001,8 +2008,11 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       gem.position.set(cx + (Math.random() - 0.5) * 110, 8 + Math.random() * 20, hoardZ(roomD - 15) - Math.random() * 30);
       scene.add(gem);
     }
+    }
     // Two open treasure chests flanking the coin piles
     for (const [px, rotY] of [[cx - 60, 0.3], [cx + 60, -0.3]]) {
+      const thrown = hallModel('dg_chest_open', 36, 'fit', px, 0, roomD - 30, Math.PI + rotY);
+      if (thrown) { scene.add(thrown); continue; }
       const chest = new THREE.Group();
       const body = new THREE.Mesh(new THREE.BoxGeometry(28, 16, 20), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
       body.position.y = 8;
