@@ -82,6 +82,8 @@ import createTownTorchNpcs from './town-torch-npcs.js';
 import createDayNight from './day-night.js';
 import createEquipVisuals from './equip-visuals.js';
 import createMoonstones from './moonstones.js';
+// Batch the small decor (client/decor-batch.js); ?batch=0 draws it one by one, to compare.
+const DECOR_BATCHING = !(typeof location !== 'undefined' && /[?&]batch=0\b/.test(location.search));
 
 
 const canvas = document.getElementById('game');
@@ -10894,7 +10896,14 @@ function addSpookyDecor(scene, w2) {
   // wrapping scene.add — the makers position their group at (x, 0, z), so its
   // own x/z sample the heightfield.
   const rawScene = scene;
-  scene = { add: (o) => { if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z); rawScene.add(o); } };
+  // …and gather what can be batched (client/decor-batch.js): the gravestones,
+  // bone piles, tombs and dead trees are copies of a few shapes, drawn as one
+  // InstancedMesh per shape and map chunk instead of one at a time.
+  const spookyBatch = [];
+  scene = { add: (o) => {
+    if (o && o.position) o.position.y += wildsHeightAt(o.position.x, o.position.z);
+    if (DECOR_BATCHING && o && decorBatchable(o)) spookyBatch.push({ v: {}, group: o }); else rawScene.add(o);
+  } };
   let seed = 0x517cc1b7 >>> 0;
   const rand = () => {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -10966,6 +10975,7 @@ function addSpookyDecor(scene, w2) {
   for (const f of WILDS_CAMPFIRES) wildsCollide(f.x, f.y, 14);         // fire pit itself (heal radius is much larger)
   for (const m of WILDS_WAYMARKERS) wildsCollide(m.x, m.y, 9);          // standing lore stones
   wildsCollide(6500, 6200, 34);                                          // the giant werewolf tree's trunk
+  if (spookyBatch.length) batchDecorGroups(rawScene, spookyBatch);
 }
 
 // ── Wilds campfires ─────────────────────────────────────────────────────────
@@ -14389,8 +14399,6 @@ function addNatureDecor(scene, w, pool, wallsOut) {
     for (const { v, id } of toBatch) if (decorAvailability[id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
   }
 }
-// Batch the small decor (client/decor-batch.js); ?batch=0 draws it one by one, to compare.
-const DECOR_BATCHING = !(typeof location !== 'undefined' && /[?&]batch=0\b/.test(location.search));
 
 // ── Creatures & animals — extracted to client/creatures.js (Phase C). Town
 // rabbits + Wilds critters + both server-driven visual pools. The pools stay
@@ -15441,7 +15449,10 @@ function camFadeablesFor(scene) {
     list = [];
     scene.traverse(o => {
       if (o.userData && o.userData.camFade) {
-        o.traverse(m => { if (m.isMesh) { m.userData.camFadeRoot = o; list.push(m); } });
+        // A batched tree is tested by its whole copy (kept aside, not drawn
+        // until it's ghosted), not its stand-in's rough click box.
+        const sw = o.userData.decorFadeSwap;
+        (sw ? sw.group : o).traverse(m => { if (m.isMesh) { m.userData.camFadeRoot = o; list.push(m); } });
       }
     });
     camFadeLists.set(scene, list);
@@ -15469,6 +15480,18 @@ function segBlockerT(ax, ay, az, bx, by, bz, k) {
 }
 
 function setRootFade(root, amount) {
+  // A batched tree (client/decor-batch.js): its whole copy is swapped in to be
+  // ghosted, and swapped out again once it has faded back.
+  const swap = root.userData && root.userData.decorFadeSwap;
+  if (swap) {
+    if (amount > 0.001) swap.show(true);
+    setMeshesFade(swap.group, amount);
+    if (amount <= 0.001) swap.show(false);
+    return;
+  }
+  setMeshesFade(root, amount);
+}
+function setMeshesFade(root, amount) {
   root.traverse(m => {
     if (!m.isMesh) return;
     if (amount <= 0.001) {
