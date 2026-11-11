@@ -307,7 +307,10 @@ export const PLANT_VISUALS = {
   meditation_lotus:       { shape: 'bloom',    color: 0xf783ac },
   healing_herb:           { shape: 'sprout',   color: 0x4caf50 },
   regen_root:             { shape: 'sprout',   color: 0xffd43b },
-  cleansing_clover:       { shape: 'sprout',   color: 0x6fcf60 }
+  cleansing_clover:       { shape: 'sprout',   color: 0x6fcf60 },
+  // Wolf's-claw clubmoss: where the Wolf's Pact Brew is gathered. Its nine spots
+  // in the Wilds were harvestable but had no look at all, so nothing was drawn.
+  wolf_pact_brew:         { shape: 'sprout',   color: 0x9ad060 }
 };
 
 // ── Tier-3 plants: chunky, KayKit-flavored rebuilds of all three shapes.
