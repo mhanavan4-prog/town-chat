@@ -13,7 +13,21 @@ const FAMILIAR_SCALE = 1.4; // the chibi models are ~10 units tall beside a ~70-
 const FAMILIAR_SIDE = 34;   // how far to the owner's side it walks (clear of the body)
 const FAMILIAR_BACK = -12;  // and how far behind (negative: ahead, where the chase camera can see it past you)
 
-export default function createFamiliars({ getPlayers, getVisuals, getSkinHex }) {
+import { critterRigFind, critterRigPose } from './critter-rig.js';
+
+// The real animals (tools/models/build_critters.py): [model, rig kind, size,
+// 'height'|'fit', natural coat]. The five made as familiars have pale coats the
+// game tints (to the natural colour here, or to the coat a witch has bonded);
+// their eyes, noses and masks keep their own colour. The raven, the bat and the
+// black rabbit are the Wilds' crow, bat and rabbit.
+const FAMILIAR_MODELS = {
+  cat: ['cat', 'cat', 15, 'height', 0x2e2a36], raven: ['gravewing_crow', 'gravewing_crow', 16, 'height', null],
+  toad: ['toad', 'toad', 9, 'height', 0x7a8a44], hare: ['hare', 'rabbit', 20, 'height', 0xb89468],
+  bat: ['bat', 'bat', 24, 'fit', null], dog: ['hound', 'hound', 19, 'height', 0x9a6638],
+  rabbit: ['rabbit', 'rabbit', 15, 'height', 0x3a3640], polecat: ['polecat', 'polecat', 26, 'fit', 0x4a3828],
+};
+
+export default function createFamiliars({ getPlayers, getVisuals, getSkinHex, kkModel, hasKK }) {
   let pool = {}; // playerId -> { group, type, skin, x, y, z, phase }
 
   function glow(color, r) { return new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color })); }
@@ -120,6 +134,17 @@ export default function createFamiliars({ getPlayers, getVisuals, getSkinHex }) 
   }
   const BUILDERS = { cat: makeCat, raven: makeRaven, toad: makeToad, hare: makeHare, bat: makeBat, dog: makeDog, rabbit: makeRabbit, polecat: makePolecat };
 
+  // The real animal for a familiar, tinted to its coat; null until its model has landed.
+  function makeReal(type, coat) {
+    const spec = FAMILIAR_MODELS[type];
+    const g = spec && kkModel ? kkModel('cr_' + spec[0], spec[2], spec[3]) : null;
+    if (!g) return null;
+    const tint = coat != null ? coat : spec[4];
+    if (tint != null) g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(tint); } });
+    g.userData.rig = critterRigFind(g, spec[1]);
+    return g;
+  }
+
   function removeRec(id) {
     const r = pool[id];
     if (r && r.group && r.group.parent) r.group.parent.remove(r.group);
@@ -147,13 +172,17 @@ export default function createFamiliars({ getPlayers, getVisuals, getSkinHex }) 
       let r = pool[id];
       // Rebuild when the familiar OR its coat changes.
       if (r && (r.type !== p.familiar || r.skin !== skin)) { removeRec(id); r = null; }
+      // A hand-built stand-in whose model has since landed is rebuilt as the real animal.
+      if (r && r.standIn && hasKK && FAMILIAR_MODELS[r.type] && hasKK('cr_' + FAMILIAR_MODELS[r.type][0])) { removeRec(id); r = null; }
       if (!r) {
         const coat = (typeof getSkinHex === 'function') ? getSkinHex(skin) : null;
-        const group = BUILDERS[p.familiar](coat);
-        // A touch larger than life so it reads on a phone screen beside its owner.
-        group.scale.setScalar(FAMILIAR_SCALE);
+        const real = makeReal(p.familiar, coat);
+        const group = real || BUILDERS[p.familiar](coat);
+        // A touch larger than life so it reads on a phone screen beside its owner
+        // (the real ones are already sized so).
+        if (!real) group.scale.setScalar(FAMILIAR_SCALE);
         v.group.parent.add(group);
-        r = pool[id] = { group, type: p.familiar, skin, x: gp.x, y: gp.y, z: gp.z, phase: Math.random() * 6 };
+        r = pool[id] = { group, type: p.familiar, skin, standIn: !real, rig: real ? real.userData.rig : null, x: gp.x, y: gp.y, z: gp.z, phase: Math.random() * 6 };
       } else if (r.group.parent !== v.group.parent) {
         // The owner changed scenes — re-parent into their current one.
         if (r.group.parent) r.group.parent.remove(r.group);
@@ -166,13 +195,20 @@ export default function createFamiliars({ getPlayers, getVisuals, getSkinHex }) 
       const ry = v.group.rotation ? v.group.rotation.y : 0;
       const tx = gp.x + Math.cos(ry) * FAMILIAR_SIDE - Math.sin(ry) * FAMILIAR_BACK;
       const tz = gp.z - Math.sin(ry) * FAMILIAR_SIDE - Math.cos(ry) * FAMILIAR_BACK;
+      const wasX = r.x, wasZ = r.z;
       r.x += (tx - r.x) * f;
       r.z += (tz - r.z) * f;
       r.y += (gp.y - r.y) * f;
       r.phase += dt * 6;
       const flyer = p.familiar === 'raven' || p.familiar === 'bat';
       const hop = (p.familiar === 'hare' || p.familiar === 'rabbit') ? Math.abs(Math.sin(r.phase)) * (p.familiar === 'rabbit' ? 2 : 3) : flyer ? 6 + Math.sin(r.phase) * 1.5 : Math.abs(Math.sin(r.phase)) * 1.2;
-      r.group.position.set(r.x, r.y + hop, r.z);
+      const speed = dt > 0 ? Math.hypot(r.x - wasX, r.z - wasZ) / dt : 0;
+      if (r.rig) {
+        // The real one goes on its own legs or wings: only the flyers and the hoppers leave the ground.
+        const lift = flyer ? hop : (p.familiar === 'hare' || p.familiar === 'rabbit') ? hop * (speed > 4 ? 0.6 : 0) : 0;
+        r.group.position.set(r.x, r.y + lift, r.z);
+        critterRigPose(r.rig, r.phase, flyer ? 2 : speed > 4 ? (speed > 90 ? 2 : 1) : 0, performance.now() / 1000);
+      } else r.group.position.set(r.x, r.y + hop, r.z);
       // Face the way it's heading.
       const dx = gp.x - r.x, dz = gp.z - r.z;
       if (Math.hypot(dx, dz) > 0.5) r.group.rotation.y = Math.atan2(dx, dz);

@@ -55,8 +55,9 @@ def look_rot(direction, up=(0, 0, 1)):
 class Part:
     """A piece of mesh: verts (N,3), faces (list of tuples), t (N,) in 0..1 for the gradient."""
 
-    def __init__(self, v, f, t, colors, glow=False, smooth=True, node=None):
+    def __init__(self, v, f, t, colors, glow=False, smooth=True, node=None, trim=False):
         self.node = node
+        self.trim = trim  # kept its own colour when the game tints the body (eyes, beak, a mask)
         self.v = np.asarray(v, float)
         self.f = [tuple(int(i) for i in face) for face in f]
         self.t = np.clip(np.asarray(t, float), 0, 1)
@@ -72,7 +73,7 @@ class Part:
         return self
 
     def copy(self):
-        return Part(self.v.copy(), list(self.f), self.t.copy(), self.colors, self.glow, self.smooth, self.node)
+        return Part(self.v.copy(), list(self.f), self.t.copy(), self.colors, self.glow, self.smooth, self.node, self.trim)
 
     def vcolor(self):
         c = self.colors
@@ -307,7 +308,7 @@ class Model:
         def material(glow):
             if glow in mats:
                 return mats[glow]
-            mat = bpy.data.materials.new('Glow' if glow else 'Plant')
+            mat = bpy.data.materials.new('Glow' if glow is True else 'Trim' if glow == 'trim' else 'Plant')
             mat.use_nodes = True
             mat.use_backface_culling = False
             nt = mat.node_tree
@@ -316,7 +317,7 @@ class Model:
             nt.links.new(attr.outputs['Color'], bsdf.inputs['Base Color'])
             bsdf.inputs['Roughness'].default_value = 0.8
             bsdf.inputs['Metallic'].default_value = 0.0
-            if glow:
+            if glow is True:
                 gc = srgb_to_lin(hexrgb(glow_color)) * glow_strength
                 bsdf.inputs['Emission Color'].default_value = (gc[0], gc[1], gc[2], 1.0)
                 bsdf.inputs['Emission Strength'].default_value = 1.0
@@ -331,8 +332,8 @@ class Model:
         objs = [root] if root else []
         for nn in node_names:
             pivot = self.pivots.get(nn, np.zeros(3))
-            for glow in (False, True):
-                ps = [p for p in self.parts if p.glow == glow and p.node == nn]
+            for glow in (False, True, 'trim'):
+                ps = [p for p in self.parts if (('trim' if (p.trim and not p.glow) else bool(p.glow)) == glow) and p.node == nn]
                 if not ps:
                     continue
                 V, F, C, S = [], [], [], []
@@ -343,7 +344,7 @@ class Model:
                     S.extend([p.smooth] * len(p.f))
                     off += len(p.v)
                 V = np.concatenate(V); C = np.concatenate(C)
-                oname = (nn or (self.name if not root else 'body')) + ('_glow' if glow else '')
+                oname = (nn or (self.name if not root else 'body')) + ('_glow' if glow is True else '_trim' if glow else '')
                 me = bpy.data.meshes.new(oname)
                 me.from_pydata(V.tolist(), [], F)
                 me.update()

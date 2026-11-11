@@ -31,7 +31,7 @@ function critterRigNowAndThen(t, period, dur) {
   return x < dur ? Math.sin(Math.PI * x / dur) : 0;
 }
 // Standing about, by kind: who grazes or pecks, who sits up, who lifts its head to listen.
-const CRITTER_RIG_GRAZERS = { duskfawn: [7, 2.4, 0.55], bramble_boar: [6, 2.6, 0.4], thistlehog: [5, 1.8, 0.3], rat: [4, 1.2, 0.3], mirefowl: [5, 1.6, 0.7], gravewing_crow: [6, 1.4, 0.7] };
+const CRITTER_RIG_GRAZERS = { cat: [8, 2.2, 0.35], hound: [6, 2.0, 0.45], polecat: [4, 1.4, 0.3], duskfawn: [7, 2.4, 0.55], bramble_boar: [6, 2.6, 0.4], thistlehog: [5, 1.8, 0.3], rat: [4, 1.2, 0.3], mirefowl: [5, 1.6, 0.7], gravewing_crow: [6, 1.4, 0.7] };
 
 // phase: a running gait clock (radians); speed: 0 standing … 1 walking … 2 running.
 // fx (optional): { hit: 1 fading to 0 after a blow lands, dead: 0 rising to 1 as it falls }.

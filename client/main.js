@@ -425,6 +425,8 @@ const KK = (() => {
     // no body for: a horseshoe bat, the brown rat, a rat king, a cave spider, a
     // dor beetle, a great centipede, the leopard slug, the adder.
     cr_bat: 'kk/critters/bat.glb', cr_rat: 'kk/critters/rat.glb', cr_rat_king: 'kk/critters/rat_king.glb', cr_spider: 'kk/critters/spider.glb',
+    // The familiars made for the purpose (the raven, bat and black rabbit are the crow, bat and rabbit above).
+    cr_cat: 'kk/critters/cat.glb', cr_toad: 'kk/critters/toad.glb', cr_hare: 'kk/critters/hare.glb', cr_hound: 'kk/critters/hound.glb', cr_polecat: 'kk/critters/polecat.glb',
     cr_black_dog: 'kk/critters/black_dog.glb', // the town's night creature: the black dog of the lanes
     cr_dragon: 'kk/critters/dragon.glb', // the Chaos Dragon: a worm of the old kind, coiled, horned and winged
     cr_beetle: 'kk/critters/beetle.glb', cr_centipede: 'kk/critters/centipede.glb', cr_slug: 'kk/critters/slug.glb', cr_adder: 'kk/critters/adder.glb',
@@ -15536,6 +15538,7 @@ const {
 const { updateFamiliars } = createFamiliars({
   getPlayers: () => players, getVisuals: () => visuals, getMe: () => me,
   getSkinHex: (id) => familiarSkinHex(id),
+  kkModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null), hasKK: (key) => KK.has(key),
 });
 const { updateAuras } = createAuras({
   getPlayers: () => players, getVisuals: () => visuals, getAuraHex: (id) => auraHexClient(id),
