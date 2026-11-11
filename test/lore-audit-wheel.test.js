@@ -45,5 +45,28 @@ check('the reference book is a Commonplace Book, not a "Book of Shadows" (Gardne
   check('…and its examples are real callers (the churn, the lost ring, the wakeful child)', ['butter_wont_come', 'stolen_ring', 'sleepless_child'].every((id) => CALLERS.some((c) => c.id === id)) && /butter that won't come, a ring gone missing, a child who won't settle/.test(LANDING));
 }
 
+// The old ways on the landing page: each card names only what the game has.
+{
+  const card = (title) => { const m = LANDING.match(new RegExp('<h3>' + title.replace(/[?]/g, '\\?') + '</h3><p>([^<]*)</p>')); return m ? m[1] : ''; };
+  const places = card('Old Places in the Wilds');
+  const { TROY_TOWN } = require('../data/troyTown.js');
+  const { CLOOTIE_WELL, CLOOTIE_ROUNDS } = require('../data/clootie.js');
+  const { MEN_AN_TOL, MEN_TIMES } = require('../data/menAnTol.js');
+  const { COUNTLESS } = require('../data/countlessStones.js');
+  check('the four old places on the page are all in the Wilds: the maze, the well, the holed stone, the ring', !!(places && TROY_TOWN && CLOOTIE_WELL && MEN_AN_TOL && COUNTLESS));
+  check('…three times round the well and nine times through the stone, as the game counts them', /three times sunways/.test(places) && CLOOTIE_ROUNDS === 3 && /nine times against the sun/.test(places) && MEN_TIMES === 9);
+  const wards = card('Wards of the House');
+  const { WARDS, BOTTLE_PLACES } = require('../data/wards.js');
+  check('the wards card names three the game has: the bottle (as Blagrave advised, 1671, under the hearth), the daisy wheel, the shoe', /Blagrave advised in 1671/.test(wards) && /Blagrave/.test(WARDS.bottle.source) && /1671/.test(WARDS.bottle.source) && !!BOTTLE_PLACES.hearth && !!WARDS.hexafoil && !!WARDS.shoe && /by the chimney/.test(WARDS.shoe.where));
+  const myth = card('Myth or Record?');
+  const { MYTH_SETS } = require('../data/mythOrRecord.js');
+  const n = MYTH_SETS.reduce((a, set) => a + set.items.length, 0);
+  const m = myth.match(/the (\d+) things/);
+  check('the Myth or Record card counts the questions truly', m && Number(m[1]) === n, { page: m && m[1], game: n });
+  const ids = MYTH_SETS.flatMap((set) => set.items);
+  check('…and its two examples are in it, both answered myth', ['nine_million', 'burned_in_england'].every((id) => { const q = ids.find((x) => x.id === id); return q && q.answer === 'myth'; }));
+  check('the Guising card names the Moot, as the guise list has it', /the Moot, a lit turnip/.test(card('Guising')) && /turnip:\s*\{ name: 'The Moot'/.test(GUISES));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
