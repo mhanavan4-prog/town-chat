@@ -6,7 +6,9 @@
 // MOB2_VISUALS recolour table, and the health-bar sprite are injected; the mob
 // visual pools that call makeMob2/makeMob3 stay in main.
 // ---------------------------------------------------------------------------
-export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK, kkStatic }) {
+import { critterRigFind } from './critter-rig.js';
+
+export default function createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK, kkStatic, kkModel }) {
 // Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
 // reads as a rot-green wight) + a dim flavour emissive.
 function tintKKMob(group, tint) {
@@ -234,11 +236,22 @@ function makeEyePair(x, y, z, color, r) {
   for (const side of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), new THREE.MeshBasicMaterial({ color })); e.position.set(x, y, z + side * 1.6); grp.add(e); }
   return grp;
 }
+// The real animals for the neutral three (tools/models/build_critters.py): a
+// wild boar, a tortoise grown over with moss, a carrion crow. Jointed, so they
+// walk (mobs-wilds poses them); the hand-built ones stand in until they land
+// (and face +X, sideways to their walk, which the real ones put right).
+const MOB3_MODELS = { bramble_boar: [22, 'height', 26], mossback_tortoise: [30, 'fit', 22], gravewing_crow: [24, 'height', 28] };
 function makeMob3(mobType) {
-  const g = mobType === 'bramble_boar' ? makeBrambleBoar()
-    : mobType === 'mossback_tortoise' ? makeMossback()
-    : mobType === 'gravewing_crow' ? makeGravecrow()
-    : makeBrambleBoar();
+  const type = MOB3_MODELS[mobType] ? mobType : 'bramble_boar';
+  const spec = MOB3_MODELS[type];
+  let g = kkModel ? kkModel('cr_' + type, spec[0], spec[1]) : null;
+  if (g) {
+    g.userData.rig = critterRigFind(g, type);
+    g.add(makeHealthBarSprite(spec[2]));
+  } else {
+    g = type === 'mossback_tortoise' ? makeMossback() : type === 'gravewing_crow' ? makeGravecrow() : makeBrambleBoar();
+    g.userData.standInFor = type;
+  }
   const vis = MOB3_VISUALS[mobType];
   if (vis && vis.scale) g.scale.setScalar(vis.scale);
   return g;
