@@ -3483,6 +3483,21 @@
   .wardHearth { color:#9ee37d; font-size:12.5px; margin:0 2px 10px; }
   .wardCard { background:rgba(40,28,18,0.55); border:1px solid rgba(217,184,106,0.28); border-radius:10px; padding:10px 12px; margin:0 0 10px; }
   .wardCard.done { border-color:rgba(158,227,125,0.5); }
+  /* The Wards panel, sorted: a strip of every ward (lit when made), then the
+     cards grouped by where they go; a made ward's lore folds shut. */
+  .wardSummary { margin:4px 0 10px; text-align:center; }
+  .wardSumCount { color:#e8d9b4; font-size:13px; margin-bottom:6px; }
+  .wardSumIcons { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .wardSumIcon { width:40px; height:40px; padding:0; border-radius:50%; font-size:19px; line-height:1; cursor:pointer;
+    background:rgba(40,28,18,0.6); border:1px solid rgba(217,184,106,0.25); opacity:0.42; filter:grayscale(0.7); }
+  .wardSumIcon.made { opacity:1; filter:none; border:2px solid #9ee37d; box-shadow:0 0 8px rgba(158,227,125,0.35); }
+  @media (pointer:coarse) { .wardSumIcon { width:44px; height:44px; } }
+  .wardGroup { margin:6px 0 4px; }
+  .wardGroupHead { color:#d9b86a; font-size:13.5px; font-weight:700; letter-spacing:0.03em; margin:8px 2px 6px; border-bottom:1px solid rgba(217,184,106,0.25); padding-bottom:3px; }
+  .wardCard.wardFlash { box-shadow:0 0 0 2px #f0c85a, 0 0 14px rgba(240,200,90,0.5); transition:box-shadow 0.3s; }
+  details.wardLoreFold { margin-top:6px; }
+  details.wardLoreFold > summary { cursor:pointer; color:#c9b89a; font-size:12.5px; padding:6px 0; min-height:28px; list-style-position:inside; }
+  @media (pointer:coarse) { details.wardLoreFold > summary { min-height:40px; padding:10px 0; } }
   .wardHead { display:flex; gap:10px; align-items:center; }
   .wardIcon { font-size:28px; line-height:1; }
   .wardTitle { color:#ffe9c2; font-weight:800; font-size:14px; }

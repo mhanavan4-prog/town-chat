@@ -199,7 +199,71 @@ export default function createWards({ send }) {
     rowanCard(cols, pct);
     sheafCard(cols, pct);
     pentangleCard(cols);
+    sortWardCards(body, cols);
   }
+
+  // Twelve cards is a long scroll on a phone: a strip of every ward at the top
+  // (lit when made; tap one to go to it), then the cards grouped by where they
+  // go in the house. A made ward's lore folds shut under it; an unmade one's
+  // stays open to read (on a computer; on a phone all start folded). (Cards are built in any order above and placed here.)
+  const WARD_GROUPS = [
+    { key: 'door', title: '🚪 At the door', wards: ['hexafoil', 'burn', 'horseshoe', 'rowan'] },
+    { key: 'hearth', title: '🔥 At the hearth and chimney', wards: ['bottle', 'marian', 'sator', 'shoe'] },
+    { key: 'house', title: '🛏️ About the house', wards: ['hagstone', 'ladder', 'sheaf'] },
+    { key: 'worn', title: '🛡️ Worn on you', wards: ['pentangle'] },
+  ];
+  function sortWardCards(body, cols) {
+    const cards = [...cols.querySelectorAll(':scope > .wardCard')];
+    const byKey = new Map(cards.map((c) => [c.dataset.ward, c]));
+    const placed = new Set(WARD_GROUPS.flatMap((g) => g.wards));
+    const groups = WARD_GROUPS.map((g) => ({ ...g, cards: g.wards.map((k) => byKey.get(k)).filter(Boolean) }));
+    const other = cards.filter((c) => !placed.has(c.dataset.ward));
+    if (other.length) groups.push({ key: 'other', title: '✨ Others', cards: other });
+    const ordered = groups.flatMap((g) => g.cards);
+    // The strip.
+    const made = ordered.filter((c) => c.classList.contains('done')).length;
+    const strip = el('div', 'wardSummary');
+    strip.appendChild(el('div', 'wardSumCount', `${made} of ${ordered.length} made`));
+    const icons = el('div', 'wardSumIcons');
+    for (const c of ordered) {
+      const w = state.lore[c.dataset.ward] || {};
+      const done = c.classList.contains('done');
+      const b = el('button', 'wardSumIcon' + (done ? ' made' : ''), w.icon || '•');
+      b.type = 'button';
+      b.title = `${w.name || c.dataset.ward}: ${done ? 'made' : 'not yet'}`;
+      b.setAttribute('aria-label', b.title);
+      b.addEventListener('click', () => { c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.classList.add('wardFlash'); setTimeout(() => c.classList.remove('wardFlash'), 1200); });
+      icons.appendChild(b);
+    }
+    strip.appendChild(icons);
+    cols.before(strip);
+    // The groups.
+    for (const g of groups) {
+      if (!g.cards.length) continue;
+      const sec = el('div', 'wardGroup');
+      sec.dataset.group = g.key;
+      const n = g.cards.filter((c) => c.classList.contains('done')).length;
+      sec.appendChild(el('div', 'wardGroupHead', `${g.title} · ${n}/${g.cards.length}`));
+      const grid = el('div', 'menuCols');
+      for (const c of g.cards) grid.appendChild(c);
+      sec.appendChild(grid);
+      cols.before(sec);
+    }
+    cols.remove();
+    // The lore, folded under a made ward, open under one still to make.
+    for (const c of ordered) {
+      const lore = c.querySelector(':scope > .wardLore');
+      if (!lore) continue;
+      const fold = document.createElement('details');
+      fold.className = 'wardLoreFold';
+      // On a phone every card's lore starts folded (the scroll is long enough).
+      fold.open = !c.classList.contains('done') && !(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+      fold.appendChild(el('summary', '', '📜 The record, and where it comes from'));
+      lore.before(fold);
+      fold.appendChild(lore);
+    }
+  }
+
 
   // 🧲 The found horseshoe, and 🪨 the hag stone (data/wards.js).
   function horseshoeCard(cols, pct) {
