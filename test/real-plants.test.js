@@ -24,7 +24,7 @@ function readGlb(file) {
 }
 
 const plantTypes = [...nature.matchAll(/^\s{2}(\w+):\s+\{ shape:/gm)].map((m) => m[1]);
-check('there are sixteen Wilds plants to model', plantTypes.length === 16, plantTypes);
+check('there are seventeen Wilds plants to model (the sixteen, and the clubmoss where the Wolf\'s Pact is gathered)', plantTypes.length === 17, plantTypes);
 const sizeBlock = main.slice(main.indexOf('const PLANT_MODEL_SIZE = {'), main.indexOf('};', main.indexOf('const PLANT_MODEL_SIZE = {')));
 const pots = { potted_herb: 'pot_herb', decor_chamomile: 'pot_chamomile', decor_lavender: 'pot_lavender', decor_calendula: 'pot_calendula', decor_mugwort: 'pot_mugwort', decor_yarrow: 'pot_yarrow', decor_belladonna: 'pot_belladonna' };
 
@@ -50,7 +50,7 @@ for (const [key, file] of models) {
 check('every plant and pot is in the manifest, on disk, and a sound glTF: vertex colours and normals, no textures, float positions', allSound, bad);
 check('each is small enough to stream (under 120 KB)', maxBytes > 0 && maxBytes < 120 * 1024, maxBytes);
 check('every plant has a size to stand at', plantTypes.every((t) => new RegExp('\\b' + t + ": \\[\\d+, '(height|fit)'\\]").test(sizeBlock)));
-check('the plants stream in behind the town, so the first load is no heavier', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^\(pl\|cr\|gv\|gd\)_\/\.test\(k\)\)/.test(main));
+check('the plants stream in behind the town, so the first load is no heavier', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^\(pl\|cr\|gv\|gd\|fl\)_\/\.test\(k\)\)/.test(main));
 check('makePlant draws the model when it has landed, and the hand-built shape till then', /const real = size && KK\.staticInstance \? KK\.staticInstance\('pl_' \+ type, size\[0\], size\[1\]\) : null;/.test(main) && /if \(v\.shape === 'bloom'\) return makePlantBloom/.test(main));
 
 // The pots: every grown decor has its own, and the plain pot is rosemary.
@@ -62,8 +62,8 @@ check('the pots stream with the furniture, and the cottage redraws when one land
 check('the hanging yarrow hangs on the wall where its peg was', /if \(g && meta && meta\.hang\) g\.position\.y = 34;/.test(main));
 
 // Each model is the plant the docstring says, and the script names it.
-const real = { toadstool: 'Amanita muscaria', wolfsbane_bloom: 'Aconitum napellus', shrinking_violet: 'Viola odorata', rainbow_petal: 'Viola tricolor', stumbleweed: 'Lolium temulentum', gibberish_root: 'Mandragora officinarum', meditation_lotus: 'Nymphaea alba', healing_herb: 'Prunella vulgaris', regen_root: 'Taraxacum officinale', cleansing_clover: 'Trifolium repens', giants_cap: 'Macrolepiota procera', featherleaf: 'Dryopteris filix-mas', swift_root: 'Daucus carota', pumpkin_blossom: 'Cucurbita pepo', bats_breath: 'Tacca chantrieri', ravens_feather_plant: 'Helleborus' };
-check('each plant names the real species it is modelled on', Object.values(real).every((sp) => script.includes(sp)) && Object.keys(real).length === 16);
+const real = { toadstool: 'Amanita muscaria', wolfsbane_bloom: 'Aconitum napellus', shrinking_violet: 'Viola odorata', rainbow_petal: 'Viola tricolor', stumbleweed: 'Lolium temulentum', gibberish_root: 'Mandragora officinarum', meditation_lotus: 'Nymphaea alba', healing_herb: 'Prunella vulgaris', regen_root: 'Taraxacum officinale', cleansing_clover: 'Trifolium repens', giants_cap: 'Macrolepiota procera', featherleaf: 'Dryopteris filix-mas', swift_root: 'Daucus carota', pumpkin_blossom: 'Cucurbita pepo', bats_breath: 'Tacca chantrieri', ravens_feather_plant: 'Helleborus', wolf_pact_brew: 'Lycopodium clavatum' };
+check('each plant names the real species it is modelled on', Object.values(real).every((sp) => script.includes(sp)) && Object.keys(real).length === 17);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

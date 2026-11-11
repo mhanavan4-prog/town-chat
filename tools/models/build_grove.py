@@ -335,10 +335,243 @@ def crotal_stone():
     return m, None
 
 
+# ── The woods: the Wilds' named trees and the town's trees, bushes and grass ──
+def scots_pine():
+    """Pinus sylvestris: a tall bare trunk, orange and flaking above, with a flat-topped crown of blue-green needle-clumps."""
+    m = Model('scots_pine')
+    bough(m, [(0, 0, 0), (0.02, 0, 0.3), (0.0, 0.02, 0.62), (0.03, 0.0, 0.8)], 0.055, 0.03, ('#4a3428', '#c8743a'), sides=8)
+    m.add(lathe([(0.09, 0), (0.06, 0.05), (0.055, 0.1)], sides=8, colors=('#3a2a22', '#5a4030'), close_top=False))
+    for a, z, L in ((0.4, 0.6, 0.26), (2.5, 0.66, 0.24), (4.4, 0.7, 0.22), (1.4, 0.76, 0.18), (3.4, 0.8, 0.16)):
+        bough(m, [(0.01, 0.01, z), (L * 0.5 * math.cos(a), L * 0.5 * math.sin(a), z + 0.04), (L * math.cos(a), L * math.sin(a), z + 0.1)], 0.02, 0.008, ('#8a5030', '#c8743a'), sides=5)
+    for k, (a, z, L) in enumerate(((0.3, 0.42, 0.1), (3.3, 0.5, 0.08))):  # dead snags lower down
+        bough(m, [(0.01, 0, z), (L * math.cos(a), L * math.sin(a), z + 0.02)], 0.012, 0.004, ('#4a3a30', '#6a5a4a'), sides=4)
+    pts = [(0.26 * math.cos(a), 0.26 * math.sin(a), 0.74 + 0.03 * math.sin(a * 2), 0.15) for a in np.linspace(0, TAU, 6, endpoint=False)]
+    pts += [(0.1 * math.cos(a), 0.1 * math.sin(a), 0.88, 0.15) for a in (0.5, 2.6, 4.7)] + [(0.02, 0, 0.95, 0.12)]
+    crown(m, pts, ('#1e4a3a', '#5a9a7a'), seed=41, jitter=0.2)
+    for (x, y, z) in dome_points(8, 0.3, 0.74, 0.1, 42, top_bias=0.9):
+        m.add(lathe([(0.012, 0), (0.02, 0.025), (0.0, 0.05)], sides=5, colors=('#5a3a20', '#9a6a40'), close_top=False).xf(rx(math.pi), (x, y, z)))  # cones
+    return m, None
+
+
+def oak():
+    """Quercus robur: a short, massive trunk, crooked spreading boughs, a broad domed crown, and acorns."""
+    m = Model('oak')
+    BARK = ('#3a2e22', '#7a6448')
+    t = lathe([(0.16, 0), (0.11, 0.06), (0.095, 0.2), (0.09, 0.34)], sides=10, colors=BARK, close_top=False)
+    for i in range(len(t.v)):
+        t.v[i][:2] *= 1 + 0.08 * math.cos(4 * TAU * (i % 10) / 10)
+    m.add(t)
+    for a, L in ((0.3, 0.34), (1.7, 0.3), (3.0, 0.36), (4.5, 0.32), (5.5, 0.26)):
+        bough(m, [(0, 0, 0.3), (L * 0.45 * math.cos(a), L * 0.45 * math.sin(a), 0.42), (L * 0.8 * math.cos(a + 0.3), L * 0.8 * math.sin(a + 0.3), 0.46), (L * math.cos(a), L * math.sin(a), 0.56)], 0.05, 0.018, BARK, sides=6)
+    crown(m, [(x, y, z, 0.2) for (x, y, z) in dome_points(14, 0.34, 0.6, 0.26, 43, top_bias=0.1)] + [(0, 0, 0.78, 0.26), (0.1, -0.1, 0.62, 0.26)], ('#24542a', '#7ab04a'), seed=43, jitter=0.2)
+    lobed = lambda s: (0.6 + 0.4 * abs(math.sin(s * math.pi * 3))) * math.sin(math.pi * min(1, s * 0.9 + 0.08)) ** 0.6
+    for (x, y, z) in dome_points(22, 0.5, 0.6, 0.34, 44, top_bias=0.1):  # lobed leaves standing off the crown
+        m.add(blade(0.09, 0.06, lobed, segs=3, cols=3, fold=0.1, rise=0.2, droop=0.4, colors=('#2e642e', '#8ac050')).xf(rz(math.atan2(y, x)), (x, y, z)))
+    for (x, y, z) in dome_points(12, 0.5, 0.56, 0.28, 45, top_bias=0.4):  # acorns in their cups
+        m.add(blob(0.014, 0.014, 0.02, seg=5, rings=3, colors=('#8a6a2a', '#c8a850')).xf(None, (x, y, z)))
+        m.add(blob(0.016, 0.016, 0.01, seg=5, rings=3, colors=('#5a4a2a', '#7a6a40')).xf(None, (x, y, z + 0.016)))
+    return m, None
+
+
+def silver_birch():
+    """Betula pendula: a slender white trunk barred with black, fine drooping twigs, small bright leaves, catkins."""
+    m = Model('silver_birch')
+    BARK = ('#b8b8b0', '#f4f4ee')
+    bough(m, [(0, 0, 0), (0.02, 0, 0.35), (0.0, 0.02, 0.7), (0.02, 0, 0.9)], 0.04, 0.012, BARK, sides=8)
+    m.add(lathe([(0.06, 0), (0.045, 0.04), (0.04, 0.1)], sides=8, colors=('#2a2a26', '#6a6a60'), close_top=False))  # the black, fissured foot
+    r = np.random.default_rng(46)
+    for z in np.linspace(0.14, 0.62, 9):  # the black bars
+        a = r.uniform(0, TAU)
+        m.add(blob(0.022, 0.006, 0.008, seg=5, rings=3, colors=('#14140f', '#2a2a24')).xf(rz(a + math.pi / 2), (0.036 * math.cos(a) + 0.01, 0.036 * math.sin(a), z)))
+    for a, z in ((0.5, 0.5), (2.6, 0.58), (4.4, 0.66), (1.5, 0.74), (3.6, 0.8)):
+        bough(m, [(0.01, 0.01, z), (0.14 * math.cos(a), 0.14 * math.sin(a), z + 0.12)], 0.014, 0.005, ('#5a4a40', '#8a7a6a'), sides=4)
+    crown(m, [(x, y, z, 0.11) for (x, y, z) in dome_points(13, 0.2, 0.72, 0.2, 47)], ('#4a8a2a', '#b8e070'), seed=47, jitter=0.25)
+    for (x, y, z) in dome_points(22, 0.28, 0.68, 0.2, 48, top_bias=0.6):  # weeping twigs
+        m.add(blade(r.uniform(0.14, 0.24), 0.035, linear, segs=3, cols=3, fold=0.2, rise=-1.4, droop=0.1, colors=('#b8e070', '#5a9a30')).xf(rz(math.atan2(y, x)), (x, y, z)))
+    return m, None
+
+
+def bramble():
+    """Rubus fruticosus: arching, thorny red-green canes, toothed leaves in threes and fives, blackberries ripening red to black."""
+    m = Model('bramble')
+    r = np.random.default_rng(49)
+    crown(m, [(r.uniform(-0.3, 0.3), r.uniform(-0.3, 0.3), r.uniform(0.2, 0.42), r.uniform(0.2, 0.26)) for _ in range(7)], ('#24502a', '#6aa04a'), seed=49, jitter=0.28)
+    for k in range(9):  # arching canes
+        a = TAU * k / 9 + r.uniform(-0.2, 0.2); L = r.uniform(0.5, 0.75)
+        pts = [(0.05 * math.cos(a), 0.05 * math.sin(a), 0.0)] + [(L * u * math.cos(a), L * u * math.sin(a), 0.7 * math.sin(math.pi * u * 0.8) * 0.75) for u in (0.3, 0.6, 0.85, 1.0)]
+        bough(m, pts, 0.018, 0.008, ('#5a2a3a', '#8a5a4a'), sides=4)
+        for j in (1, 2, 3):
+            p = np.array(pts[j])
+            for q in range(3):
+                m.add(blade(0.11, 0.07, ovate, segs=2, cols=3, fold=0.15, rise=0.3, droop=0.4, colors=('#2e5a2a', '#7ab050'), wave=0.3, wave_n=3).xf(rz(a + (q - 1) * 0.9), p))
+        tip = np.array(pts[-1])
+        for q in range(3):  # a cluster of berries at the cane's end
+            col = ('#14081a', '#4a2a5a') if (k + q) % 3 else ('#8a1420', '#d83a3a')
+            m.add(blob(0.03, 0.03, 0.03, seg=6, rings=4, colors=col, jitter=0.2, seed=q).xf(None, tip + [0.03 * math.cos(q * 2.1), 0.03 * math.sin(q * 2.1), -0.02]))
+    return m, None
+
+
+def blackthorn():
+    """Prunus spinosa: a dense, dark, spiny thicket of black twigs, set with blue-bloomed sloes."""
+    m = Model('blackthorn')
+    r = np.random.default_rng(50)
+    for k in range(9):
+        a = TAU * k / 9 + r.uniform(-0.2, 0.2); lean = r.uniform(0.15, 0.4); h = r.uniform(0.6, 1.0)
+        top = np.array([lean * math.cos(a), lean * math.sin(a), h])
+        mid = top * [0.4, 0.4, 0.5] + [0.05 * math.cos(a + 1.5), 0.05 * math.sin(a + 1.5), 0]
+        bough(m, [(0.04 * math.cos(a), 0.04 * math.sin(a), 0), mid, top], 0.03, 0.01, ('#14100e', '#3a2e2a'), sides=5)
+        for j in range(5):  # the long thorns
+            p = mid + (top - mid) * (j / 4)
+            d = np.array([math.cos(a + j * 2.4), math.sin(a + j * 2.4), 0.3]); d /= np.linalg.norm(d)
+            m.add(lathe([(0.008, 0), (0.0, 0.1)], sides=3, colors=('#14100e', '#4a3a34'), close_top=False).xf(look_rot(d) @ ry(-math.pi / 2), p))
+    crown(m, [(r.uniform(-0.28, 0.28), r.uniform(-0.28, 0.28), r.uniform(0.4, 0.8), r.uniform(0.14, 0.2)) for _ in range(8)], ('#1e3a22', '#4a7a40'), seed=50, jitter=0.3)
+    for (x, y, z) in dome_points(26, 0.42, 0.5, 0.4, 51, top_bias=0.1):
+        m.add(blob(0.028, 0.028, 0.028, seg=6, rings=4, colors=('#1a1a4a', '#6a7ac0')).xf(None, (x, y, max(0.12, z))))
+    return m, None
+
+
+def dead_tree(seed, lean):
+    """A dead standing tree, bark gone grey and silver, boughs broken short: an oak that died on its feet."""
+    def build():
+        m = Model('dead_tree_%d' % seed)
+        r = np.random.default_rng(60 + seed)
+        BARK = ('#3a3632', '#a8a49c')
+        top = np.array([lean, 0.02, 1.0])
+        bough(m, [(0, 0, 0), top * [0.3, 0.3, 0.3], top * [0.8, 0.8, 0.7], top], 0.075, 0.012, BARK, sides=8)
+        m.add(lathe([(0.12, 0), (0.085, 0.05), (0.075, 0.1)], sides=8, colors=BARK, close_top=False))
+        for k in range(6):
+            z = 0.35 + 0.1 * k + r.uniform(-0.03, 0.03)
+            a = k * 2.3 + r.uniform(-0.3, 0.3); L = r.uniform(0.18, 0.36) * (1 - 0.08 * k)
+            base = top * (z / 1.0) * [1, 1, 1]
+            base[2] = z
+            e1 = base + [L * 0.6 * math.cos(a), L * 0.6 * math.sin(a), 0.08]
+            e2 = base + [L * math.cos(a + 0.4), L * math.sin(a + 0.4), 0.2 + r.uniform(0, 0.1)]
+            bough(m, [base, e1, e2], 0.028 * (1 - 0.08 * k), 0.006, BARK, sides=5)
+            if k % 2 == 0:
+                bough(m, [e1, e1 + [0.1 * math.cos(a - 0.8), 0.1 * math.sin(a - 0.8), 0.1]], 0.012, 0.004, BARK, sides=4)
+        m.add(blob(0.03, 0.02, 0.04, seg=6, rings=4, colors=('#14100e', '#2a2420')).xf(None, (0.06 + lean * 0.4, 0.03, 0.4)))  # a rot-hole
+        for k in range(3):  # a few bracket fungi
+            a = r.uniform(0, TAU); z = 0.15 + 0.1 * k
+            m.add(blob(0.05, 0.04, 0.012, seg=6, rings=3, colors=('#8a6a4a', '#d8c098')).xf(rz(a), (0.075 * math.cos(a) + lean * z * 0.3, 0.075 * math.sin(a), z)))
+        return m, None
+    return build
+
+
+def rowan():
+    """Sorbus aucuparia, the rowan: smooth grey bark, feathered leaves, heavy bunches of scarlet berries."""
+    m = Model('rowan')
+    BARK = ('#5a5650', '#a8a498')
+    bough(m, [(0, 0, 0), (0.02, 0.01, 0.25), (0.0, 0.0, 0.5)], 0.05, 0.03, BARK, sides=8)
+    for a in (0.4, 2.4, 4.4):
+        bough(m, [(0, 0, 0.4), (0.12 * math.cos(a), 0.12 * math.sin(a), 0.55), (0.22 * math.cos(a), 0.22 * math.sin(a), 0.7)], 0.028, 0.012, BARK, sides=5)
+    crown(m, [(x, y, z, 0.16) for (x, y, z) in dome_points(12, 0.26, 0.68, 0.24, 52)] + [(0, 0, 0.8, 0.2)], ('#2e6a2e', '#8ac85a'), seed=52, jitter=0.22)
+    for (x, y, z) in dome_points(5, 0.4, 0.68, 0.22, 53, top_bias=0.3):
+        pinnate(m, 0.16, 3, 0.05, 0.022, math.atan2(y, x), rise=0.15, droop=0.6, colors=('#2e6a2e', '#8ac85a'), base=(x * 0.88, y * 0.88, z), stem_r=0.005, leaf_rise=0.1)
+    for (x, y, z) in dome_points(12, 0.4, 0.64, 0.24, 54, top_bias=0.2):  # the berry bunches
+        for k in range(5):
+            m.add(blob(0.022, 0.022, 0.022, seg=4, rings=2, colors=('#a01410', '#ff4a2a')).xf(None, (x + 0.03 * math.cos(k * 1.1), y + 0.03 * math.sin(k * 1.1), z - 0.012 * (k % 3))))
+    return m, None
+
+
+def beech():
+    """Fagus sylvatica: a tall smooth silver-grey bole and a great layered crown."""
+    m = Model('beech')
+    BARK = ('#6a6860', '#b8b6aa')
+    bough(m, [(0, 0, 0), (0.01, 0, 0.3), (0.0, 0.01, 0.6)], 0.07, 0.045, BARK, sides=9)
+    m.add(lathe([(0.12, 0), (0.085, 0.05), (0.07, 0.12)], sides=9, colors=BARK, close_top=False))
+    for a, z in ((0.3, 0.42), (2.2, 0.48), (4.2, 0.52), (1.2, 0.58), (3.3, 0.6), (5.3, 0.56)):
+        bough(m, [(0, 0, z), (0.16 * math.cos(a), 0.16 * math.sin(a), z + 0.1), (0.3 * math.cos(a), 0.3 * math.sin(a), z + 0.16)], 0.03, 0.01, BARK, sides=5)
+    crown(m, [(x, y, z, 0.19) for (x, y, z) in dome_points(15, 0.3, 0.68, 0.26, 55, top_bias=0.15)] + [(0, 0, 0.86, 0.22), (0, 0, 0.66, 0.3)], ('#2a5a2a', '#9ac85a'), seed=55, jitter=0.18)
+    return m, None
+
+
+def hazel():
+    """Corylus avellana: many straight rods from one stool, round soft leaves, clusters of nuts in their frills."""
+    m = Model('hazel')
+    r = np.random.default_rng(56)
+    for k in range(8):
+        a = TAU * k / 8 + r.uniform(-0.2, 0.2); lean = r.uniform(0.15, 0.4)
+        bough(m, [(0.05 * math.cos(a), 0.05 * math.sin(a), 0), (lean * 0.5 * math.cos(a), lean * 0.5 * math.sin(a), 0.4), (lean * math.cos(a), lean * math.sin(a), 0.75)], 0.028, 0.012, ('#5a4632', '#9a8260'), sides=5)
+    crown(m, [(x, y, z, 0.2) for (x, y, z) in dome_points(9, 0.3, 0.6, 0.26, 57, top_bias=0.2)] + [(0, 0, 0.74, 0.22)], ('#2e642a', '#8ac050'), seed=57, jitter=0.22)
+    for (x, y, z) in dome_points(8, 0.42, 0.58, 0.22, 58, top_bias=0.3):
+        for k in range(3):
+            m.add(blob(0.022, 0.022, 0.026, seg=5, rings=3, colors=('#8a6a3a', '#c8a060')).xf(None, (x + 0.025 * math.cos(k * 2.1), y + 0.025 * math.sin(k * 2.1), z)))
+            m.add(blob(0.026, 0.026, 0.014, seg=5, rings=3, colors=('#5a8a3a', '#9ac060')).xf(None, (x + 0.025 * math.cos(k * 2.1), y + 0.025 * math.sin(k * 2.1), z + 0.018)))
+    return m, None
+
+
+def holly():
+    """Ilex aquifolium: a dense dark cone of glossy, spiny leaves, bright with berries."""
+    m = Model('holly')
+    bough(m, [(0, 0, 0), (0, 0, 0.4)], 0.04, 0.02, ('#3a3a34', '#6a6a60'), sides=6)
+    crown(m, [(0.24 * math.cos(a), 0.24 * math.sin(a), 0.28, 0.2) for a in np.linspace(0, TAU, 6, endpoint=False)] + [(0.16 * math.cos(a), 0.16 * math.sin(a), 0.55, 0.18) for a in np.linspace(0.5, TAU + 0.5, 4, endpoint=False)] + [(0, 0, 0.8, 0.15)], ('#0e3a1e', '#2e7a3a'), seed=59, jitter=0.2)
+    spiny = lambda s: (0.55 + 0.45 * abs(math.sin(s * math.pi * 3.5))) * math.sin(math.pi * min(1, s * 0.92 + 0.06)) ** 0.5
+    for (x, y, z) in dome_points(30, 0.4, 0.3, 0.6, 60, top_bias=0.0):
+        sc = 1 - 0.5 * max(0, z - 0.3) / 0.6
+        m.add(blade(0.1, 0.06, spiny, segs=3, cols=3, fold=0.2, rise=0.3, droop=0.3, colors=('#14442a', '#3a8a48')).xf(rz(math.atan2(y, x)), (x * sc, y * sc, max(0.1, z))))
+    for (x, y, z) in dome_points(14, 0.4, 0.3, 0.55, 61, top_bias=0.0):
+        sc = 1 - 0.5 * max(0, z - 0.3) / 0.6
+        for k in range(3):
+            m.add(blob(0.022, 0.022, 0.022, seg=5, rings=3, colors=('#a00a10', '#ff3a2a')).xf(None, (x * sc + 0.02 * math.cos(k * 2.1), y * sc + 0.02 * math.sin(k * 2.1), max(0.1, z))))
+    return m, None
+
+
+def dog_rose():
+    """Rosa canina: arching green stems, small leaves, flat pink five-petalled roses and scarlet hips."""
+    m = Model('dog_rose')
+    r = np.random.default_rng(62)
+    crown(m, [(r.uniform(-0.26, 0.26), r.uniform(-0.26, 0.26), r.uniform(0.25, 0.5), r.uniform(0.18, 0.24)) for _ in range(7)], ('#2a5a2a', '#72b050'), seed=62, jitter=0.28)
+    for k in range(7):
+        a = TAU * k / 7 + r.uniform(-0.2, 0.2); L = r.uniform(0.4, 0.6)
+        pts = [(0, 0, 0)] + [(L * u * math.cos(a), L * u * math.sin(a), 0.75 * math.sin(math.pi * u * 0.7)) for u in (0.35, 0.7, 1.0)]
+        bough(m, pts, 0.014, 0.006, ('#3a6a2a', '#6a9a4a'), sides=4)
+        tip = np.array(pts[-1])
+        if k % 2 == 0:
+            for j in range(5):
+                m.add(blade(0.06, 0.055, heart, segs=2, cols=3, fold=0.05, cup=0.1, rise=0.25, droop=0.2, colors=('#ffd0e0', '#f080a8')).xf(rz(TAU * j / 5), tip))
+            m.add(blob(0.018, 0.018, 0.012, seg=5, rings=3, colors=('#e0a010', '#ffe050')).xf(None, tip + [0, 0, 0.01]))
+        else:
+            for j in range(3):
+                m.add(blob(0.022, 0.022, 0.032, seg=5, rings=3, colors=('#b01a10', '#ff5a2a')).xf(None, tip + [0.03 * math.cos(j * 2.1), 0.03 * math.sin(j * 2.1), -0.02]))
+    return m, None
+
+
+def grass_tuft(kind):
+    """Ground cover, a few faces each: tussock grass, a rush clump, bracken, and a tuft with seed-heads."""
+    def build():
+        m = Model('grass_' + kind)
+        r = np.random.default_rng(hash(kind) % 1000 if False else {'tussock': 1, 'rush': 2, 'bracken': 3, 'seeding': 4}[kind])
+        if kind == 'bracken':
+            for i in range(4):
+                pinnate(m, r.uniform(0.8, 1.0), 4, 0.3, 0.14, TAU * i / 4 + r.uniform(-0.3, 0.3), rise=1.2, droop=1.5, colors=('#3a6a2a', '#9ab850'), stem_r=0.02, leaf_rise=0.1)
+            return m, None
+        n = {'tussock': 11, 'rush': 9, 'seeding': 8}[kind]
+        for i in range(n):
+            a = TAU * i / n + r.uniform(-0.3, 0.3)
+            if kind == 'rush':
+                m.add(blade(r.uniform(0.7, 1.0), 0.05, linear, segs=2, cols=3, fold=0.35, rise=1.45, droop=0.3, colors=('#2a4a2a', '#6a8a4a')).xf(rz(a), (0.03 * math.cos(a), 0.03 * math.sin(a), 0)))
+            else:
+                m.add(blade(r.uniform(0.5, 1.0), 0.09, linear, segs=2, cols=3, fold=0.3, rise=1.2, droop=1.3, colors=('#3a6a2a', '#a0c060')).xf(rz(a), (0.03 * math.cos(a), 0.03 * math.sin(a), 0)))
+        if kind == 'seeding':
+            for i in range(3):
+                a = TAU * i / 3 + 0.5; top = (0.12 * math.cos(a), 0.12 * math.sin(a), 1.0)
+                m.add(tube([(0, 0, 0), top], 0.012, sides=3, colors=('#7a8a4a', '#c8c080')))
+                m.add(blob(0.03, 0.03, 0.09, seg=4, rings=3, colors=('#a89a5a', '#e0d090')).xf(None, top))
+        if kind == 'rush':
+            for i in range(3):
+                a = TAU * i / 3; m.add(blob(0.03, 0.03, 0.04, seg=4, rings=2, colors=('#4a3420', '#7a5a34')).xf(None, (0.1 * math.cos(a), 0.1 * math.sin(a), 0.7)))
+        return m, None
+    return build
+
+
 GROVE = {
     'mourning_willow': willow, 'capwood': capwood, 'nightberry': bilberry, 'fenfern': royal_fern, 'toadring': fairy_ring,
     'alder': alder, 'ash_tree': ash, 'hawthorn': hawthorn, 'wild_apple': wild_apple, 'ivy_bank': ivy_bank,
     'elder': elder, 'gorse': gorse, 'heather': heather, 'aspen': aspen, 'yew': yew, 'crotal_stone': crotal_stone,
+    'scots_pine': scots_pine, 'oak': oak, 'silver_birch': silver_birch, 'bramble': bramble, 'blackthorn': blackthorn,
+    'dead_tree_a': dead_tree(1, 0.1), 'dead_tree_b': dead_tree(2, -0.14), 'dead_tree_c': dead_tree(3, 0.04),
+    'rowan': rowan, 'beech': beech, 'hazel': hazel, 'holly': holly, 'dog_rose': dog_rose,
+    'grass_tussock': grass_tuft('tussock'), 'grass_rush': grass_tuft('rush'), 'grass_bracken': grass_tuft('bracken'), 'grass_seeding': grass_tuft('seeding'),
 }
 
 if __name__ == '__main__':

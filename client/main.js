@@ -387,14 +387,15 @@ const KK = (() => {
     prop_log:     'kk/bld/resource_lumber.gltf',
     prop_stump:   'kk/bld/tree_single_A_cut.gltf',
     prop_stall:   'kk/bld/building_market_red.gltf', // market stall (also the Peddler's canopy)
-    // Wilds flora — KayKit Forest Nature Pack, recolored per species (dark green
-    // c2, teal/hexed c4, pale c1). Each gltf references its own forest_c*.png.
-    fl_watchpine:  'kk/forest/watchpine.gltf',  // dark-green pine
-    fl_deadwood:   'kk/forest/deadwood.gltf',   // gnarled bare dead tree
-    fl_hexoak:     'kk/forest/hexoak.gltf',     // teal broad "hexed" oak
-    fl_palebirch:  'kk/forest/palebirch.gltf',  // pale tall birch
-    fl_bramble:    'kk/forest/bramble.gltf',    // broad bramble bush
-    fl_thornsnarl: 'kk/forest/thornsnarl.gltf', // small teal thorn bush
+    // Wilds flora, as the real trees (tools/models/build_grove.py): Scots pine, a
+    // dead standing oak, English oak, silver birch, bramble in fruit, blackthorn
+    // with sloes. They stream in behind the town; the Wilds rebuilds when they land.
+    fl_watchpine:  'kk/grove/scots_pine.glb',  // dark-green pine
+    fl_deadwood:   'kk/grove/dead_tree_a.glb',   // gnarled bare dead tree
+    fl_hexoak:     'kk/grove/oak.glb',     // teal broad "hexed" oak
+    fl_palebirch:  'kk/grove/silver_birch.glb',  // pale tall birch
+    fl_bramble:    'kk/grove/bramble.glb',    // broad bramble bush
+    fl_thornsnarl: 'kk/grove/blackthorn.glb', // small teal thorn bush
     // The sixteen Wilds plants, each built in Blender to look like the real plant
     // it stands for (tools/models/build_plants.py): carrot, male fern, parasol
     // mushroom, sweet violet, pumpkin, bat flower, heartsease, black hellebore,
@@ -407,6 +408,7 @@ const KK = (() => {
     pl_gibberish_root: 'kk/flora/gibberish_root.glb', pl_toadstool: 'kk/flora/toadstool.glb', pl_wolfsbane_bloom: 'kk/flora/wolfsbane_bloom.glb',
     pl_meditation_lotus: 'kk/flora/meditation_lotus.glb', pl_healing_herb: 'kk/flora/healing_herb.glb', pl_regen_root: 'kk/flora/regen_root.glb',
     pl_cleansing_clover: 'kk/flora/cleansing_clover.glb',
+    pl_wolf_pact_brew: 'kk/flora/wolf_pact_brew.glb', // stag's-horn clubmoss, "wolf's-claw": these nine spots were harvestable but drew nothing
     // The cottage pots, from the same script: rosemary for the plain potted herb,
     // and the herbs you pot from your own garden. furn_ so they stream with the
     // furniture; the cottage redraws when they arrive.
@@ -521,22 +523,23 @@ const KK = (() => {
     ruin_floor:    'kk/dungeon/floor_tile_large.gltf',
     // Forest Nature Pack — bare/dead trees for the Wilds & graveyard scenery
     // (replacing the procedural makeSpookyTree cones). Six variants for variety.
-    tree_bare1a:   'kk/nature/Tree_Bare_1_A_Color1.gltf',
-    tree_bare1b:   'kk/nature/Tree_Bare_1_B_Color1.gltf',
-    tree_bare1c:   'kk/nature/Tree_Bare_1_C_Color1.gltf',
-    tree_bare2a:   'kk/nature/Tree_Bare_2_A_Color1.gltf',
-    tree_bare2b:   'kk/nature/Tree_Bare_2_B_Color1.gltf',
-    tree_bare2c:   'kk/nature/Tree_Bare_2_C_Color1.gltf',
-    // Forest Nature Pack — leafy trees for the TOWN (eerie teal, Color4),
-    // replacing the procedural makeTree greenery. A varied mix of shapes.
-    tree_leaf1:    'kk/nature/Tree_1_C_Color4.gltf',
-    tree_leaf2:    'kk/nature/Tree_3_B_Color4.gltf',
-    tree_leaf3:    'kk/nature/Tree_5_C_Color4.gltf',
-    tree_leaf4:    'kk/nature/Tree_7_C_Color4.gltf',
+    tree_bare1a:   'kk/grove/dead_tree_a.glb',
+    tree_bare1b:   'kk/grove/dead_tree_b.glb',
+    tree_bare1c:   'kk/grove/dead_tree_c.glb',
+    tree_bare2a:   'kk/grove/dead_tree_b.glb',
+    tree_bare2b:   'kk/grove/dead_tree_c.glb',
+    tree_bare2c:   'kk/grove/dead_tree_a.glb',
+    // The TOWN's trees, as real ones (tools/models/build_grove.py): oak, rowan,
+    // beech, silver birch. Its bushes are hazel, holly and dog rose; the grass is
+    // tussock, rush, bracken and a seeding tuft; the bare trees are dead oaks.
+    tree_leaf1:    'kk/grove/oak.glb',
+    tree_leaf2:    'kk/grove/rowan.glb',
+    tree_leaf3:    'kk/grove/beech.glb',
+    tree_leaf4:    'kk/grove/silver_birch.glb',
     // Ground detail — teal bushes (match the trees) + neutral grey rocks.
-    bush1:         'kk/nature/Bush_1_C_Color4.gltf',
-    bush2:         'kk/nature/Bush_2_D_Color4.gltf',
-    bush3:         'kk/nature/Bush_3_B_Color4.gltf',
+    bush1:         'kk/grove/hazel.glb',
+    bush2:         'kk/grove/holly.glb',
+    bush3:         'kk/grove/dog_rose.glb',
     rock1:         'kk/nature/Rock_3_H_Color1.gltf',
     rock2:         'kk/nature/Rock_5_D_Color1.gltf',
     rock3:         'kk/nature/Rock_6_C_Color1.gltf',
@@ -545,10 +548,10 @@ const KK = (() => {
     stone_pillar:  'kk/nature/Rock_6_D_Color1.gltf',
     stone_low:     'kk/nature/Rock_3_E_Color1.gltf',
     // Grass tufts (teal) — scattered as Wilds ground detail (kkWildsGroundDetail).
-    grass1:        'kk/nature/Grass_1_A_Color4.gltf',
-    grass2:        'kk/nature/Grass_1_C_Color4.gltf',
-    grass3:        'kk/nature/Grass_2_A_Color4.gltf',
-    grass4:        'kk/nature/Grass_2_C_Color4.gltf',
+    grass1:        'kk/grove/grass_tussock.glb',
+    grass2:        'kk/grove/grass_rush.glb',
+    grass3:        'kk/grove/grass_bracken.glb',
+    grass4:        'kk/grove/grass_seeding.glb',
     // Where you dug for Tobias Hext's well (client/dowse-marks.js): the Farmers
     // pack's turned earth and the Medieval pack's bucket of water.
     dig_plot:      'kk/props/dirt_plot.gltf',
@@ -619,7 +622,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -14361,6 +14364,7 @@ const PLANT_MODEL_SIZE = {
   pumpkin_blossom: [36, 'fit'], bats_breath: [25, 'height'], rainbow_petal: [16, 'height'], ravens_feather_plant: [21, 'height'],
   stumbleweed: [28, 'height'], gibberish_root: [34, 'fit'], toadstool: [19, 'height'], wolfsbane_bloom: [38, 'height'],
   meditation_lotus: [40, 'fit'], healing_herb: [16, 'height'], regen_root: [16, 'height'], cleansing_clover: [24, 'fit'],
+  wolf_pact_brew: [30, 'fit'],
 };
 function makePlant(type, x, z) {
   const size = PLANT_MODEL_SIZE[type];

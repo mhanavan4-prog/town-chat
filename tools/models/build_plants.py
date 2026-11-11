@@ -472,6 +472,30 @@ def clover():
     return m, None
 
 
+def clubmoss():
+    """Lycopodium clavatum, stag's-horn clubmoss or wolf's-claw: creeping, forking green ropes of scale-leaves, with pale paired cones on stalks."""
+    m = Model('wolf_pact_brew')
+    r = np.random.default_rng(71)
+    for i in range(6):
+        a = TAU * i / 6 + r.uniform(-0.3, 0.3)
+        p = np.zeros(3); d = a
+        for seg in range(3):
+            L = r.uniform(0.16, 0.24)
+            q = p + [L * math.cos(d), L * math.sin(d), 0.03 * seg + 0.02]
+            m.add(tube([p + [0, 0, 0.03], (p + q) / 2 + [0, 0, 0.05], q + [0, 0, 0.03]], lambda s_: 0.035 * (1 - 0.3 * s_), sides=6, colors=('#3a6a2a', '#9ad060')))
+            if seg == 1:  # a fork
+                f = q + [0.14 * math.cos(d + 0.9), 0.14 * math.sin(d + 0.9), 0.06]
+                m.add(tube([q + [0, 0, 0.03], f], lambda s_: 0.03 * (1 - 0.4 * s_), sides=6, colors=('#3a6a2a', '#9ad060')))
+            p = q; d += r.uniform(-0.5, 0.5)
+    for i in range(4):  # the cones, in pairs on a slender stalk
+        a = TAU * i / 4 + 0.5; b = np.array([0.14 * math.cos(a), 0.14 * math.sin(a), 0.05])
+        top = b + [0.02, 0.0, 0.3]
+        m.add(tube([b, top], 0.01, sides=4, colors=('#8aa050', '#c8d080')))
+        for sgn in (-1, 1):
+            m.add(glowing(lathe([(0.016, 0), (0.02, 0.05), (0.0, 0.13)], sides=6, colors=('#c8c070', '#f4f0b0'), close_top=False)).xf(ry(sgn * 0.25), top))
+    return m, '#e8e890'
+
+
 # ── The cottage pots ───────────────────────────────────────────────────────
 POT_TOP = 0.34
 
@@ -663,6 +687,7 @@ PLANTS = {
     'pumpkin_blossom': pumpkin, 'bats_breath': bat_flower, 'rainbow_petal': heartsease, 'ravens_feather_plant': hellebore,
     'stumbleweed': darnel, 'gibberish_root': mandrake, 'toadstool': fly_agaric, 'wolfsbane_bloom': monkshood,
     'meditation_lotus': water_lily, 'healing_herb': self_heal, 'regen_root': dandelion, 'cleansing_clover': clover,
+    'wolf_pact_brew': clubmoss,
     'pot_herb': pot_rosemary, 'pot_chamomile': pot_chamomile, 'pot_lavender': pot_lavender, 'pot_calendula': pot_calendula,
     'pot_mugwort': pot_mugwort, 'pot_yarrow': pot_yarrow, 'pot_belladonna': pot_belladonna,
     # the same herbs growing in Mother Yarrow's garden beds
