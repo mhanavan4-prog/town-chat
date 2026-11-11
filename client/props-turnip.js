@@ -16,6 +16,8 @@ const TURNIP_PURPLE = 0x7b3f72;
 const TURNIP_LID = 0x5e2f57;
 const TURNIP_GLOW = 0xffb347;
 const TURNIP_STALK = 0x5d7a3a;
+const TURNIP_EYE_Z = 0.94; // the face's depth, out from the root's centre
+const TURNIP_MOUTH_Z = 0.98;
 
 // The parts of one turnip, radius 1, its foot at y = 0, carved face toward +z.
 function turnipParts() {
@@ -39,10 +41,13 @@ function turnipParts() {
   add(new THREE.ConeGeometry(0.06, 0.36, 5), TURNIP_STALK, false, 0.1, 1.92, 0.02, -0.3);
   // The root tail underneath, mostly hidden.
   add(new THREE.ConeGeometry(0.18, 0.5, 6), TURNIP_CREAM, false, 0, 0.1, 0, Math.PI);
-  // The carved face, glowing: two eyes and a mouth, just proud of the skin.
-  add(new THREE.BoxGeometry(0.26, 0.2, 0.12), TURNIP_GLOW, true, -0.32, 1.08, 0.86);
-  add(new THREE.BoxGeometry(0.26, 0.2, 0.12), TURNIP_GLOW, true, 0.32, 1.08, 0.86);
-  add(new THREE.BoxGeometry(0.62, 0.14, 0.12), TURNIP_GLOW, true, 0, 0.66, 0.88);
+  // The carved face, glowing: two eyes and a mouth, standing just proud of the
+  // skin. (The root is squashed to 0.88 high, so its skin at the eyes is about
+  // 0.92 out and at the mouth about 0.97: set any further in and the face is
+  // buried in the turnip, as it was until a real-GPU look showed it missing.)
+  add(new THREE.BoxGeometry(0.28, 0.22, 0.14), TURNIP_GLOW, true, -0.32, 1.08, TURNIP_EYE_Z);
+  add(new THREE.BoxGeometry(0.28, 0.22, 0.14), TURNIP_GLOW, true, 0.32, 1.08, TURNIP_EYE_Z);
+  add(new THREE.BoxGeometry(0.62, 0.15, 0.14), TURNIP_GLOW, true, 0, 0.66, TURNIP_MOUTH_Z);
   return parts;
 }
 

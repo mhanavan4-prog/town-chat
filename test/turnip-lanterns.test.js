@@ -42,5 +42,17 @@ check('…every part placed for every lantern', made.inst.every((im) => im.count
 check('a cream root, a purple shoulder, and a carved face lit from inside', made.inst.some((im) => im.mat.color === 0xeddfba) && made.inst.some((im) => im.mat.color === 0x7b3f72) && made.basic === 3);
 check('no lanterns, no meshes', mod.makeTurnipLanterns([]).children.length === 0);
 
+// The face has to stand proud of the root's skin, or it is drawn inside the
+// turnip and never seen (a real-GPU look found it so). The root is a unit
+// sphere at y 0.88, squashed to 0.88 high; check each face part's front.
+const eyeZ = Number((src.match(/TURNIP_EYE_Z = ([\d.]+)/) || [])[1]);
+const mouthZ = Number((src.match(/TURNIP_MOUTH_Z = ([\d.]+)/) || [])[1]);
+const skin = (x, y) => Math.sqrt(Math.max(0, 1 - x * x - ((y - 0.88) / 0.88) ** 2));
+const faceParts = [...src.matchAll(/BoxGeometry\(([\d.]+), ([\d.]+), ([\d.]+)\), TURNIP_GLOW, true, (-?[\d.]+), ([\d.]+), (TURNIP_EYE_Z|TURNIP_MOUTH_Z)\)/g)]
+  .map((m) => ({ w: +m[1], d: +m[3], x: +m[4], y: +m[5], z: m[6] === 'TURNIP_EYE_Z' ? eyeZ : mouthZ }));
+check('the carved face stands proud of the skin all across, eyes and mouth', faceParts.length === 3 && faceParts.every((f) => [f.x - f.w / 2, f.x, f.x + f.w / 2].every((x) => f.z + f.d / 2 > skin(x, f.y) + 0.02)), faceParts);
+const sizes = [...town.matchAll(/turnips\.push\(\{[^}]*size: ([\d.]+)/g)].map((m) => +m[1]);
+check('the lanterns are big enough to read on a real screen (about a third of a person high)', sizes.length === 2 && sizes.every((s) => s >= 16 && s <= 26), sizes);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -394,6 +394,8 @@ function kkTownDressing(scene, w) {
   if (!KK.settled) return;
   // Twin turnip lanterns flanking every door: in Ireland and on Man the old
   // Hallowe'en lantern was a turnip, not a pumpkin (client/props-turnip.js).
+  // Drawn large enough to read: at 11 across they were pale dots on a real
+  // screen, their faces too small to see.
   const turnips = [];
   for (const b of w.buildings) {
     const side = getDoorSide(b);
@@ -403,8 +405,8 @@ function kkTownDressing(scene, w) {
     const perp = side === 'south' || side === 'north' ? [pw, 0] : [0, pw];
     // Faces turned out from the door, toward whoever comes to it.
     const face = side === 'south' ? 0 : side === 'north' ? Math.PI : side === 'east' ? Math.PI / 2 : -Math.PI / 2;
-    turnips.push({ x: dp.x + out[0] + perp[0], z: dp.y + out[1] + perp[1], size: 11, rot: face + 0.25 });
-    turnips.push({ x: dp.x + out[0] - perp[0], z: dp.y + out[1] - perp[1], size: 9.5, rot: face - 0.3 });
+    turnips.push({ x: dp.x + out[0] + perp[0], z: dp.y + out[1] + perp[1], size: 21, rot: face + 0.25 });
+    turnips.push({ x: dp.x + out[0] - perp[0], z: dp.y + out[1] - perp[1], size: 18, rot: face - 0.3 });
   }
   try { scene.add(makeTurnipLanterns(turnips)); } catch (e) { /* dressing only: the town stands without it */ }
   // A proper fenced graveyard beside the Town Hall — a landmark to wander. The
