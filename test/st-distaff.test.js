@@ -66,7 +66,7 @@ setTimeout(() => {
   const e = ch.entries.find((x) => x.id === 'st_distaff');
   const order = ch.entries.map((x) => x.id);
   check('…and writes St Distaff\'s Day into The Turning Year, dated 7 January, before Plough Monday', e && e.met && /· 7 January$/.test(e.title) && e.date === '7 January' && order.indexOf('st_distaff') < order.indexOf('plough_monday') && order.indexOf('st_distaff') >= 12, e);
-  check('the Turning Year\'s introduction now runs from New Year\'s morning to Childermas', /from New Year's morning to Childermas/.test(ch.intro) && !/from Plough Monday to St Thomas's/.test(ch.intro), ch.intro);
+  check('the Turning Year\'s introduction now runs from New Year\'s morning to Hogmanay', /from New Year's morning to Hogmanay/.test(ch.intro) && !/from Plough Monday to St Thomas's/.test(ch.intro), ch.intro);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
