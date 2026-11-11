@@ -3129,6 +3129,7 @@
 <div id="bellTag" class="hidden"></div>
 <div id="eventTag" class="hidden"></div>
 <div id="gatherHint" class="hidden"></div>
+<div id="dungeonFindsHud" class="hidden" title="Bone keys you hold, braziers lit, seals broken"></div>
 <div id="delveHud" class="hidden">
   <div id="delveHudFloor">🕳️ Floor 1</div>
   <div id="delveHudKills">0 / 6</div>
@@ -3389,6 +3390,19 @@
   #delveHudFloor { color:#d9b8ff; font-weight:800; }
   #delveHudBoons { font-size:14px; letter-spacing:2px; }
   body.panelOpen #delveHud { display:none; }
+  /* Underground: the bone keys you hold and how the two side goals stand.
+     Sits where the Delve's floor HUD sits, or under it on a Delve run. */
+  #dungeonFindsHud {
+    position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:8;
+    display:flex; gap:10px; align-items:center; white-space:nowrap;
+    background:rgba(16,8,26,0.88); border:1px solid #5a3b7a; border-radius:14px;
+    color:#e8dcc8; padding:5px 12px; font-size:12.5px;
+  }
+  #dungeonFindsHud.hidden { display:none; }
+  #dungeonFindsHud .dfDone { color:#9ee37d; }
+  body.inDelveRun #dungeonFindsHud { top:100px; }
+  body.inDelveRun #dungeonFindsHud:not(.hidden) ~ #bellTag, body.inDelveRun.findsHudUp #bellTag { top:136px; }
+  body.panelOpen #dungeonFindsHud, body.composeOpen #dungeonFindsHud { display:none; }
   /* Shared bits for the new modals */
   .slTabs { display:flex; gap:6px; margin:10px 0 12px; flex-wrap:wrap; justify-content:center; }
   .slTab {

@@ -3087,7 +3087,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
-  if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); return; }
+  if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
@@ -10380,6 +10380,19 @@ function swapToTownMap() {
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.classList.add('hidden');
 }
+
+// Underground: a small standing line for the bone keys you hold and how the two
+// side goals stand (lib/dungeonFinds.js sends it). Gone the moment you are out.
+function showDungeonFindsHud(msg) {
+  const el = document.getElementById('dungeonFindsHud');
+  if (!el) return;
+  const under = !!(me && String(me.room || '').startsWith('dungeon_'));
+  if (!msg || !under) { el.classList.add('hidden'); document.body.classList.remove('findsHudUp'); return; }
+  const g = msg.goals || {}, part = (icon, name, x) => (x && x.total ? `<span class="${x.complete ? 'dfDone' : ''}">${icon} ${name} ${x.complete ? '✓' : `${x.done}/${x.total}`}</span>` : '');
+  el.innerHTML = `<span>🗝️ ${msg.keys || 0}</span>${part('🔥', 'Braziers', g.braziers)}${part('💥', 'Seals', g.seals)}`;
+  el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
+}
+setInterval(() => { const el = document.getElementById('dungeonFindsHud'); if (el && !el.classList.contains('hidden') && !(me && String(me.room || '').startsWith('dungeon_'))) showDungeonFindsHud(null); }, 1000);
 
 function swapToDungeonMap() {
   rebuildDungeonForTier(activeDungeonTier, activeDungeonIsDelve);

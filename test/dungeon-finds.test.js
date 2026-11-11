@@ -68,7 +68,7 @@ check('only things that already exist are given', ['iron_ore', 'stone_block', 'g
 const b = mk('b', 'dungeon_t1'); finds.onEnter(b, { fresh: true });
 const gA = a.gold, gB = b.gold;
 l1.braziers.forEach((br, i) => { const p = i % 2 ? a : b; at(p, br); finds.use(p, br.id); });
-check('lighting every brazier pays everyone in the room, gold and experience', a.gold - gA >= 30 && b.gold - gB >= 30 && a.xp === 20 && b.xp === 20 && said(b, /Every brazier burns/));
+check('lighting every brazier pays everyone in the room, gold and experience', a.gold - gA >= 30 && b.gold - gB >= 30 && a.xp === 20 && b.xp === 20 && said(b, /need-fire/));
 const st = finds.payloadFor(a);
 check('…and the room shows them all burning, the goal complete', st.lit.length === l1.braziers.length && st.goals.braziers.complete === true);
 const xa = a.xp; at(a, l1.seals[0]);
@@ -121,6 +121,8 @@ check('leaving, the keys are gone', d.dungeonKeys === 0);
 // wiring
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8'), main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8'), scene = fs.readFileSync(path.join(root, 'client/dungeon-scene.js'), 'utf8');
 check('the server ticks the traps, takes the use, drops keys on kills, and tells arrivals how things stand', /dungeonFinds\.tick\(\);/.test(server) && /if \(msg\.type === 'dungeon_use'\) \{ dungeonFinds\.use\(player, msg\.id\); return; \}/.test(server) && /dungeonFinds\.onKill\(player, t\);/.test(server) && (server.match(/dungeonFinds\.onEnter\(/g) || []).length >= 3 && /dungeonFinds\.resetRoom\(room\);/.test(server));
-check('the client draws each thing, offers it on the action button, and shows what the server says of it', /npc: 'dfind', findId: t\.id, findKind: kind/.test(scene) && /ws\.send\(JSON\.stringify\(\{ type: 'dungeon_use', id: kiosk\.findId \}\)\)/.test(main) && /if \(msg\.type === 'dungeon_finds'\) \{ applyDungeonFinds\(msg\); return; \}/.test(main) && /FIND_VERBS\[kiosk\.findKind\]/.test(main) && /dungeonTrapWarn\(msg\.trap, msg\.ms\)/.test(main));
+check('the client draws each thing, offers it on the action button, and shows what the server says of it', /npc: 'dfind', findId: t\.id, findKind: kind/.test(scene) && /ws\.send\(JSON\.stringify\(\{ type: 'dungeon_use', id: kiosk\.findId \}\)\)/.test(main) && /if \(msg\.type === 'dungeon_finds'\) \{ applyDungeonFinds\(msg\); showDungeonFindsHud\(msg\); return; \}/.test(main) && /FIND_VERBS\[kiosk\.findKind\]/.test(main) && /dungeonTrapWarn\(msg\.trap, msg\.ms\)/.test(main));
+const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
+check('a standing line underground shows your bone keys and how the two goals stand, and goes when you are out', /<div id="dungeonFindsHud" class="hidden"/.test(html) && /function showDungeonFindsHud\(msg\)/.test(main) && /part\('🔥', 'Braziers', g\.braziers\)/.test(main) && /String\(me\.room \|\| ''\)\.startsWith\('dungeon_'\)\)\) showDungeonFindsHud\(null\);/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
