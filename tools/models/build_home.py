@@ -660,6 +660,151 @@ def cave_feathers():
     return m, None
 
 
+# ── The Wilds' fires and stones, and what a witch sets on her own altar ─────
+STONE = [('#4a4640', '#8a847a'), ('#5a5248', '#9a9080'), ('#3e3a36', '#7a746a')]
+
+
+def campfire():
+    """A camp fire: a ring of field stones, split logs stacked to a point over a bed of embers and ash."""
+    m = Model('campfire')
+    r = np.random.default_rng(121)
+    for k in range(9):
+        a = TAU * k / 9 + r.uniform(-0.1, 0.1)
+        m.add(blob(r.uniform(0.1, 0.14), r.uniform(0.08, 0.11), r.uniform(0.06, 0.09), seg=6, rings=4, colors=STONE[k % 3], jitter=0.25, seed=k).xf(rz(a), (0.42 * math.cos(a), 0.42 * math.sin(a), 0.05)))
+    m.add(lathe([(0.0, 0.02), (0.34, 0.0)], sides=10, colors=('#1a1614', '#4a4440'), close_top=False))  # ash
+    for k in range(7):
+        a = r.uniform(0, TAU); d = r.uniform(0, 0.2)
+        e = blob(0.05, 0.04, 0.025, seg=5, rings=3, colors=('#c82a0a', '#ffb040'), jitter=0.3, seed=k); e.glow = True
+        m.add(e.xf(None, (d * math.cos(a), d * math.sin(a), 0.03)))
+    for k in range(5):
+        a = TAU * k / 5 + 0.3
+        base = np.array([0.3 * math.cos(a), 0.3 * math.sin(a), 0.03]); top = np.array([-0.03 * math.cos(a), -0.03 * math.sin(a), 0.42])
+        m.add(tube([base, top], lambda s_: 0.055 - 0.01 * s_, sides=6, colors=('#2a1a10', '#6a4a2a')))
+        m.add(lathe([(0.0, 0), (0.052, 0)], sides=6, colors=('#b08a58', '#d8b888'), close_top=False).xf(look_rot(base - top) @ ry(math.pi / 2), base))
+    return m, '#ff8a2a'
+
+
+def waymarker():
+    """A waymarker: a tall, leaning standing stone, weathered and lichened, set in a ring of packing stones, its face cut with a column of marks."""
+    m = Model('waymarker')
+    st = lathe([(0.16, 0.0), (0.17, 0.2), (0.15, 0.55), (0.12, 0.85), (0.07, 0.98), (0.0, 1.0)], sides=7, colors=('#55554e', '#a8a69e'))
+    r = np.random.default_rng(122)
+    for i in range(len(st.v)):
+        st.v[i][:2] *= 1 + r.uniform(-0.1, 0.1)
+        st.v[i][1] *= 0.7  # a slab, not a post
+    m.add(st.xf(ry(0.06), (0, 0, 0)))
+    for k in range(7):
+        a = TAU * k / 7
+        m.add(blob(r.uniform(0.07, 0.1), r.uniform(0.06, 0.09), 0.05, seg=6, rings=3, colors=STONE[k % 3], jitter=0.25, seed=k).xf(None, (0.22 * math.cos(a), 0.19 * math.sin(a), 0.03)))
+    for k in range(9):  # lichen
+        z = r.uniform(0.1, 0.9); a = r.uniform(0, TAU)
+        rad = 0.15 * (1 - 0.5 * z)
+        m.add(blob(0.04, 0.035, 0.008, seg=5, rings=3, colors=('#7a8a72', '#b8c8a8') if k % 3 else ('#d0701a', '#ffa83a'), jitter=0.3, seed=k).xf(rz(a) @ ry(math.pi / 2), (rad * math.cos(a) * 1.02, rad * 0.7 * math.sin(a) * 1.02, z)))
+    for k in range(5):  # the marks cut down its face (they glow)
+        z = 0.72 - 0.12 * k
+        w = 0.13 * (1 - 0.5 * z)
+        mk = box(0.07, 0.012, 0.016, ('#b37ae0', '#e0c0ff')); mk.glow = True
+        m.add(mk.xf(ry((k % 2 * 2 - 1) * 0.5), (0.0, -w * 0.72 - 0.004, z)))
+        if k % 2:
+            mk2 = box(0.016, 0.012, 0.06, ('#b37ae0', '#e0c0ff')); mk2.glow = True
+            m.add(mk2.xf(None, (0.0, -w * 0.72 - 0.004, z - 0.02)))
+    return m, '#b37ae0'
+
+
+def chalice():
+    """A pewter chalice with a knopped stem, dark wine in the bowl."""
+    m = Model('chalice')
+    PEW = ('#5a5a62', '#d0d0d8')
+    m.add(lathe([(0.0, 0), (0.22, 0.0), (0.24, 0.03), (0.06, 0.1), (0.04, 0.3), (0.08, 0.36), (0.04, 0.42), (0.06, 0.5), (0.22, 0.62), (0.26, 0.9), (0.24, 0.9), (0.2, 0.66), (0.0, 0.56)], sides=11, colors=PEW, close_top=False))
+    m.add(lathe([(0.0, 0.84), (0.235, 0.84)], sides=11, colors=('#3a0a14', '#7a1a2a'), close_top=False))
+    return m, None
+
+
+def hand_bell():
+    """A brass hand bell with a turned wooden handle."""
+    m = Model('hand_bell')
+    BR = ('#7a5a1a', '#f0cc60')
+    m.add(lathe([(0.3, 0.0), (0.28, 0.06), (0.2, 0.3), (0.14, 0.46), (0.06, 0.52), (0.0, 0.53)], sides=11, colors=BR, close_top=False))
+    m.add(lathe([(0.29, 0.0), (0.31, 0.02), (0.29, 0.04)], sides=11, colors=BR, close_top=False))
+    m.add(lathe([(0.04, 0.52), (0.06, 0.6), (0.045, 0.75), (0.065, 0.9), (0.0, 0.97)], sides=8, colors=OAK, close_top=False))
+    m.add(blob(0.05, 0.05, 0.05, seg=6, rings=4, colors=IRON).xf(None, (0.06, 0, 0.04)))  # the clapper
+    return m, None
+
+
+def rune_stones():
+    """A scatter of river pebbles, each cut with a mark, on a square of cloth."""
+    m = Model('rune_stones')
+    m.add(box(0.9, 0.9, 0.012, ('#3a1a4a', '#6a3a7a')).xf(rz(0.2), (0, 0, 0)))
+    r = np.random.default_rng(123)
+    for k in range(7):
+        a = TAU * k / 7 + r.uniform(-0.3, 0.3); d = r.uniform(0.08, 0.34)
+        x, y = d * math.cos(a), d * math.sin(a)
+        m.add(blob(0.1, 0.08, 0.04, seg=7, rings=4, colors=('#8a8a84', '#d8d6cc'), jitter=0.12, seed=k).xf(rz(a), (x, y, 0.045)))
+        mk = box(0.012, 0.07, 0.008, ('#b37ae0', '#e0c0ff')); mk.glow = True
+        m.add(mk.xf(rz(a + (k % 3) * 0.6), (x, y, 0.086)))
+        if k % 2:
+            mk2 = box(0.05, 0.012, 0.008, ('#b37ae0', '#e0c0ff')); mk2.glow = True
+            m.add(mk2.xf(rz(a + 0.5), (x, y + 0.01, 0.086)))
+    return m, '#b37ae0'
+
+
+def scrying_mirror():
+    """A black scrying mirror: a disc of polished obsidian in a carved frame on a little easel."""
+    m = Model('scrying_mirror')
+    tilt = rx(-0.25)
+    m.add(lathe([(0.0, 0.0), (0.34, 0.0)], sides=16, colors=('#06060c', '#2a2a4a'), close_top=False).xf(tilt @ rx(math.pi / 2), (0, 0, 0.5)))
+    m.add(lathe([(0.34, -0.03), (0.42, -0.03), (0.44, 0.0), (0.42, 0.04), (0.34, 0.04)], sides=16, colors=('#7a5a1a', '#e8c058'), close_top=False).xf(tilt @ rx(math.pi / 2), (0, 0, 0.5)))
+    m.add(blob(0.1, 0.02, 0.16, seg=5, rings=3, colors=('#9a9ad0', '#e0e0ff')).xf(tilt, (0.1, -0.03, 0.62)))  # a gleam in the glass
+    for sx in (-1, 1):
+        m.add(tube([(sx * 0.2, 0.0, 0.14), (sx * 0.28, -0.08, 0.0)], 0.02, sides=4, colors=OAK_DK))
+    m.add(tube([(0, 0.08, 0.5), (0, 0.34, 0.0)], 0.02, sides=4, colors=OAK_DK))
+    return m, None
+
+
+def pentacle_plaque():
+    """A round wooden plaque inlaid with a brass pentacle in its ring."""
+    m = Model('pentacle_plaque')
+    m.add(lathe([(0.0, 0.0), (0.46, 0.0), (0.5, 0.02), (0.5, 0.05), (0.46, 0.07), (0.0, 0.07)], sides=18, colors=OAK, close_top=False))
+    BR = ('#8a6a2a', '#f0cc60')
+    ring = lathe([(0.4, 0.07), (0.4, 0.085), (0.37, 0.085), (0.37, 0.07)], sides=18, colors=BR, close_top=False); ring.glow = True
+    m.add(ring)
+    pts = [(0.385 * math.sin(TAU * k / 5), 0.385 * math.cos(TAU * k / 5), 0.085) for k in range(5)]
+    for k in range(5):
+        seg = tube([pts[k], pts[(k + 2) % 5]], 0.012, sides=4, colors=BR); seg.glow = True
+        m.add(seg)
+    return m, '#e8c058'
+
+
+def crystal_cluster():
+    """A cluster of quartz points on their matrix, clear at the tips and violet at the root."""
+    m = Model('crystal_cluster')
+    m.add(blob(0.36, 0.3, 0.1, seg=8, rings=4, colors=STONE[0], jitter=0.25, seed=5).xf(None, (0, 0, 0.06)))
+    r = np.random.default_rng(124)
+    for k in range(8):
+        a = r.uniform(0, TAU); d = r.uniform(0, 0.22); h = r.uniform(0.35, 0.9) * (1 - d)
+        lean = np.array([math.cos(a) * d * 1.2, math.sin(a) * d * 1.2, 1.0]); lean /= np.linalg.norm(lean)
+        w = r.uniform(0.05, 0.085)
+        c = lathe([(w, 0), (w, h * 0.75), (0.0, h)], sides=6, colors=('#6a3ab0', '#f0e4ff'), close_top=False)
+        c.glow = True; c.smooth = False
+        m.add(c.xf(look_rot(lean) @ ry(math.pi / 2), (d * math.cos(a), d * math.sin(a), 0.08)))
+    return m, '#b890ff'
+
+
+def open_grimoire():
+    """A grimoire lying open: the pages fanned from the gutter, a ribbon marker, a sigil inked on the leaf."""
+    m = Model('open_grimoire')
+    m.add(box(1.0, 0.7, 0.05, ('#3a1418', '#7a2a30')).xf(None, (0, 0, 0)))
+    for sx in (-1, 1):
+        pg = blade(0.46, 0.64, lambda s_: 1.0 if s_ < 1 else 1.0, segs=4, cols=3, fold=0.0, rise=0.35, droop=0.5, colors=('#c8b888', '#f4ecd0'))
+        m.add(pg.xf(rz(0 if sx > 0 else math.pi), (sx * 0.01, 0, 0.055)))
+        for k in range(4):
+            m.add(box(0.3, 0.012, 0.004, ('#3a2a1a', '#3a2a1a')).xf(None, (sx * 0.24, 0.2 - 0.09 * k, 0.12)))
+    sig = lathe([(0.07, 0.0), (0.085, 0.0)], sides=10, colors=('#6a1a8a', '#b060e0'), close_top=False); sig.glow = True
+    m.add(sig.xf(None, (0.24, -0.16, 0.125)))
+    m.add(tube([(0.0, 0.3, 0.07), (0.02, 0.0, 0.1), (0.03, -0.42, 0.04)], 0.012, sides=3, colors=('#8a1414', '#d83a2a')))
+    return m, '#b060e0'
+
+
 def glowing(p):
     p.glow = True
     return p
@@ -671,7 +816,9 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'hall_table': hall_table, 'hall_bench': hall_bench, 'bookcase': bookcase, 'hall_banner': hall_banner, 'high_seat': high_seat,
         'chandelier': chandelier, 'wall_shield': wall_shield, 'standing_torch': standing_torch,
         'cave_potion': cave_potion, 'cave_candle': cave_candle, 'cave_crystal': cave_crystal, 'cave_book': cave_book, 'cave_hourglass': cave_hourglass,
-        'cave_eyejar': cave_eyejar, 'cave_jar': cave_jar, 'cave_moon': cave_moon, 'cave_mushroom': cave_mushroom, 'cave_feathers': cave_feathers}
+        'cave_eyejar': cave_eyejar, 'cave_jar': cave_jar, 'cave_moon': cave_moon, 'cave_mushroom': cave_mushroom, 'cave_feathers': cave_feathers,
+        'campfire': campfire, 'waymarker': waymarker, 'chalice': chalice, 'hand_bell': hand_bell, 'rune_stones': rune_stones,
+        'scrying_mirror': scrying_mirror, 'pentacle_plaque': pentacle_plaque, 'crystal_cluster': crystal_cluster, 'open_grimoire': open_grimoire}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

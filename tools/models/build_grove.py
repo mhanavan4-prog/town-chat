@@ -260,7 +260,7 @@ def gorse():
     for (x, y, z) in dome_points(70, 0.5, 0.25, 0.42, 25, top_bias=0.1):  # spines
         d = np.array([x, y, z - 0.1]); d /= np.linalg.norm(d)
         sp = lathe([(0.012, 0), (0.0, 0.09)], sides=3, colors=('#2a4a24', '#6a8a4a'), close_top=False)
-        m.add(sp.xf(look_rot(d) @ ry(-math.pi / 2), (x, y, z)))
+        m.add(sp.xf(look_rot(d) @ ry(math.pi / 2), (x, y, z)))
     for (x, y, z) in dome_points(48, 0.5, 0.25, 0.42, 26, top_bias=0.0):  # the gold
         m.add(blob(0.035, 0.03, 0.03, seg=5, rings=3, colors=('#e0a010', '#ffe040')).xf(rz(r.uniform(0, TAU)), (x, y, z)))
     return m, None
@@ -423,7 +423,7 @@ def blackthorn():
         for j in range(5):  # the long thorns
             p = mid + (top - mid) * (j / 4)
             d = np.array([math.cos(a + j * 2.4), math.sin(a + j * 2.4), 0.3]); d /= np.linalg.norm(d)
-            m.add(lathe([(0.008, 0), (0.0, 0.1)], sides=3, colors=('#14100e', '#4a3a34'), close_top=False).xf(look_rot(d) @ ry(-math.pi / 2), p))
+            m.add(lathe([(0.008, 0), (0.0, 0.1)], sides=3, colors=('#14100e', '#4a3a34'), close_top=False).xf(look_rot(d) @ ry(math.pi / 2), p))
     crown(m, [(r.uniform(-0.28, 0.28), r.uniform(-0.28, 0.28), r.uniform(0.4, 0.8), r.uniform(0.14, 0.2)) for _ in range(8)], ('#1e3a22', '#4a7a40'), seed=50, jitter=0.3)
     for (x, y, z) in dome_points(26, 0.42, 0.5, 0.4, 51, top_bias=0.1):
         m.add(blob(0.028, 0.028, 0.028, seg=6, rings=4, colors=('#1a1a4a', '#6a7ac0')).xf(None, (x, y, max(0.12, z))))
