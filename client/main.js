@@ -82,6 +82,7 @@ import createTownTorchNpcs from './town-torch-npcs.js';
 import createDayNight from './day-night.js';
 import createEquipVisuals from './equip-visuals.js';
 import createMoonstones from './moonstones.js';
+import installBackCloses from './back-closes.js';
 // Batch the small decor (client/decor-batch.js); ?batch=0 draws it one by one, to compare.
 const DECOR_BATCHING = !(typeof location !== 'undefined' && /[?&]batch=0\b/.test(location.search));
 
@@ -18877,6 +18878,11 @@ function updateInteractHint() {
 // Step back into the ☰ menu after closing a menu panel, so Escape walks one
 // level up instead of dropping to the game. Reopening through pcMenuBtn also
 // refreshes the menu's live labels (graphics, moonstones, …).
+// The back gesture (a phone's swipe, the browser's back) closes the open menu
+// instead of leaving the site (client/back-closes.js).
+const _backCloses = installBackCloses();
+void _backCloses;
+
 function backToMenu() {
   const p = document.getElementById('pcMenuBtn');
   if (p) { p.click(); return; }
