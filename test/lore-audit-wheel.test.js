@@ -60,6 +60,8 @@ check('the reference book is a Commonplace Book, not a "Book of Shadows" (Gardne
   check('the wards card names three the game has: the bottle (as Blagrave advised, 1671, under the hearth), the daisy wheel, the shoe', /Blagrave advised in 1671/.test(wards) && /Blagrave/.test(WARDS.bottle.source) && /1671/.test(WARDS.bottle.source) && !!BOTTLE_PLACES.hearth && !!WARDS.hexafoil && !!WARDS.shoe && /by the chimney/.test(WARDS.shoe.where));
   const { SHEAF_FORMS, SHEAF_PLAIT_SEASONS } = require('../data/lastSheaf.js');
   check('…and the last sheaf, plaited at harvest, in the three forms the game has', /At harvest, plait the last sheaf too, a neck, a kern baby or a Maiden/.test(wards) && JSON.stringify(Object.keys(SHEAF_FORMS)) === '["neck","kern","maiden"]' && SHEAF_PLAIT_SEASONS.includes('lughnasadh') && !!WARDS.sheaf);
+  const { rowanProblem, horseshoeProblem, hagstoneProblem, HAGSTONE_PLACES } = require('../data/wards.js');
+  check('…the rowan cross, the found horseshoe and the hag stone, each as the game has them (no knot; found, not bought; holed by nature; at the bed head)', /Bind a rowan cross with red thread and never knot it/.test(wards) && /knot/.test(rowanProblem({ way: 'scots', tool: 'hand', finish: 'knot' })) && /nail up a horseshoe you found \(never one you bought\)/.test(wards) && !!WARDS.horseshoe && /finds/.test(WARDS.horseshoe.lore) && /hang a stone holed by nature at the head of your bed/.test(wards) && /naturally/.test(hagstoneProblem({ stone: 'bored', place: 'bed' })) && !!HAGSTONE_PLACES.bed && horseshoeProblem({ place: 'over', up: 'points_up' }) === null);
   const myth = card('Myth or Record?');
   const { MYTH_SETS } = require('../data/mythOrRecord.js');
   const n = MYTH_SETS.reduce((a, set) => a + set.items.length, 0);
