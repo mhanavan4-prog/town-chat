@@ -81,21 +81,11 @@ const DUNGEON_MOB_KEYS_BY_TIER = {
   4: ['nightmare_beast','shadow_titan','void_serpent','abyssal_hound','infernal_brute','death_knight','chaos_dragon','void_leviathan']
 };
 
-const DUNGEON_SPAWN_POSITIONS = [
-  { x: 225, y: 225 }, { x: 600, y: 180 }, { x: 975, y: 225 },
-  { x: 180, y: 525 }, { x: 1020, y: 525 },
-  { x: 180, y: 675 }, { x: 1020, y: 675 },
-  { x: 225, y: 900 }, { x: 600, y: 870 }, { x: 975, y: 900 },
-  { x: 375, y: 375 }, { x: 825, y: 375 },
-  { x: 375, y: 750 }, { x: 825, y: 750 },
-  { x: 300, y: 600 }, { x: 900, y: 600 }
-];
-
-const DUNGEON_LANES_T1 = [ { x:70, y:1130 }, { x:1130, y:1130 }, { x:70, y:510 }, { x:1130, y:510 }, { x:590, y:850 }, { x:170, y:70 }, { x:1030, y:70 }, { x:770, y:550 }, { x:410, y:550 }, { x:930, y:850 }, { x:230, y:830 }, { x:410, y:1130 }, { x:750, y:1130 }, { x:330, y:290 }, { x:870, y:290 }, { x:410, y:70 } ];
-const DUNGEON_LANES_T2 = [ { x:1130, y:70 }, { x:1130, y:1130 }, { x:530, y:70 }, { x:530, y:1130 }, { x:830, y:590 }, { x:70, y:150 }, { x:70, y:1050 }, { x:1130, y:770 }, { x:830, y:950 }, { x:530, y:770 }, { x:830, y:230 }, { x:530, y:410 }, { x:1130, y:410 }, { x:270, y:330 }, { x:270, y:870 }, { x:290, y:70 } ];
-const DUNGEON_LANES_T3 = [ { x:70, y:70 }, { x:1130, y:70 }, { x:70, y:1130 }, { x:1130, y:1130 }, { x:590, y:70 }, { x:70, y:590 }, { x:1130, y:590 }, { x:490, y:1030 }, { x:830, y:930 }, { x:330, y:270 }, { x:850, y:270 }, { x:230, y:850 }, { x:870, y:670 }, { x:1090, y:850 }, { x:1110, y:330 }, { x:70, y:330 } ];
-const DUNGEON_LANES_T4 = [ { x:70, y:70 }, { x:1130, y:70 }, { x:70, y:1130 }, { x:1130, y:1130 }, { x:590, y:70 }, { x:70, y:590 }, { x:1130, y:590 }, { x:490, y:1050 }, { x:830, y:890 }, { x:330, y:330 }, { x:850, y:330 }, { x:330, y:770 }, { x:870, y:630 }, { x:1090, y:850 }, { x:330, y:70 }, { x:850, y:70 } ];
-// Each tier is now its own labyrinth (client DUNGEON_LAYOUTS, per-tier shape+colour).
+// Where creatures stand is worked out with each dungeon's shape (data/dungeonLayouts.js):
+// four posts to a chamber, none in the chamber you arrive in.
+const { DUNGEON_LAYOUTS } = require('./dungeonLayouts');
+const DUNGEON_LANES_T1 = DUNGEON_LAYOUTS[1].lanes, DUNGEON_LANES_T2 = DUNGEON_LAYOUTS[2].lanes, DUNGEON_LANES_T3 = DUNGEON_LAYOUTS[3].lanes, DUNGEON_LANES_T4 = DUNGEON_LAYOUTS[4].lanes;
+const DUNGEON_SPAWN_POSITIONS = DUNGEON_LANES_T1;
 const DUNGEON_SPAWN_POSITIONS_BY_TIER = { 1: DUNGEON_LANES_T1, 2: DUNGEON_LANES_T2, 3: DUNGEON_LANES_T3, 4: DUNGEON_LANES_T4 };
 
 module.exports = { DUNGEON_LORE, DUNGEON_MOB_TYPES, DUNGEON_MOB_KEYS_BY_TIER, DUNGEON_SPAWN_POSITIONS, DUNGEON_LANES_T1, DUNGEON_LANES_T2, DUNGEON_LANES_T3, DUNGEON_LANES_T4, DUNGEON_SPAWN_POSITIONS_BY_TIER };

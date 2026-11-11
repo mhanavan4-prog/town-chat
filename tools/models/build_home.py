@@ -1491,6 +1491,266 @@ def pyre():
     return m, '#ff8a2a'
 
 
+# ── Underground: the dungeons and the Delve ────────────────────────────────
+ROCKP = ('#5a5a5a', '#f0f0f0')      # pale, so the game can stain it each dungeon's colour
+
+
+def crag(w, d, h, seed, colors=ROCKP, nx=7, nz=5, lean=0.0):
+    """A craggy rock face: a slab w wide, d thick, h high, its faces pushed about and broken into ledges."""
+    r = np.random.default_rng(seed)
+    v, f, t = [], [], []
+    ring = []
+    for i in range(nx):
+        ring.append((-w / 2 + w * i / (nx - 1), -d / 2))
+    for i in range(nx):
+        ring.append((w / 2 - w * i / (nx - 1), d / 2))
+    n = len(ring)
+    for k in range(nz + 1):
+        u = k / nz
+        z = h * u
+        squeeze = 1 - 0.45 * u ** 1.6
+        for (x, y) in ring:
+            jx = r.uniform(-0.06, 0.06) * w / nx * 4
+            jy = r.uniform(-0.35, 0.35) * d
+            ledge = 0.12 * d * math.sin(u * 9 + x * 5)
+            v.append((x * (1 - 0.08 * u) + jx, y * squeeze + jy * (0.4 + 0.6 * squeeze) + ledge + lean * z, z + (r.uniform(-0.04, 0.04) * h if 0 < k < nz else 0)))
+            t.append(min(1.0, max(0.0, 0.12 + 0.75 * u + r.uniform(-0.14, 0.14))))
+    for k in range(nz):
+        for i in range(n):
+            a, b = k * n + i, k * n + (i + 1) % n
+            f.append((a, b, b + n, a + n))
+    top = len(v); v.append((0, lean * h, h * 1.02)); t.append(0.95)
+    for i in range(n):
+        f.append((nz * n + i, nz * n + (i + 1) % n, top))
+    return Part(v, f, t, colors, smooth=False)
+
+
+def cave_wall():
+    """A length of cave wall: a broken rock face with ledges, scree at its foot, a seam of crystal in it."""
+    m = Model('cave_wall')
+    m.add(crag(2.0, 0.34, 1.5, 11))
+    m.add(crag(0.9, 0.3, 1.05, 12, nx=5, nz=4).xf(None, (-0.5, -0.1, 0)))
+    m.add(crag(0.7, 0.28, 0.8, 13, nx=5, nz=3).xf(None, (0.55, 0.1, 0)))
+    r = np.random.default_rng(14)
+    for k in range(7):
+        rr = r.uniform(0.05, 0.11)
+        m.add(blob(rr, rr * 0.8, rr * 0.6, seg=6, rings=3, colors=ROCKP, jitter=0.25, seed=k).xf(None, (r.uniform(-0.95, 0.95), (1 if k % 2 else -1) * r.uniform(0.2, 0.3), rr * 0.4)))
+    for (x, z, a) in ((-0.25, 0.75, 0.5), (-0.1, 0.9, -0.3), (0.05, 0.7, 0.2)):   # the seam
+        c = lathe([(0.0, 0.0), (0.035, 0.02), (0.03, 0.14), (0.0, 0.2)], sides=5, colors=('#b0b0b0', '#ffffff'))
+        m.add(glowing(c).xf(rx(-1.1) @ ry(a), (x, -0.2, z)))
+    return m, '#ffffff'
+
+
+def stalagmites():
+    """A stand of stalagmites, wet-smooth and ringed, the tallest waist-high."""
+    m = Model('stalagmites')
+    r = np.random.default_rng(21)
+    for k, (x, y, h, rr) in enumerate(((0, 0, 0.9, 0.16), (0.24, 0.1, 0.55, 0.11), (-0.2, 0.14, 0.42, 0.1), (0.08, -0.22, 0.34, 0.09), (-0.26, -0.12, 0.22, 0.07))):
+        prof = [(rr * 1.25, 0.0), (rr, h * 0.12), (rr * 0.8, h * 0.3), (rr * 0.72, h * 0.34), (rr * 0.5, h * 0.6), (rr * 0.44, h * 0.64), (rr * 0.2, h * 0.88), (0.0, h)]
+        p = lathe(prof, sides=7, colors=ROCKP, close_bottom=True)
+        for i in range(len(p.v)):
+            p.v[i][0] *= 1 + r.uniform(-0.1, 0.1); p.v[i][1] *= 1 + r.uniform(-0.1, 0.1)
+        m.add(p.xf(rz(k * 1.3), (x, y, 0)))
+    return m, None
+
+
+def rock_column():
+    """A column where stalactite met stalagmite: waisted in the middle, flaring to floor and roof."""
+    m = Model('rock_column')
+    r = np.random.default_rng(22)
+    prof = [(0.34, 0.0), (0.26, 0.15), (0.19, 0.45), (0.14, 0.9), (0.13, 1.2), (0.17, 1.6), (0.25, 1.9), (0.36, 2.1)]
+    p = lathe(prof, sides=8, colors=ROCKP, close_bottom=True)
+    for i in range(len(p.v)):
+        p.v[i][0] *= 1 + r.uniform(-0.12, 0.12); p.v[i][1] *= 1 + r.uniform(-0.12, 0.12)
+    m.add(Part(p.v, p.f, p.t, ROCKP, smooth=False))
+    for k in range(5):
+        a = TAU * k / 5
+        m.add(blob(0.09, 0.08, 0.06, seg=6, rings=3, colors=ROCKP, jitter=0.25, seed=k).xf(None, (0.36 * math.cos(a), 0.36 * math.sin(a), 0.03)))
+    return m, None
+
+
+def door_props():
+    """A propped doorway: two timber posts and a cap-piece wedged under the rock, a lantern hook, a sag in the lintel."""
+    m = Model('door_props')
+    W, H = 2.3, 1.55
+    for sx in (-1, 1):
+        m.add(trim(tube([(sx * W / 2, 0, 0), (sx * (W / 2 - 0.05), 0, H)], lambda u: 0.085 - 0.012 * u, sides=7, colors=OAK_DK)))
+        m.add(trim(tube([(sx * (W / 2 + 0.3), 0.0, 0), (sx * (W / 2 - 0.02), 0, H * 0.62)], 0.05, sides=5, colors=OAK_DK)))   # a raking shore
+        m.add(trim(box(0.26, 0.2, 0.05, OAK)).xf(None, (sx * W / 2, 0, 0)))
+    cap = tube([(-W / 2 - 0.2, 0, H + 0.04), (0, 0, H - 0.03), (W / 2 + 0.2, 0, H + 0.04)], 0.095, sides=7, colors=OAK)
+    m.add(trim(cap))
+    for sx in (-0.5, 0.45):
+        m.add(trim(box(0.14, 0.2, 0.07, OAK_DK)).xf(ry(0.15), (sx * W / 2, 0, H + 0.1)))   # wedges
+    m.add(crag(W + 0.7, 0.4, 0.5, 31, nx=7, nz=3).xf(None, (0, 0, H + 0.15)))               # the rock it holds up
+    m.add(trimtube([(0.3, 0, H - 0.08), (0.3, -0.12, H - 0.1), (0.3, -0.12, H - 0.2)], 0.01, sides=4, colors=IRON))
+    return m, None
+
+
+def chest(open_=False):
+    m = Model('chest_open' if open_ else 'chest')
+    W, D, H = 0.9, 0.56, 0.42
+    for k in range(4):
+        m.add(trim(box(W, D / 4 * 0.97, H, OAK, jitter=0.006, seed=k)).xf(None, (0, -D / 2 + D / 8 + k * D / 4, 0.06)))
+    for sx in (-1, 1):
+        m.add(trim(box(0.05, D + 0.02, H + 0.01, OAK_DK)).xf(None, (sx * (W / 2 - 0.02), 0, 0.06)))
+    for x in (-0.3, 0.3):
+        m.add(trim(box(0.07, D + 0.03, H + 0.02, IRON)).xf(None, (x, 0, 0.055)))
+    for (x, y) in ((-0.38, -0.2), (0.38, -0.2), (-0.38, 0.2), (0.38, 0.2)):
+        m.add(trim(box(0.1, 0.1, 0.06, OAK_DK)).xf(None, (x, y, 0)))
+    # the lid: a barrel top, shut or thrown back
+    lid = Model('lid')
+    n = 7
+    v, f, t = [], [], []
+    for sx in (-W / 2 - 0.01, W / 2 + 0.01):
+        for k in range(n + 1):
+            a = math.pi * k / n
+            v.append((sx, -(D / 2 + 0.01) * math.cos(a) + D / 2, 0.2 * math.sin(a))); t.append(0.3 + 0.6 * math.sin(a))
+    for k in range(n):
+        f.append((k, k + 1, n + 2 + k, n + 1 + k))
+    c0 = len(v); v.append((-W / 2 - 0.01, D / 2, 0)); t.append(0.3)
+    c1 = len(v); v.append((W / 2 + 0.01, D / 2, 0)); t.append(0.3)
+    for k in range(n):
+        f.append((c0, k + 1, k)); f.append((c1, n + 1 + k, n + 2 + k))
+    f.append((0, n + 1, 2 * n + 1, n))
+    lidp = Part(v, f, t, OAK, smooth=False)
+    bands = []
+    for x in (-0.3, 0.3):
+        bv = [(x + dx, -(D / 2 + 0.02) * math.cos(math.pi * k / n) + D / 2, 0.215 * math.sin(math.pi * k / n)) for k in range(n + 1) for dx in (-0.035, 0.035)]
+        bf = [(2 * k, 2 * k + 1, 2 * k + 3, 2 * k + 2) for k in range(n)]
+        bands.append(Part(bv, bf, [0.5] * len(bv), IRON, smooth=False))
+    ang = -1.9 if open_ else 0.0
+    T = (0, -D / 2 + (D if True else 0) - D / 2, H + 0.06)   # hinge along the back edge (y = +D/2)
+    for part in [lidp] + bands:
+        part.v = part.v - np.array([0, D, 0])          # put the hinge at the origin
+        m.add(trim(part).xf(rx(ang), (0, D / 2, H + 0.06)))
+    m.add(trim(box(0.12, 0.03, 0.14, BRASS)).xf(None, (0, -D / 2 - 0.02, H - 0.06)))   # the hasp
+    if open_:
+        gold = lathe([(0.0, 0.0), (0.36, 0.0), (0.3, 0.06), (0.12, 0.1), (0.0, 0.11)], sides=10, colors=('#b07a10', '#ffe070'))
+        gold.v[:, 1] *= 0.6
+        m.add(glowing(gold).xf(None, (0, 0, H - 0.04)))
+        r = np.random.default_rng(3)
+        for k in range(10):
+            m.add(glowing(lathe([(0.0, 0.0), (0.035, 0.0), (0.035, 0.008), (0.0, 0.008)], sides=7, colors=('#c89010', '#fff0a0'))).xf(rx(r.uniform(-0.6, 0.6)), (r.uniform(-0.3, 0.3), r.uniform(-0.16, 0.16), H + 0.03 + r.uniform(0, 0.04))))
+    else:
+        m.add(trim(lathe([(0.0, 0.0), (0.045, 0.0), (0.045, 0.02), (0.0, 0.02)], sides=8, colors=IRON)).xf(rx(math.pi / 2), (0, -D / 2 - 0.045, H - 0.08)))  # the lock
+    return m, ('#ffd860' if open_ else None)
+
+
+def chest_shut():
+    """An iron-bound oak chest with a barrel lid, locked."""
+    return chest(False)
+
+
+def chest_open():
+    """The same chest thrown open, coin heaped in it."""
+    return chest(True)
+
+
+def cache():
+    """A cache: a small cairn of piled stones with a waxed sack and a corner of a strongbox showing through it."""
+    m = Model('cache')
+    r = np.random.default_rng(41)
+    for k in range(13):
+        a = r.uniform(0, TAU); d = r.uniform(0.0, 0.3); rr = r.uniform(0.09, 0.15)
+        z = 0.06 + (0.3 - d) * 0.9 * r.uniform(0.5, 1.0)
+        m.add(blob(rr, rr * 0.85, rr * 0.65, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=k).xf(rz(a), (d * math.cos(a), d * math.sin(a), z)))
+    m.add(trim(blob(0.14, 0.11, 0.12, seg=7, rings=5, colors=('#5a4a2a', '#b09860'), jitter=0.1)).xf(None, (0.16, -0.26, 0.1)))
+    m.add(trim(lathe([(0.03, 0.0), (0.05, 0.03)], sides=6, colors=ROPE, close_top=False)).xf(None, (0.16, -0.26, 0.2)))
+    m.add(trim(box(0.2, 0.14, 0.12, OAK_DK)).xf(rz(0.5) @ ry(0.2), (-0.2, -0.22, 0.02)))
+    m.add(trim(box(0.21, 0.03, 0.125, IRON)).xf(rz(0.5) @ ry(0.2), (-0.2, -0.22, 0.02)))
+    return m, None
+
+
+def ore_vein():
+    """An outcrop shot through with ore: dark rock, bright seams and nuggets catching the light."""
+    m = Model('ore_vein')
+    m.add(crag(0.8, 0.5, 0.62, 51, nx=6, nz=4))
+    m.add(crag(0.45, 0.36, 0.36, 52, nx=5, nz=3).xf(None, (0.38, -0.12, 0)))
+    r = np.random.default_rng(53)
+    ORE = ('#a05a20', '#ffd090')
+    for k in range(9):
+        x = r.uniform(-0.3, 0.45); z = r.uniform(0.1, 0.5)
+        m.add(glowing(blob(0.045, 0.03, 0.04, seg=5, rings=3, colors=ORE, jitter=0.3, seed=k)).xf(None, (x, -0.2 - 0.05 * (0.5 - z), z)))
+    m.add(glowing(tube([(-0.3, -0.24, 0.12), (-0.1, -0.25, 0.3), (0.12, -0.23, 0.26), (0.3, -0.26, 0.44)], 0.014, sides=3, colors=ORE)))
+    for k in range(4):
+        m.add(glowing(blob(0.035, 0.03, 0.025, seg=5, rings=3, colors=ORE, jitter=0.3, seed=20 + k)).xf(None, (r.uniform(-0.4, 0.4), -0.42 + r.uniform(-0.05, 0.05), 0.02)))
+    return m, '#ffb060'
+
+
+def spike_plate():
+    """A pressure plate of fitted flags, iron spikes standing a hand high from the joints, old stains about it."""
+    m = Model('spike_plate')
+    for i in range(3):
+        for j in range(3):
+            m.add(box(0.31, 0.31, 0.035, ROCKP, jitter=0.02, seed=i * 3 + j).xf(None, (-0.33 + i * 0.33, -0.33 + j * 0.33, 0)))
+    STEEL = ('#4a4e58', '#c8ccd4')
+    for i in range(4):
+        for j in range(4):
+            x, y = -0.495 + i * 0.33, -0.495 + j * 0.33
+            sp = lathe([(0.022, 0.0), (0.016, 0.1), (0.0, 0.2)], sides=4, colors=STEEL)
+            m.add(trim(sp).xf(None, (x, y, 0.02)))
+    m.add(trim(blob(0.2, 0.14, 0.004, seg=7, rings=3, colors=('#3a0c0c', '#5a1414'), jitter=0.3)).xf(None, (0.1, -0.05, 0.036)))
+    return m, None
+
+
+def gas_vent():
+    """A crack in the floor that breathes: a split of dark rock rimmed with yellow sulphur crust."""
+    m = Model('gas_vent')
+    r = np.random.default_rng(61)
+    for k in range(9):
+        a = TAU * k / 9 + r.uniform(-0.15, 0.15); d = r.uniform(0.3, 0.42); rr = r.uniform(0.1, 0.16)
+        m.add(blob(rr, rr * 0.7, rr * 0.45, seg=6, rings=3, colors=ROCKP, jitter=0.25, seed=k).xf(rz(a), (d * math.cos(a), d * math.sin(a) * 0.7, rr * 0.2)))
+    m.add(trim(lathe([(0.0, 0.012), (0.2, 0.012), (0.3, 0.008)], sides=9, colors=('#020202', '#0a0a0a'), close_top=False)).xf(None, (0, 0, 0)))
+    for k in range(11):
+        a = r.uniform(0, TAU); d = r.uniform(0.22, 0.34)
+        m.add(trim(blob(0.05, 0.04, 0.015, seg=5, rings=3, colors=('#8a7a10', '#e8d848'), jitter=0.3, seed=30 + k)).xf(None, (d * math.cos(a), d * math.sin(a) * 0.7, 0.02)))
+    return m, None
+
+
+def rockfall():
+    """Where the roof has come down before: a spill of broken rock, the dust still pale on it, a split prop under it."""
+    m = Model('rockfall')
+    r = np.random.default_rng(71)
+    for k in range(16):
+        a = r.uniform(0, TAU); d = r.uniform(0.0, 0.42) ** 0.8; rr = r.uniform(0.07, 0.17)
+        m.add(blob(rr, rr * 0.8, rr * 0.6, seg=6, rings=3, colors=('#7a7a7a', '#ffffff'), jitter=0.3, seed=k).xf(rz(a), (d * math.cos(a), d * math.sin(a), rr * 0.4 + (0.3 - d * 0.6) * r.uniform(0, 0.5))))
+    m.add(trim(tube([(-0.4, 0.1, 0.03), (0.1, -0.05, 0.16), (0.42, -0.2, 0.05)], 0.045, sides=6, colors=OAK_DK)))
+    return m, None
+
+
+def brazier():
+    """An iron brazier on three legs, a basket of bars holding charcoal."""
+    m = Model('brazier')
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(trim(tube([(0.3 * math.cos(a), 0.3 * math.sin(a), 0), (0.16 * math.cos(a), 0.16 * math.sin(a), 0.42), (0.2 * math.cos(a), 0.2 * math.sin(a), 0.62)], 0.022, sides=5, colors=IRON)))
+    m.add(trim(lathe([(0.1, 0.25), (0.13, 0.26), (0.1, 0.27)], sides=9, colors=IRON, close_top=False)))
+    m.add(trim(lathe([(0.0, 0.6), (0.12, 0.6), (0.24, 0.66), (0.28, 0.78), (0.26, 0.8), (0.2, 0.68), (0.0, 0.64)], sides=10, colors=IRON, close_top=False)))
+    for k in range(10):
+        a = TAU * k / 10
+        m.add(trim(tube([(0.25 * math.cos(a), 0.25 * math.sin(a), 0.68), (0.29 * math.cos(a), 0.29 * math.sin(a), 0.9)], 0.01, sides=4, colors=IRON)))
+    m.add(trim(lathe([(0.29, 0.89), (0.305, 0.9), (0.29, 0.91)], sides=10, colors=IRON, close_top=False)))
+    r = np.random.default_rng(81)
+    for k in range(8):
+        a = r.uniform(0, TAU); d = r.uniform(0, 0.16)
+        m.add(trim(blob(0.06, 0.05, 0.045, seg=5, rings=3, colors=('#0c0c0c', '#34302c'), jitter=0.3, seed=k)).xf(None, (d * math.cos(a), d * math.sin(a), 0.72 + r.uniform(0, 0.05))))
+    return m, None
+
+
+def seal_stone():
+    """A sealing stone: a squat block with a dressed panel in its face, the binding mark cut deep in the panel and alight."""
+    m = Model('seal_stone')
+    m.add(crag(0.6, 0.42, 0.78, 91, nx=5, nz=4))
+    m.add(trim(box(0.36, 0.06, 0.4, ('#16141a', '#2e2a36'))).xf(None, (0, -0.24, 0.26)))
+    G = ('#b0b0b0', '#ffffff')
+    Y = -0.275
+    m.add(glowing(lathe([(0.1, 0.0), (0.125, 0.0)], sides=12, colors=G, close_top=False)).xf(rx(math.pi / 2), (0, Y, 0.46)))
+    m.add(glowing(box(0.02, 0.01, 0.3, G)).xf(None, (0, Y, 0.31)))
+    for sx in (-1, 1):
+        m.add(glowing(box(0.02, 0.01, 0.1, G)).xf(ry(sx * 0.8), (sx * 0.04, Y, 0.3)))
+    return m, '#ffffff'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1505,7 +1765,9 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'relic_planchette': relic_planchette, 'herb_bundle': herb_bundle, 'pumpkin': pumpkin, 'lectern': lectern, 'vigil_candle': vigil_candle,
         'marble_perch': marble_perch,
         'camp_tent': camp_tent, 'palisade_stake': palisade_stake, 'watchtower': watchtower, 'weapon_rack': weapon_rack, 'pennant_pole': pennant_pole,
-        'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre}
+        'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre,
+        'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
+        'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

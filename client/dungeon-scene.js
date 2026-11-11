@@ -52,6 +52,34 @@ function makeCaveSigilTexture(variant) {
   return tex;
 }
 let rootcellarSigilTextures = null;
+// Worn cave floor, drawn once: blotches of light and dark rock, hairline
+// cracks, a scatter of grit. Tiles without a seam (everything wraps).
+let caveFloorTexture = null;
+function makeCaveFloorTexture() {
+  if (caveFloorTexture) return caveFloorTexture;
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  g.fillStyle = '#8c8c8c'; g.fillRect(0, 0, N, N);
+  const wrap = (draw) => { for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) { g.save(); g.translate(ox, oy); draw(); g.restore(); } };
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * N, y = rnd() * N, r = 10 + rnd() * 34, v = 96 + Math.floor(rnd() * 90);
+    wrap(() => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${v},${v},${v},0.5)`); gr.addColorStop(1, `rgba(${v},${v},${v},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); });
+  }
+  g.strokeStyle = 'rgba(30,30,30,0.55)'; g.lineWidth = 1.2;
+  for (let i = 0; i < 9; i++) {
+    let x = rnd() * N, y = rnd() * N, a = rnd() * Math.PI * 2;
+    const pts = [[x, y]];
+    for (let k = 0; k < 9; k++) { a += (rnd() - 0.5) * 1.1; x += Math.cos(a) * (8 + rnd() * 14); y += Math.sin(a) * (8 + rnd() * 14); pts.push([x, y]); }
+    wrap(() => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const p of pts) g.lineTo(p[0], p[1]); g.stroke(); });
+  }
+  for (let i = 0; i < 500; i++) { const v = rnd() < 0.5 ? 40 : 210; g.fillStyle = `rgba(${v},${v},${v},0.35)`; g.fillRect(rnd() * N, rnd() * N, 1.5, 1.5); }
+  caveFloorTexture = new THREE.CanvasTexture(c);
+  caveFloorTexture.wrapS = caveFloorTexture.wrapT = THREE.RepeatWrapping;
+  return caveFloorTexture;
+}
+
 function buildDungeonCaveScene(theme, layout) {
   const scene = new THREE.Scene();
   const BG = theme.bg;
@@ -60,6 +88,9 @@ function buildDungeonCaveScene(theme, layout) {
   // old near-plane mobs a lane or two away were already hazing out. Now the
   // whole fighting floor reads clearly and the murk only closes in past the
   // far walls — moody, but nothing hides in it.
+  // The dungeon is `SIZE` across (2400): far enough that the chamber you stand
+  // in and the ones beside it read clearly, and the murk takes the rest.
+  const SIZE = layout.size || 1200, MID = SIZE / 2;
   scene.fog = new THREE.Fog(BG, 1250, 2800);
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 1, 2800);
 
@@ -68,10 +99,13 @@ function buildDungeonCaveScene(theme, layout) {
   scene.add(new THREE.AmbientLight(theme.amb, 1.3));
   scene.add(new THREE.HemisphereLight(theme.hemiTop, theme.hemiBot, 0.95));
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200),
-    new THREE.MeshLambertMaterial({ color: theme.floor }));
+  // The floor is trodden rock: mottled, cracked, with the pale of old mineral in it.
+  const floorTex = makeCaveFloorTexture();
+  floorTex.repeat.set((SIZE + 800) / 320, (SIZE + 800) / 320);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(SIZE + 800, SIZE + 800),
+    new THREE.MeshLambertMaterial({ color: new THREE.Color(theme.floor).multiplyScalar(2.6).lerp(new THREE.Color(0x6a6662), 0.35), map: floorTex }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(600, 0, 600);
+  floor.position.set(MID, 0, MID);
   scene.add(floor);
 
   if (!rootcellarSigilTextures) rootcellarSigilTextures = [0, 1, 2, 3].map(v => makeCaveSigilTexture(v));
@@ -83,7 +117,59 @@ function buildDungeonCaveScene(theme, layout) {
   // real KayKit dungeon-pack walls (ruin_wall), with the original glowing
   // boulder ridge kept as a fallback for any piece whose model hasn't streamed
   // in yet, so the layout is never missing its lanes.
-  for (const w of layout.walls) {
+  // The rock is modelled (tools/models/build_home.py), pale, and stained this
+  // dungeon's colour; its crystal seams burn the dungeon's glow. One stained
+  // copy of each material serves every piece.
+  const rockStain = new THREE.Color(theme.rock).multiplyScalar(3.4).lerp(new THREE.Color(0x8a8682), 0.5).getHex();
+  const stained = new Map();
+  const stain = (g) => {
+    g.traverse((o) => {
+      const m = o.isMesh && o.material;
+      if (!m || (m.name !== 'Plant' && m.name !== 'Glow')) return;
+      let c = stained.get(m.uuid);
+      if (!c) {
+        c = m.clone();
+        if (m.name === 'Plant') c.color.setHex(rockStain);
+        else { c.color.setHex(theme.accent); if (c.emissive) c.emissive.setHex(theme.glow); }
+        stained.set(m.uuid, c);
+      }
+      o.material = c;
+    });
+    return g;
+  };
+  // Rock that stands tall enough to get between the camera and you. Whatever
+  // of it the camera is right up against is not drawn that frame, so backing
+  // against a wall never fills the screen with it.
+  const tallRock = [];
+  const rock = (key, x, z, size, mode, roty) => { const g = kkProp(scene, key, x, z, size, mode, roty); if (!g) return null; if (key !== 'dg_stalag') tallRock.push(g); return stain(g); };
+  scene.onBeforeRender = (_r, _s, cam) => {
+    const cx = cam.position.x, cz = cam.position.z;
+    for (const g of tallRock) { const dx = g.position.x - cx, dz = g.position.z - cz; g.visible = dx * dx + dz * dz > 200 * 200; }
+  };
+  const caveRock = !!(hasKK && hasKK('dg_wall'));
+  // A run of cave wall along a rect's long axis, in lengths of about 200.
+  const wallRun = (w, k0) => {
+    const horiz = w.w >= w.h, longLen = horiz ? w.w : w.h;
+    const n = Math.max(1, Math.round(longLen / 200)), seg = longLen / n;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const rx = horiz ? (w.x + t * w.w) : w.x + w.w / 2, rz = horiz ? w.y + w.h / 2 : (w.y + t * w.h);
+      rock('dg_wall', rx, rz, seg * 1.1, 'fit', (horiz ? 0 : Math.PI / 2) + (((i + k0) % 2) ? Math.PI : 0));
+    }
+  };
+  if (caveRock) {
+    layout.walls.forEach((w, k) => wallRun(w, k));
+    // the cave's own sides, just beyond the floor you can walk
+    const E = 26;
+    [{ x: 0, y: -E - 28, w: SIZE, h: 28 }, { x: 0, y: SIZE + E, w: SIZE, h: 28 }, { x: -E - 28, y: 0, w: 28, h: SIZE }, { x: SIZE + E, y: 0, w: 28, h: SIZE }].forEach((w, k) => wallRun(w, k));
+    // timber props in the doorways; where four chambers meet, a column of rock
+    for (const d of (layout.doors || [])) {
+      if (d.width > 300) { for (const s of [-1, 1]) rock('dg_column', d.x + (d.along === 'x' ? s * d.width / 2 : 0), d.y + (d.along === 'y' ? s * d.width / 2 : 0), 210, 'height', d.x + d.y); continue; }
+      rock('dg_door', d.x, d.y, d.width * 1.32, 'fit', d.along === 'x' ? 0 : Math.PI / 2);
+    }
+    for (const [cx, cz] of [[1, 1], [2, 1], [1, 2], [2, 2]]) rock('dg_column', cx * SIZE / 3, cz * SIZE / 3, 230, 'height', cx * 2 + cz);
+  }
+  if (!caveRock) for (const w of layout.walls) {
     const horiz = w.w >= w.h;
     const longLen = horiz ? w.w : w.h;
     const nChunks = Math.max(3, Math.round(longLen / 104));
@@ -127,12 +213,21 @@ function buildDungeonCaveScene(theme, layout) {
       new THREE.MeshLambertMaterial({ color: theme.hook }));
     hook.position.set(lx, 198, lz);
     scene.add(hook);
-    const light = new THREE.PointLight(theme.lanternLight, 1.5, 640);
+    // One lantern to a chamber now, so each throws further.
+    const light = new THREE.PointLight(theme.lanternLight, 1.6, 820);
     light.position.set(lx, 175, lz);
     scene.add(light);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: theme.lantern, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.scale.set(64, 64, 1); glow.position.set(lx, 175, lz);
     scene.add(glow);
+  }
+
+  // A dim lamp hangs in every doorway: it marks the way on, and throws no light of its own.
+  for (const [lx, lz] of (layout.doorLamps || [])) {
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(5, 8, 8), new THREE.MeshBasicMaterial({ color: theme.lantern }));
+    orb.position.set(lx, 150, lz); scene.add(orb);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color: theme.lantern, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(44, 44, 1); glow.position.set(lx, 150, lz); scene.add(glow);
   }
 
   const bx = layout.boss.x, bz = layout.boss.y;
@@ -141,7 +236,8 @@ function buildDungeonCaveScene(theme, layout) {
   // hiding mobs). Low KayKit rubble & rocks hug the four corners and the arena
   // rim only; nothing stands over ankle height in the open, so a creature is
   // never lost behind the scenery. Each is kept well clear of the boss circle.
-  const cornerClusters = [[150, 150], [1050, 150], [150, 1050], [1050, 1050], [600, 90], [90, 600], [1110, 600], [600, 1110]];
+  const cornerClusters = [];
+  for (const ch of (layout.chambers || [])) for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) cornerClusters.push([ch.x + sx * 340, ch.y + sz * 340]);
   let dN = 0;
   for (const [cxp, czp] of cornerClusters) {
     const nRock = 2 + (dN % 2);
@@ -150,6 +246,8 @@ function buildDungeonCaveScene(theme, layout) {
       if (Math.hypot(jx - bx, jz - bz) < 240) { dN++; continue; }
       const pick = rockFloorPieces[dN % rockFloorPieces.length];
       const sz = 20 + (dN % 3) * 8;
+      // A stand of stalagmites in the corner (waist-high at most, and out of the lanes), rubble about it.
+      if (k === 0 && rock('dg_stalag', jx, jz, 46 + (dN % 3) * 14, 'height', dN * 1.1)) { dN++; continue; }
       if (!kkProp(scene, pick, jx, jz, sz, 'fit', dN * 1.7)) {
         // Fallback: a squat boulder (low, never a spike) if KK hasn't streamed.
         const b = new THREE.Mesh(new THREE.DodecahedronGeometry(sz * 0.6, 0), plainRock);
@@ -225,7 +323,7 @@ function rebuildDungeonForTier(tier, isDelve) {
   const want = isDelve ? 5 : ((tier >= 1 && tier <= 4) ? tier : 0);
   if (getBuiltDungeonTier() === want && getDungeonScene()) return;
   setDungeonMobVisuals({});
-  if (want === 0) buildDungeonScene(); else buildDungeonCaveScene(DUNGEON_CAVE_THEMES[want], DUNGEON_LAYOUTS[want]);
+  if (want === 0 || !DUNGEON_LAYOUTS[want]) buildDungeonScene(); else buildDungeonCaveScene(DUNGEON_CAVE_THEMES[want], DUNGEON_LAYOUTS[want]);
   setBuiltDungeonTier(want);
 }
 

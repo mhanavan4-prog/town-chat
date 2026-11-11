@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 const main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8');
 const deco = fs.readFileSync(path.join(root, 'client/altar-decor.js'), 'utf8');
 const files = { wl_campfire: 'campfire', wl_waymarker: 'waymarker', alt_chalice: 'chalice', alt_bell: 'hand_bell', alt_runes: 'rune_stones', alt_mirror: 'scrying_mirror', alt_pentacle: 'pentacle_plaque', alt_crystals: 'crystal_cluster', alt_grimoire: 'open_grimoire' };
-check('the nine models are in the manifest, streamed, and on disk', Object.entries(files).every(([k, f]) => main.includes(k + ": 'kk/home/" + f + ".glb'") && fs.existsSync(path.join(root, 'public/kk/home', f + '.glb'))) && /\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\)_/.test(main));
+check('the nine models are in the manifest, streamed, and on disk', Object.entries(files).every(([k, f]) => main.includes(k + ": 'kk/home/" + f + ".glb'") && fs.existsSync(path.join(root, 'public/kk/home', f + '.glb'))) && /\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\|dg\)_/.test(main));
 check('the camp fire is the modelled one, still burning, glowing and lighting the ground; the hand-built one stands in', /KK\.staticInstance\('wl_campfire', 54, 'fit'\)/.test(main) && /const li = new THREE\.PointLight\(0xff9d3c, 0\.85, 300\); li\.position\.y = 26; fire\.add\(li\);/.test(main) && /new THREE\.DodecahedronGeometry\(5 \+ \(i % 2\), 0\)/.test(main));
 check('the waymarker is the modelled stone, the hand-built one standing in', /KK\.staticInstance\('wl_waymarker', 84, 'height'\)/.test(main) && /new THREE\.CylinderGeometry\(7, 12, 74, 7\)/.test(main));
 // The altar decorations, run for real against a stand-in model-maker.
