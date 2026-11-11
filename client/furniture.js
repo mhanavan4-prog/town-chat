@@ -55,7 +55,22 @@ let THRONE_FWD = Math.PI; // vampire throne forward axis — flipped 180° so th
 let DESK_FWD = 0;         // scholar's desk forward axis (verified via render)
 let DESKCHAIR_FWD = 0;    // desk chair forward axis (verified via render)
 let COUCH_FWD = 0;        // couch forward axis — seat opens +z at rest (verified)
+// A real model for a hall piece (tools/models/build_home.py), placed and turned,
+// with its pale cloth or field dyed if a colour is given; null until it has
+// streamed in, when the hand-built shape below is used instead.
+function hallModel(key, size, mode, x, y, z, rotY, dye) {
+  const g = kkFurn(key, size, mode, x, y, z, rotY);
+  if (g && dye != null) g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(dye); } });
+  return g;
+}
+
 function buildTorch(x, z) {
+  const cresset = hallModel('furn_torch', 62, 'height', x, 0, z, 0);
+  if (cresset) {
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(6, 16, 8), new THREE.MeshBasicMaterial({ color: 0xff9d3c }));
+    fl.position.set(0, 68, 0); cresset.add(fl);
+    return cresset;
+  }
   const g = new THREE.Group();
   const pole = new THREE.Mesh(
     new THREE.CylinderGeometry(2, 2, 46, 6),
@@ -73,6 +88,8 @@ function buildTorch(x, z) {
 }
 
 function makeTable(x, z, rotY) {
+  const real = hallModel('furn_htable', 48, 'fit', x, 0, z, rotY);
+  if (real) return real;
   const g = new THREE.Group();
   const top = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 28), new THREE.MeshLambertMaterial({ color: 0x6b4a2e }));
   top.position.y = 26; g.add(top);
@@ -88,6 +105,8 @@ function makeTable(x, z, rotY) {
 }
 
 function makeBench(x, z, rotY) {
+  const real = hallModel('furn_hbench', 42, 'fit', x, 0, z, rotY);
+  if (real) return real;
   const seat = new THREE.Mesh(new THREE.BoxGeometry(40, 4, 12), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   seat.position.set(x, 14, z);
   seat.rotation.y = rotY || 0;
@@ -95,6 +114,8 @@ function makeBench(x, z, rotY) {
 }
 
 function makeBarrel(x, z) {
+  const real = hallModel('prop_barrel', 24, 'height', x, 0, z, 0);
+  if (real) return real;
   const barrel = new THREE.Mesh(
     new THREE.CylinderGeometry(10, 10, 22, 10),
     new THREE.MeshLambertMaterial({ color: 0x6b4a2e })
@@ -104,6 +125,8 @@ function makeBarrel(x, z) {
 }
 
 function makeBookshelf(x, z, rotY) {
+  const real = hallModel('furn_bookcase', 72, 'height', x, 0, z, rotY);
+  if (real) return real;
   const g = new THREE.Group();
   const frame = new THREE.Mesh(new THREE.BoxGeometry(36, 70, 12), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
   frame.position.y = 35; g.add(frame);
@@ -121,6 +144,9 @@ function makeBookshelf(x, z, rotY) {
 }
 
 function makeBanner(x, y, z, rotY, color) {
+  // (the plane hung centred on y; the model hangs from its pole)
+  const real = hallModel('furn_banner', 50, 'height', x, y - 25, z, rotY, color);
+  if (real) return real;
   const banner = new THREE.Mesh(
     new THREE.PlaneGeometry(26, 46),
     new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })
@@ -131,6 +157,13 @@ function makeBanner(x, y, z, rotY, color) {
 }
 
 function makeFireplace(x, z, rotY) {
+  const hearth = hallModel('furn_hearth', 62, 'fit', x, 0, z, rotY);
+  if (hearth) {
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(6, 15, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fire.position.set(0, 10, 0); fire.onBeforeRender = () => { fire.scale.y = 0.85 + Math.sin(performance.now() * 0.006) * 0.15; }; hearth.add(fire);
+    const warm = new THREE.PointLight(0xff8a3a, 1.1, 260); warm.position.set(0, 24, 14); hearth.add(warm);
+    return hearth;
+  }
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(50, 60, 18), new THREE.MeshLambertMaterial({ color: 0x55504a }));
   body.position.y = 30; g.add(body);
@@ -147,6 +180,8 @@ function makeFireplace(x, z, rotY) {
 }
 
 function makeThrone(x, z, rotY) {
+  const real = hallModel('furn_highseat', 86, 'height', x, 0, z, rotY);
+  if (real) return real;
   const g = new THREE.Group();
   const seat = new THREE.Mesh(new THREE.BoxGeometry(34, 6, 30), new THREE.MeshLambertMaterial({ color: 0x4a3320 }));
   seat.position.y = 24; g.add(seat);
@@ -194,6 +229,16 @@ function makeBarCounter(x, z1, z2) {
 }
 
 function makeChandelier(x, z) {
+  const wheel = hallModel('furn_chandelier', 36, 'fit', x, INDOOR_WALL_HEIGHT - 40, z, 0);
+  if (wheel) {
+    for (let i = 0; i < 6; i++) {
+      const ang = (i / 6) * Math.PI * 2;
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(1.4, 3.4, 6), new THREE.MeshBasicMaterial({ color: 0xffb84c }));
+      flame.position.set(Math.cos(ang) * 15.8, 9, -Math.sin(ang) * 15.8); wheel.add(flame);
+    }
+    const glow = new THREE.PointLight(0xffb86c, 0.9, 220); glow.position.y = 4; wheel.add(glow);
+    return wheel;
+  }
   const g = new THREE.Group();
   const ring = new THREE.Mesh(new THREE.TorusGeometry(16, 1.6, 6, 16), new THREE.MeshLambertMaterial({ color: 0x3c2a1a }));
   ring.rotation.x = Math.PI / 2;
@@ -221,6 +266,8 @@ function makeChandelier(x, z) {
 }
 
 function makeShield(x, y, z, rotY, color) {
+  const real = hallModel('furn_shield', 28, 'height', x, y - 14, z, rotY, color);
+  if (real) return real;
   const shield = new THREE.Mesh(
     new THREE.CircleGeometry(13, 8),
     new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })

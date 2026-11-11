@@ -450,6 +450,9 @@ const KK = (() => {
     // stand, and a witch ball for the Wall Charm. furn_ so they stream with the furniture.
     // The altar's trinkets (the skull is KayKit's own): a beeswax stub, a black-hafted knife, a brass censer.
     alt_candle: 'kk/home/altar_candle.glb', alt_athame: 'kk/home/athame.glb', alt_censer: 'kk/home/censer.glb',
+    // The halls' own (tools/models/build_home.py): trestle table, bench, bookcase, banner, high seat, chandelier, shield, cresset.
+    furn_htable: 'kk/home/hall_table.glb', furn_hbench: 'kk/home/hall_bench.glb', furn_bookcase: 'kk/home/bookcase.glb', furn_banner: 'kk/home/hall_banner.glb',
+    furn_highseat: 'kk/home/high_seat.glb', furn_chandelier: 'kk/home/chandelier.glb', furn_shield: 'kk/home/wall_shield.glb', furn_torch: 'kk/home/standing_torch.glb',
     furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
@@ -1762,7 +1765,10 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'harvest_error') {
-    setUnlockToast('🌿 ' + msg.message);
+    // You pressed F and nothing was gathered: say why on screen whatever the
+    // notice settings. (With notices quietened this went only to the Log, so a
+    // full pack looked like harvesting was broken.)
+    setUnlockToast('🌿 ' + msg.message, { always: true });
     return;
   }
 

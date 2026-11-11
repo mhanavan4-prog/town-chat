@@ -328,6 +328,187 @@ def censer():
     return m, '#ff7a2a'
 
 
+# ── The halls: what stands in the tavern, the library, the great hall. Fronts
+# face -Y (three.js +Z); 1 unit = 100 world units unless the game sizes it. ──
+IRON = ('#141414', '#3e3c3a')
+
+
+def trim(p):
+    p.trim = True
+    return p
+
+
+def hall_table():
+    """An oak trestle table: a thick plank top on two A-frame trestles and a stretcher, set with a jug, bowls and a candle."""
+    m = Model('hall_table')
+    W, D, H = 1.0, 0.6, 0.58
+    for k in range(4):  # planks, a little uneven
+        m.add(box(W, D / 4 * 0.97, 0.06, OAK, jitter=0.01, seed=k).xf(None, (0, -D / 2 + D / 8 + k * D / 4, H - 0.06)))
+    for sx in (-0.36, 0.36):
+        for sy in (-1, 1):
+            m.add(tube([(sx, sy * 0.24, 0), (sx, sy * 0.06, H - 0.06)], 0.035, sides=6, colors=OAK_DK))
+        m.add(box(0.07, 0.5, 0.05, OAK_DK).xf(None, (sx, 0, H - 0.11)))
+    m.add(box(0.74, 0.05, 0.05, OAK_DK).xf(None, (0, 0, 0.22)))
+    m.add(lathe([(0.04, 0), (0.06, 0.04), (0.055, 0.1), (0.035, 0.14), (0.04, 0.16)], sides=8, colors=('#6a5a4a', '#b8a890'), close_bottom=True).xf(None, (0.28, 0.08, H)))  # a stoneware jug
+    for (x, y) in ((-0.1, -0.12), (0.12, 0.14)):
+        m.add(lathe([(0.03, 0), (0.07, 0.03), (0.075, 0.035)], sides=8, colors=('#5a3a20', '#9a7044'), close_bottom=True, close_top=False).xf(None, (x, y, H)))  # wooden bowls
+    m.add(lathe([(0.02, 0), (0.02, 0.09)], sides=6, colors=('#d8c890', '#f4ecc8'), close_bottom=True).xf(None, (-0.32, 0.1, H)))
+    return m, None
+
+
+def hall_bench():
+    """A plank bench on splayed legs."""
+    m = Model('hall_bench')
+    m.add(box(1.0, 0.28, 0.06, OAK).xf(None, (0, 0, 0.32)))
+    for sx in (-0.38, 0.38):
+        for sy in (-1, 1):
+            m.add(tube([(sx * 1.08, sy * 0.14, 0), (sx, sy * 0.08, 0.32)], 0.03, sides=5, colors=OAK_DK))
+    m.add(box(0.7, 0.04, 0.04, OAK_DK).xf(None, (0, 0, 0.14)))
+    return m, None
+
+
+def bookcase():
+    """A tall oak bookcase: leather-bound books upright and slumped, a skull, jars, a candle stub."""
+    m = Model('bookcase')
+    W, H, D = 0.72, 1.4, 0.26
+    m.add(box(W, 0.03, H, OAK_DK).xf(None, (0, D / 2 - 0.015, 0)))  # back
+    for sx in (-1, 1):
+        m.add(box(0.045, D, H, OAK).xf(None, (sx * (W / 2 - 0.022), 0, 0)))
+    shelves = [0.0, 0.34, 0.68, 1.02, H - 0.04]
+    for z in shelves:
+        m.add(box(W, D, 0.04, OAK).xf(None, (0, 0, z)))
+    m.add(box(W + 0.06, D + 0.04, 0.05, OAK).xf(None, (0, -0.01, H)))
+    r = np.random.default_rng(101)
+    cols = ['#6a1a1a', '#1a3a5a', '#2a4a2a', '#5a4a1a', '#3a1a4a', '#4a2a1a', '#1a1a1a']
+    for si, z in enumerate(shelves[:-1]):
+        x = -W / 2 + 0.06
+        while x < W / 2 - 0.1:
+            if si == 1 and 0.0 < x < 0.2:  # a skull between the books
+                m.add(blob(0.06, 0.07, 0.06, seg=7, rings=5, colors=('#b8ac90', '#f0e8d4')).xf(None, (0.1, -0.02, z + 0.1)))
+                for sgn in (-1, 1):
+                    m.add(blob(0.016, 0.01, 0.018, seg=4, rings=3, colors=('#000000', '#101010')).xf(None, (0.1 + sgn * 0.025, -0.085, z + 0.11)))
+                x = 0.22; continue
+            if si == 2 and x > 0.1:  # jars
+                m.add(lathe([(0.04, 0), (0.045, 0.02), (0.045, 0.12), (0.03, 0.15), (0.032, 0.17)], sides=8, colors=('#3a5a4a', '#7aa890'), close_bottom=True).xf(None, (x + 0.03, -0.02, z + 0.04)))
+                x += 0.12; continue
+            w = r.uniform(0.035, 0.06); h = r.uniform(0.2, 0.27)
+            c = cols[int(r.integers(0, len(cols)))]
+            lean = 0.25 if r.uniform() < 0.12 else 0
+            b = box(w, D * 0.7, h, (c, c)).xf(ry(lean), (x + w / 2, -0.02, z + 0.04))
+            m.add(b)
+            m.add(box(w * 1.02, 0.01, 0.02, ('#b89a40', '#e0c060')).xf(ry(lean), (x + w / 2, -0.02 - D * 0.35, z + 0.04 + h * 0.75)))  # a gilt band on the spine
+            x += w + 0.006
+    m.add(lathe([(0.025, 0), (0.025, 0.08)], sides=6, colors=('#d8c890', '#f4ecc8'), close_bottom=True).xf(None, (-0.2, -0.02, H + 0.05)))
+    m.add(box(0.2, 0.15, 0.04, ('#3a1a1a', '#5a2a2a')).xf(rz(0.3), (0.12, -0.02, H + 0.05)))  # a book left lying on top
+    return m, None
+
+
+def hall_banner():
+    """A cloth banner on a pole: swallow-tailed, hemmed, hanging in slow folds. The cloth is pale: the game dyes it."""
+    m = Model('hall_banner')
+    W, H = 0.56, 1.0
+    n = 8
+    v, f, t = [], [], []
+    for i in range(n + 1):
+        zz = H - H * i / n
+        for j in range(5):
+            u = -1 + j / 2
+            fold = 0.035 * math.sin(u * 3.2 + i * 0.35) * (i / n)
+            cut = 0.16 * H * (1 - abs(u)) if i == n else 0  # the swallow tail
+            v.append((u * W / 2, fold, zz + cut)); t.append(0.35 + 0.65 * (1 - i / n))
+    for i in range(n):
+        for j in range(4):
+            a = i * 5 + j
+            f.append((a, a + 1, a + 6, a + 5))
+    m.add(Part(v, f, t, ('#8a8a8a', '#ffffff')))
+    m.add(trim(tube([(-W / 2 - 0.05, 0, H + 0.01), (W / 2 + 0.05, 0, H + 0.01)], 0.022, sides=6, colors=OAK)))
+    for sx in (-1, 1):
+        m.add(trim(blob(0.035, 0.035, 0.035, seg=6, rings=4, colors=('#8a6a2a', '#e0b858'))).xf(None, (sx * (W / 2 + 0.07), 0, H + 0.01)))
+    m.add(trim(box(W * 0.98, 0.012, 0.035, ('#8a6a2a', '#d8b050'))).xf(None, (0, -0.004, H - 0.12)))  # a gold band under the pole
+    return m, None
+
+
+def high_seat():
+    """A carved oak high seat: a tall panelled back with finials, boxed arms, a worn red cushion."""
+    m = Model('high_seat')
+    m.add(box(0.72, 0.62, 0.42, OAK_DK).xf(None, (0, 0, 0)))
+    m.add(box(0.76, 0.66, 0.05, OAK).xf(None, (0, -0.01, 0.42)))
+    m.add(blob(0.3, 0.26, 0.05, seg=8, rings=3, colors=('#5a1414', '#a82a2a')).xf(None, (0, -0.03, 0.5)))
+    m.add(box(0.72, 0.09, 1.2, OAK).xf(None, (0, 0.27, 0.42)))
+    m.add(box(0.5, 0.02, 0.5, OAK_DK).xf(None, (0, 0.22, 0.9)))  # the sunk panel
+    m.add(lathe([(0.0, 0), (0.16, 0)], sides=12, colors=('#8a6a2a', '#d8b050'), close_top=False).xf(rx(math.pi / 2), (0, 0.205, 1.38)))  # a brass boss
+    for sx in (-1, 1):
+        m.add(box(0.1, 0.56, 0.24, OAK).xf(None, (sx * 0.33, -0.03, 0.47)))
+        m.add(lathe([(0.05, 0), (0.07, 0.05), (0.03, 0.1), (0.05, 0.16), (0.0, 0.24)], sides=8, colors=OAK).xf(None, (sx * 0.31, 0.27, 1.62)))
+        m.add(blob(0.06, 0.07, 0.05, seg=6, rings=4, colors=OAK).xf(None, (sx * 0.33, -0.3, 0.72)))
+    return m, None
+
+
+def chandelier():
+    """A wrought-iron wheel on three chains, ringed with beeswax candles in their cups."""
+    m = Model('chandelier')
+    R = 0.5
+    m.add(lathe([(R - 0.03, -0.02), (R + 0.03, -0.02), (R + 0.03, 0.03), (R - 0.03, 0.03), (R - 0.03, -0.02)], sides=16, colors=IRON, close_top=False))
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(tube([(R * math.cos(a), R * math.sin(a), 0.02), (0.04 * math.cos(a), 0.04 * math.sin(a), 0.62)], 0.012, sides=4, colors=IRON))
+        m.add(tube([(0, 0, 0), (R * math.cos(a), R * math.sin(a), 0)], 0.015, sides=4, colors=IRON))
+    m.add(tube([(0, 0, 0.6), (0, 0, 0.8)], 0.016, sides=5, colors=IRON))
+    m.add(blob(0.05, 0.05, 0.05, seg=6, rings=4, colors=IRON).xf(None, (0, 0, 0.0)))
+    for k in range(6):
+        a = TAU * k / 6
+        x, y = R * math.cos(a), R * math.sin(a)
+        m.add(lathe([(0.02, 0.03), (0.065, 0.045), (0.07, 0.06)], sides=8, colors=IRON, close_top=False).xf(None, (x, y, 0)))
+        m.add(lathe([(0.035, 0.05), (0.035, 0.2), (0.0, 0.21)], sides=7, colors=('#c8a050', '#f4dc98')).xf(None, (x, y, 0)))
+    return m, None
+
+
+def wall_shield():
+    """A heater shield: a pale field for the game to paint, an iron rim and boss, a painted chevron."""
+    m = Model('wall_shield')
+    outline = lambda s: (1.0 if s < 0.45 else math.cos((s - 0.45) / 0.55 * math.pi / 2) ** 0.7)
+    v, f, t = [], [], []
+    n = 8
+    for i in range(n + 1):
+        s_ = i / n
+        hw = 0.4 * outline(s_)
+        for j in range(5):
+            u = -1 + j / 2
+            v.append((u * hw, -0.05 * (1 - u * u), 1.0 - s_)); t.append(0.4 + 0.6 * (1 - s_))
+    for i in range(n):
+        for j in range(4):
+            a = i * 5 + j
+            f.append((a, a + 1, a + 6, a + 5))
+    m.add(Part(v, f, t, ('#8a8a8a', '#ffffff')))
+    m.add(trim(blob(0.09, 0.05, 0.09, seg=8, rings=5, colors=('#4a4a50', '#c8c8d0'))).xf(None, (0, -0.07, 0.62)))
+    rim = [(-0.4, 0, 1.0), (0.4, 0, 1.0)]
+    m.add(trim(tube(rim, 0.02, sides=4, colors=('#4a4a50', '#a8a8b0'))))
+    for sx in (-1, 1):
+        pts = [(sx * 0.4 * outline(i / n), 0, 1.0 - i / n) for i in range(n + 1)]
+        m.add(trim(tube(pts, 0.018, sides=4, colors=('#4a4a50', '#a8a8b0'))))
+        m.add(trim(tube([(0, -0.045, 0.36), (sx * 0.3, -0.02, 0.56)], 0.022, sides=4, colors=('#d8c890', '#fff4d0'))))  # the chevron
+    return m, None
+
+
+def standing_torch():
+    """An iron cresset on a tall stand: a basket of pitch-soaked wood for the flame to sit in."""
+    m = Model('standing_torch')
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(tube([(0, 0, 0.14), (0.16 * math.cos(a), 0.16 * math.sin(a), 0.0)], 0.014, sides=4, colors=IRON))
+    m.add(tube([(0, 0, 0.1), (0, 0, 0.84)], 0.02, sides=6, colors=IRON))
+    for z in (0.3, 0.6):
+        m.add(lathe([(0.02, z - 0.015), (0.032, z), (0.02, z + 0.015)], sides=6, colors=IRON, close_top=False))
+    m.add(lathe([(0.03, 0.84), (0.09, 0.9), (0.1, 1.0)], sides=8, colors=IRON, close_top=False))  # the basket
+    for k in range(8):
+        a = TAU * k / 8
+        m.add(tube([(0.05 * math.cos(a), 0.05 * math.sin(a), 0.86), (0.105 * math.cos(a), 0.105 * math.sin(a), 1.02)], 0.008, sides=3, colors=IRON))
+    for k in range(4):
+        a = TAU * k / 4 + 0.4
+        m.add(tube([(0.03 * math.cos(a), 0.03 * math.sin(a), 0.9), (0.05 * math.cos(a + 1), 0.05 * math.sin(a + 1), 1.04)], 0.02, sides=5, colors=('#2a1a10', '#5a3a20')))
+    return m, None
+
+
 def glowing(p):
     p.glow = True
     return p
@@ -335,7 +516,9 @@ def glowing(p):
 
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
-        'altar_candle': altar_candle, 'athame': athame, 'censer': censer}
+        'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
+        'hall_table': hall_table, 'hall_bench': hall_bench, 'bookcase': bookcase, 'hall_banner': hall_banner, 'high_seat': high_seat,
+        'chandelier': chandelier, 'wall_shield': wall_shield, 'standing_torch': standing_torch}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
