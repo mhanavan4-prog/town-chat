@@ -39,7 +39,7 @@ import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePla
 import { OGHAM_GROVE_BUILDERS, OGHAM_GROVE_TYPES_CLIENT } from './props-ogham.js';
 import { STONE_BUILDERS, STONE_TYPES_CLIENT } from './props-stone.js';
 import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
-import { ALTAR_DECOS, ALTAR_SLOTS } from './altar-decor.js';
+import { ALTAR_DECOS, ALTAR_SLOTS, setAltarDecoModels } from './altar-decor.js';
 import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
@@ -454,6 +454,10 @@ const KK = (() => {
     // The witch's shelves in her cave (cave_*): bottle, candle, scrying ball, grimoire, hourglass, the jar with the eye, crock, brass moon, dried toadstool, feathers.
     cave_potion: 'kk/home/cave_potion.glb', cave_candle: 'kk/home/cave_candle.glb', cave_crystal: 'kk/home/cave_crystal.glb', cave_book: 'kk/home/cave_book.glb', cave_hourglass: 'kk/home/cave_hourglass.glb',
     cave_eyejar: 'kk/home/cave_eyejar.glb', cave_jar: 'kk/home/cave_jar.glb', cave_moon: 'kk/home/cave_moon.glb', cave_mushroom: 'kk/home/cave_mushroom.glb', cave_feathers: 'kk/home/cave_feathers.glb',
+    // The Wilds' fires and waymarker stones, and what a witch sets on her altar in the manor.
+    wl_campfire: 'kk/home/campfire.glb', wl_waymarker: 'kk/home/waymarker.glb',
+    alt_chalice: 'kk/home/chalice.glb', alt_bell: 'kk/home/hand_bell.glb', alt_runes: 'kk/home/rune_stones.glb', alt_mirror: 'kk/home/scrying_mirror.glb',
+    alt_pentacle: 'kk/home/pentacle_plaque.glb', alt_crystals: 'kk/home/crystal_cluster.glb', alt_grimoire: 'kk/home/open_grimoire.glb',
     furn_htable: 'kk/home/hall_table.glb', furn_hbench: 'kk/home/hall_bench.glb', furn_bookcase: 'kk/home/bookcase.glb', furn_banner: 'kk/home/hall_banner.glb',
     furn_highseat: 'kk/home/high_seat.glb', furn_chandelier: 'kk/home/chandelier.glb', furn_shield: 'kk/home/wall_shield.glb', furn_torch: 'kk/home/standing_torch.glb',
     furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
@@ -634,7 +638,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -11092,6 +11096,18 @@ const WILDS_CAMPFIRES = [
 ];
 
 function makeWildsCampfire(x, z) {
+  // The modelled fire (a ring of field stones, split logs over embers), with the
+  // same flames, glow and light; the hand-built one until it has loaded.
+  const fire = KK.staticInstance ? KK.staticInstance('wl_campfire', 54, 'fit') : null;
+  if (fire) {
+    const fl = new THREE.Mesh(new THREE.ConeGeometry(9, 26, 8), new THREE.MeshBasicMaterial({ color: 0xff9d3c, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+    fl.position.y = 20; fl.onBeforeRender = () => { const t = performance.now(); fl.scale.set(1 + Math.sin(t * 0.007) * 0.08, 0.9 + Math.sin(t * 0.011) * 0.14, 1 + Math.cos(t * 0.006) * 0.08); }; fire.add(fl);
+    const core = new THREE.Mesh(new THREE.ConeGeometry(4.5, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a })); core.position.y = 16; fire.add(core);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff9d3c, transparent: true, opacity: 0.5, depthWrite: false })); halo.scale.set(90, 90, 1); halo.position.y = 20; fire.add(halo);
+    const li = new THREE.PointLight(0xff9d3c, 0.85, 300); li.position.y = 26; fire.add(li);
+    fire.position.set(x, 0, z);
+    return fire;
+  }
   const g = new THREE.Group();
   const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6b6b63 });
   for (let i = 0; i < 7; i++) {
@@ -11137,6 +11153,9 @@ const WILDS_WAYMARKERS = [
 ];
 
 function makeWaymarkerStone(x, z) {
+  // The modelled stone: a leaning, lichened slab in its packing stones, the marks down its face aglow.
+  const stoneModel = KK.staticInstance ? KK.staticInstance('wl_waymarker', 84, 'height') : null;
+  if (stoneModel) { stoneModel.position.set(x, 0, z); return stoneModel; }
   const g = new THREE.Group();
   const stone = new THREE.Mesh(
     new THREE.CylinderGeometry(7, 12, 74, 7),
@@ -11193,6 +11212,8 @@ const VAULT_KIOSKS = [
 // ── Witch Cave scene — extracted to client/cave-scene.js (Phase C 3D slice;
 // includes addCaveWallShelves + its nested decoration makers). THREE global;
 // helpers + CAVE_WORLD injected; scene/camera written back via setters. ──
+// The manor altars' decorations use the models too (client/altar-decor.js).
+setAltarDecoModels((key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null));
 const { buildCaveScene } = createCaveScene({
   kkModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
   makeSignSprite, makeNpcNameSprite, createHumanoid: createStaticNpc, CAVE_WORLD,

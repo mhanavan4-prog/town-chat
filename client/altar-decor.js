@@ -197,9 +197,65 @@ const BUILD = {
   },
 };
 
+// The decorations as modelled things (tools/models/build_home.py, and KayKit's
+// skull and cauldron, and the Wilds' crow for the raven). main.js hands in the
+// model-maker; each is dressed with the same living touches the hand-built one
+// had (flames, smoke, a glow), and the hand-built one stands in until its
+// model has loaded.
+let altarDecoModel = null;
+export function setAltarDecoModels(fn) { altarDecoModel = fn; }
+function altarGlow(col, w, h, y, speed) {
+  const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: col, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+  gl.scale.set(w, h, 1); gl.position.y = y;
+  gl.onBeforeRender = () => { gl.material.opacity = 0.3 + Math.sin(performance.now() * speed) * 0.16; };
+  return gl;
+}
+const REAL = {
+  candles() {
+    const g = new THREE.Group();
+    const spots = [[-7, 2, 17], [7, -2, 19], [0, 7, 22]];
+    for (const [x, z, h] of spots) {
+      const c = altarDecoModel('alt_candle', h, 'height'); if (!c) return null;
+      c.position.set(x, 0, z); g.add(c);
+      const fl = flame(0xffcf6a, 7.5, h + 2); fl.position.x = x; fl.position.z = z; g.add(fl);
+    }
+    return g;
+  },
+  pentacle() {
+    const d = altarDecoModel('alt_pentacle', 26, 'fit'); if (!d) return null;
+    const g = new THREE.Group();
+    d.rotation.x = Math.PI / 2 - 0.2; d.position.set(0, 15, 1); g.add(d); // stood up on its edge, leaning back a little
+    const prop = new THREE.Mesh(new THREE.BoxGeometry(2, 16, 2), mat({ color: 0x1b1720 })); prop.position.set(0, 8, -3.5); prop.rotation.x = -0.25; g.add(prop);
+    return g;
+  },
+  incense() {
+    const g = altarDecoModel('alt_censer', 15, 'fit'); if (!g) return null;
+    const sm = new THREE.Mesh(new THREE.ConeGeometry(5, 36, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xb9a6d6, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sm.position.y = 28; g.add(sm);
+    sm.onBeforeRender = () => { const t = performance.now(); sm.rotation.y = t * 0.0008; sm.material.opacity = 0.08 + Math.sin(t * 0.004) * 0.05; };
+    return g;
+  },
+  chalice() { return altarDecoModel('alt_chalice', 22, 'height'); },
+  bell() { return altarDecoModel('alt_bell', 24, 'height'); },
+  runes() { return altarDecoModel('alt_runes', 24, 'fit'); },
+  mirror() { const g = altarDecoModel('alt_mirror', 34, 'height'); if (g) g.add(altarGlow(0x8e7bd0, 16, 16, 20, 0.003)); return g; },
+  cauldron() { const g = altarDecoModel('wprop_cauldron', 22, 'fit'); if (g) g.add(altarGlow(0x6be3a3, 20, 16, 20, 0.005)); return g; },
+  skull() { return altarDecoModel('prop_skull', 18, 'height'); },
+  crystals() { const g = altarDecoModel('alt_crystals', 22, 'height'); if (g) g.add(altarGlow(0x9b6cff, 26, 26, 12, 0.004)); return g; },
+  grimoire() { return altarDecoModel('alt_grimoire', 26, 'fit'); },
+  raven() {
+    const bird = altarDecoModel('cr_gravewing_crow', 22, 'height'); if (!bird) return null;
+    const g = new THREE.Group();
+    g.add(place(new THREE.Mesh(new THREE.CylinderGeometry(6, 7, 4, 10), mat({ color: 0x282230 })), 0, 2, 0)); // its perch
+    bird.position.y = 4; g.add(bird);
+    return g;
+  },
+};
+
 // Build one decoration group by id (null for an unknown id).
 export function buildDecoration(id) {
   const fn = BUILD[id];
   if (!fn) return null;
+  if (altarDecoModel && REAL[id]) { try { const real = REAL[id](); if (real) return real; } catch (e) { /* fall back to the hand-built one */ } }
   try { return fn(); } catch (e) { return null; }
 }
