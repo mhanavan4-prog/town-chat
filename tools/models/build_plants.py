@@ -493,9 +493,9 @@ def chamomile_flower(m, F, size, tilt_dir):
     m.add(blob(size * 0.38, size * 0.38, size * 0.34, seg=7, rings=4, colors=('#e09a10', '#ffd84a')).xf(up, F + up @ [0, 0, size * 0.08]))
 
 
-def pot_chamomile():
+def pot_chamomile(potted=True):
     m = Model('pot_chamomile')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(21)
     for i in range(9):
         a = r.uniform(0, TAU); d = r.uniform(0.0, 0.12); h = r.uniform(0.75, 1.0)
@@ -513,9 +513,9 @@ def pot_chamomile():
     return m, None
 
 
-def pot_lavender():
+def pot_lavender(potted=True):
     m = Model('pot_lavender')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(22)
     for i in range(22):  # the grey-green mound of narrow leaves
         a = r.uniform(0, TAU)
@@ -533,9 +533,9 @@ def pot_lavender():
     return m, None
 
 
-def pot_calendula():
+def pot_calendula(potted=True):
     m = Model('pot_calendula')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(23)
     for i in range(9):
         a = TAU * i / 9 + r.uniform(-0.2, 0.2)
@@ -554,9 +554,9 @@ def pot_calendula():
     return m, None
 
 
-def pot_mugwort():
+def pot_mugwort(potted=True):
     m = Model('pot_mugwort')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(24)
     cut = lambda s: (0.35 + 0.65 * abs(math.sin(s * math.pi * 2.5))) * math.sin(math.pi * min(1, s * 0.9 + 0.08)) ** 0.8
     for i in range(6):
@@ -599,10 +599,10 @@ def pot_yarrow():
     return m, None
 
 
-def pot_belladonna():
+def pot_belladonna(potted=True):
     """Atropa belladonna: paired oval leaves, dull purple bells, and glossy black berries sat in green stars."""
     m = Model('pot_belladonna')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(26)
     for i in range(4):
         a = TAU * i / 4 + r.uniform(-0.3, 0.3); lean = r.uniform(0.1, 0.18); h = r.uniform(0.8, 0.95)
@@ -626,10 +626,10 @@ def pot_belladonna():
     return m, None
 
 
-def pot_rosemary():
+def pot_rosemary(potted=True):
     """The plain potted herb: rosemary, woody stems thick with needles and a few pale blue flowers."""
     m = Model('pot_herb')
-    terracotta(m)
+    terracotta(m) if potted else None
     r = np.random.default_rng(27)
     for i in range(9):
         a = TAU * i / 9 + r.uniform(-0.2, 0.2); lean = r.uniform(0.1, 0.24); h = r.uniform(0.75, 0.98)
@@ -646,6 +646,18 @@ def pot_rosemary():
     return m, None
 
 
+def in_the_ground(fn, name):
+    """The same herb planted straight in a garden bed: no pot, its roots in a low mound of earth."""
+    def build():
+        m, glow = fn(potted=False)
+        m.name = name
+        for p in m.parts:
+            p.v[:, 2] -= POT_TOP - 0.02
+        m.add(blob(0.24, 0.22, 0.05, seg=8, rings=3, colors=('#2e1d12', '#5a3c26'), jitter=0.15).xf(None, (0, 0, 0.0)))
+        return m, glow
+    return build
+
+
 PLANTS = {
     'swift_root': carrot, 'featherleaf': fern, 'giants_cap': parasol, 'shrinking_violet': violet,
     'pumpkin_blossom': pumpkin, 'bats_breath': bat_flower, 'rainbow_petal': heartsease, 'ravens_feather_plant': hellebore,
@@ -653,6 +665,10 @@ PLANTS = {
     'meditation_lotus': water_lily, 'healing_herb': self_heal, 'regen_root': dandelion, 'cleansing_clover': clover,
     'pot_herb': pot_rosemary, 'pot_chamomile': pot_chamomile, 'pot_lavender': pot_lavender, 'pot_calendula': pot_calendula,
     'pot_mugwort': pot_mugwort, 'pot_yarrow': pot_yarrow, 'pot_belladonna': pot_belladonna,
+    # the same herbs growing in Mother Yarrow's garden beds
+    'gd_chamomile': in_the_ground(pot_chamomile, 'gd_chamomile'), 'gd_lavender': in_the_ground(pot_lavender, 'gd_lavender'),
+    'gd_calendula': in_the_ground(pot_calendula, 'gd_calendula'), 'gd_mugwort': in_the_ground(pot_mugwort, 'gd_mugwort'),
+    'gd_rosemary': in_the_ground(pot_rosemary, 'gd_rosemary'), 'gd_belladonna': in_the_ground(pot_belladonna, 'gd_belladonna'),
 }
 
 if __name__ == '__main__':

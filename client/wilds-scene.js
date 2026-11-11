@@ -11,7 +11,7 @@ import { makeCountlessRing } from './props-countless.js';
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 
-export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 function buildWildsScene(w2) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0ef);
@@ -578,6 +578,9 @@ function addVillageBuildings(scene) {
         const px = GX - 90 + c * 60 + (r % 2 ? 14 : 0);
         const pz = GZ - 70 + r * 52;
         const col = gardenColors[(r * 4 + c) % gardenColors.length];
+        // Her herbs, growing for real once their models land (the scene rebuilds then).
+        const herb = makeGardenHerb && makeGardenHerb(r * 4 + c, px, pz);
+        if (herb) { scene.add(herb); continue; }
         if ((r + c) % 2 === 0 && makeFlowerPatch) { const fp = makeFlowerPatch(px, pz, 1.1); if (fp) scene.add(fp); }
         else if (makePlantBloom) { const pb = makePlantBloom(px, pz, col, false); if (pb) scene.add(pb); }
       }
