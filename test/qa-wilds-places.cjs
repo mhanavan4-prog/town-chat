@@ -103,6 +103,17 @@ function nameOfferedTo(callerId) {
   await shot('01-board-cloot');
   await page.evaluate(() => document.getElementById('boardCloseBtn').click());
 
+  console.log('── The callers by the Board ──');
+  await page.waitForFunction(() => window.__testDrive.callersInTown().length > 0, null, { timeout: 15000 }).catch(() => {});
+  check("Morag stands by the Town Board, marked as your working, with the day's others", await page.evaluate(() => { const s = window.__testDrive.callersInTown(); return s.length >= 1 && s[0].id === 'clootie' && s.every((c) => Math.hypot(c.x - 2010, c.z - 1150) < 160); }), JSON.stringify(await page.evaluate(() => window.__testDrive.callersInTown())));
+  await walkTo([[1935, 1190]]);
+  await sleep(400);
+  check('walk up to her and the prompt names her', /hear Morag Fraser, from the Black Isle out/.test(await hint()), await hint());
+  await td('interact');
+  await sleep(400);
+  check('…and interacting opens the Board', await page.evaluate(() => !document.getElementById('boardModal').classList.contains('hidden')));
+  await page.evaluate(() => document.getElementById('boardCloseBtn').click());
+
   console.log('── Into the Wilds ──');
   const portal = (await td('world')) && 1;
   await walkTo([[1850, 650]]);
