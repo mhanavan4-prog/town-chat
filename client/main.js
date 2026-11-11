@@ -419,6 +419,11 @@ const KK = (() => {
     cr_rabbit: 'kk/critters/rabbit.glb', cr_embermoth: 'kk/critters/embermoth.glb', cr_thistlehog: 'kk/critters/thistlehog.glb',
     cr_duskfawn: 'kk/critters/duskfawn.glb', cr_mirefowl: 'kk/critters/mirefowl.glb', cr_bramble_boar: 'kk/critters/bramble_boar.glb',
     cr_mossback_tortoise: 'kk/critters/mossback_tortoise.glb', cr_gravewing_crow: 'kk/critters/gravewing_crow.glb',
+    // …and the dark's own, for the gloom bat and the dungeon creatures KayKit has
+    // no body for: a horseshoe bat, the brown rat, a rat king, a cave spider, a
+    // dor beetle, a great centipede, the leopard slug, the adder.
+    cr_bat: 'kk/critters/bat.glb', cr_rat: 'kk/critters/rat.glb', cr_rat_king: 'kk/critters/rat_king.glb', cr_spider: 'kk/critters/spider.glb',
+    cr_beetle: 'kk/critters/beetle.glb', cr_centipede: 'kk/critters/centipede.glb', cr_slug: 'kk/critters/slug.glb', cr_adder: 'kk/critters/adder.glb',
     // The Wilds' own trees and bushes, the ogham grove and the crotal stone, as the
     // real trees, shrubs and stones (tools/models/build_grove.py): weeping willow,
     // a dead beech with dryad's saddle (Capwood), bilberry (Nightberry), royal fern
@@ -14167,7 +14172,7 @@ function _dmEyes(g, ec, y, z, sep, r) {
 // me via getters; DUNGEON_* tables + helpers injected). ──
 const { applyDungeonMobState, updateDungeonMobVisuals } = createDungeonMobs({
   DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
-  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
+  createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key), kkModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
   getActiveScene: () => activeScene,
   getDungeonScene: () => dungeonScene,
   getDungeonMobVisuals: () => dungeonMobVisuals,

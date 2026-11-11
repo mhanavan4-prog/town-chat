@@ -26,9 +26,18 @@ export function critterRigPose(rig, phase, speed, t) {
   const s = Math.min(2, Math.max(0, speed));
   const walk = Math.min(1, s);
   const k = rig.kind;
+  const many = k === 'spider' || k === 'beetle';
   for (const L of rig.legs) {
     const n = L.name;
     let a = 0;
+    if (many && /^leg_[LR]\d$/.test(n)) {
+      // eight or six legs, stepping in alternate sets: each sweeps fore and aft
+      const i = +n.charAt(5), right = n.charAt(4) === 'R';
+      const sweep = Math.sin(phase * 1.5 + ((i + (right ? 1 : 0)) % 2 ? Math.PI : 0)) * 0.35 * walk;
+      L.o.rotation.y = (L.ry != null ? L.ry : (L.ry = L.o.rotation.y)) + sweep;
+      L.o.rotation.x = L.rx + Math.max(0, sweep) * (right ? -0.4 : 0.4);
+      continue;
+    }
     if (k === 'rabbit' || (k === 'duskfawn' && s > 1.4)) {
       // a hop or a bound: hind legs together, forelegs together, opposed
       const back = /B/.test(n);
@@ -46,13 +55,15 @@ export function critterRigPose(rig, phase, speed, t) {
     L.o.rotation.x = L.rx + a;
   }
   for (const W of rig.wings) {
-    // a moth always beats; a bird only when it runs (flushing), else they lie folded
-    const beat = k === 'embermoth' ? 0.55 + 0.35 * Math.sin(t * 22) : (s > 1.3 ? 0.9 * Math.max(0, Math.sin(t * 18)) : 0);
+    // a moth always beats, a bat always flies; a bird only when it runs (flushing), else they lie folded
+    const beat = k === 'embermoth' ? 0.55 + 0.35 * Math.sin(t * 22) : k === 'bat' ? 0.15 + 0.75 * Math.sin(t * 13) : (s > 1.3 ? 0.9 * Math.max(0, Math.sin(t * 18)) : 0);
     W.o.rotation.z = W.rz + W.side * beat;
   }
   if (rig.head) {
     if (k === 'mirefowl') rig.head.o.position.z = rig.head.z + Math.sin(phase * 2) * 0.06 * walk; // the moorhen's nod
     rig.head.o.rotation.x = rig.head.rx + (walk ? Math.sin(phase * 2) * 0.06 : Math.sin(t * 0.7) * 0.08 + 0.05);
+    // an adder, a slug, a centipede: the head sways side to side as it goes, or as it waits
+    if (k === 'adder' || k === 'slug' || k === 'centipede') rig.head.o.rotation.y = (rig.head.ry != null ? rig.head.ry : (rig.head.ry = rig.head.o.rotation.y)) + Math.sin(t * (walk ? 5 : 1.6)) * 0.25;
   }
   if (rig.tail) rig.tail.o.rotation.x = rig.tail.rx + (k === 'mirefowl' ? -0.25 * Math.max(0, Math.sin(phase * 2)) : Math.sin(t * (walk ? 9 : 2)) * 0.18);
   for (const E of rig.ears) E.o.rotation.z = E.rz + E.side * (Math.sin(t * 1.3 + E.side) > 0.92 ? 0.25 : 0.04);

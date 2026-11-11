@@ -55,7 +55,17 @@ function makeMob2(mobType) {
   }
   // The distinctive Session M horrors get purpose-built rigs; everything else
   // (the original four + the Grave-Mite) is a recolored/rescaled base blob.
-  if (mobType === 'gloom_bat')   return withHealthBar(makeGloomBat(), 24);
+  if (mobType === 'gloom_bat') {
+    // A real bat (tools/models/build_critters.py), darkened for the gloom, its
+    // wings beating; the hand-built one until the model lands.
+    const bat = kkModel ? kkModel('cr_bat', 44, 'fit') : null;
+    if (bat) {
+      bat.traverse((o) => { if (o.isMesh && o.material && !o.material.emissiveIntensity) { o.material = o.material.clone(); o.material.color.setHex(0x8a8496); } });
+      bat.userData.rig = critterRigFind(bat, 'bat');
+      return withHealthBar(bat, 24);
+    }
+    return withHealthBar(makeGloomBat(), 24);
+  }
   if (mobType === 'fen_hexer')   return withHealthBar(makeFenHexer(), 28);
   if (mobType === 'barrow_maw')  return withHealthBar(makeBarrowMaw(), 34);
   if (mobType === 'old_marrowe') return withHealthBar(makeOldMarrowe(), 64);

@@ -303,8 +303,219 @@ def crow():
     return m, None
 
 
+# ── The dark's own: bat, rat, the rat king, spider, beetle, centipede, slug, adder ──
+def bat():
+    """A horseshoe bat, Rhinolophus: a furry russet body, great membranous wings on long fingers, big ears, the nose-leaf."""
+    m = Model('bat', forward_x=True)
+    FUR = ('#4a3a30', '#8a6a52')
+    m.add(blob(0.14, 0.1, 0.1, seg=9, rings=6, colors=FUR).xf(None, (0, 0, 0.5)))
+    with m.node('head', (0.12, 0, 0.52)):
+        m.add(blob(0.075, 0.07, 0.07, seg=8, rings=5, colors=FUR).xf(None, (0.17, 0, 0.53)))
+        m.add(blob(0.03, 0.035, 0.035, seg=6, rings=3, colors=('#6a4a40', '#a07a6a')).xf(None, (0.235, 0, 0.52)))  # the horseshoe nose-leaf
+        for sgn in (-1, 1):
+            m.add(blob(0.03, 0.012, 0.075, seg=6, rings=4, colors=('#4a3430', '#7a5a50')).xf(rx(sgn * -0.5) @ ry(-0.3), (0.15, sgn * 0.05, 0.62)))
+            m.add(blob(0.012, 0.012, 0.012, seg=5, rings=3, colors=('#7a0a0a', '#ff3a2a')).xf(None, (0.22, sgn * 0.035, 0.55)))  # eyes that catch the light
+    memb = lambda s: math.sin(math.pi * min(1, s * 0.95 + 0.04)) ** 0.7 * (1.0 - 0.25 * abs(math.sin(s * math.pi * 3)))
+    for sgn, nm in ((1, 'wing_L'), (-1, 'wing_R')):
+        with m.node(nm, (0.02, sgn * 0.08, 0.53)):
+            w = blade(0.55, 0.36, memb, segs=6, cols=5, fold=0.06, rise=0.05, droop=0.2, colors=('#1e1418', '#5a3a40'))
+            m.add(w.xf(rz(sgn * math.pi / 2) @ rx(0), (0.02, sgn * 0.08, 0.53)))
+            for k, a in enumerate((0.35, 0.0, -0.4)):  # the long finger-bones
+                d = np.array([math.sin(a) * 0.2, sgn * math.cos(a), 0.0])
+                m.add(tube([(0.02, sgn * 0.08, 0.54), (0.02 + 0.45 * d[0], sgn * 0.08 + 0.45 * d[1], 0.54 - 0.03 * k)], 0.008, sides=3, colors=('#2a1e20', '#4a3438')))
+    with m.node('tail', (-0.12, 0, 0.48)):
+        m.add(blade(0.18, 0.2, round_, segs=3, cols=3, fold=0.05, rise=-0.2, droop=0.1, colors=('#1e1418', '#4a3036')).xf(rz(math.pi), (-0.12, 0, 0.48)))
+    for sgn, nm in ((1, 'leg_L'), (-1, 'leg_R')):
+        with m.node(nm, (-0.08, sgn * 0.05, 0.44)):
+            m.add(tube([(-0.08, sgn * 0.05, 0.44), (-0.13, sgn * 0.06, 0.38)], 0.01, sides=3, colors=('#2a1e20', '#4a3438')))
+    return m, '#ff3a2a'
+
+
+def rat_body(m, x0=0.0, y0=0.0, yaw=0.0, nodes=True, tail_to=None, seed=0, whiskers=True, lo=False):
+    sg = (7, 4) if lo else (10, 6)
+    R = rz(yaw)
+    def P(p):
+        return R @ np.asarray(p, float) + [x0, y0, 0]
+    FUR = ('#8a7a66', '#5a4636')
+    m.add(blob(0.24, 0.13, 0.13, seg=sg[0], rings=sg[1], colors=FUR).xf(R @ ry(0.1), P((0, 0, 0.16))))
+    def head():
+        m.add(blob(0.11, 0.08, 0.08, seg=sg[0] - 2, rings=sg[1] - 1, colors=FUR).xf(R @ ry(0.2), P((0.24, 0, 0.17))))
+        m.add(lathe([(0.06, 0), (0.035, 0.07), (0.012, 0.1)], sides=7, colors=('#7a6a58', '#a89884'), close_top=False).xf(R @ ry(math.pi / 2 + 0.25), P((0.28, 0, 0.16))))
+        m.add(blob(0.016, 0.016, 0.014, seg=5, rings=3, colors=('#c88a8a', '#e8a8a8')).xf(None, P((0.385, 0, 0.13))))
+        for sgn in (-1, 1):
+            m.add(blob(0.038, 0.012, 0.04, seg=6, rings=4, colors=('#b8988a', '#d8b8aa')).xf(R, P((0.22, sgn * 0.065, 0.25))))  # the thin pink ears
+            m.add(blob(0.014, 0.014, 0.014, seg=5, rings=3, colors=('#0a0606', '#2a1a1a')).xf(None, P((0.31, sgn * 0.045, 0.2))))
+            for k in range(3 if whiskers else 0):  # whiskers
+                m.add(tube([P((0.36, sgn * 0.02, 0.15)), P((0.4, sgn * (0.09 + 0.02 * k), 0.15 + 0.012 * (k - 1)))], 0.0025, sides=3, colors=('#d8d0c8', '#ffffff')))
+    if nodes:
+        with m.node('head', P((0.18, 0, 0.18))):
+            head()
+    else:
+        head()
+    tail = tail_to if tail_to is not None else [P((-0.24, 0, 0.14)), P((-0.38, 0.04, 0.07)), P((-0.52, -0.03, 0.03)), P((-0.66, 0.05, 0.02))]
+    if nodes:
+        with m.node('tail', P((-0.22, 0, 0.14))):
+            m.add(tube(tail, lambda s: 0.022 * (1 - 0.8 * s), sides=5, colors=('#c8a898', '#9a7a6a')))
+    else:
+        m.add(tube(tail, lambda s: 0.022 * (1 - 0.8 * s), sides=5, colors=('#c8a898', '#9a7a6a')))
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for fb, x in (('F', 0.14), ('B', -0.12)):
+            def lg():
+                m.add(tube([P((x, sgn * 0.08, 0.1)), P((x + 0.02, sgn * 0.1, 0.0))], 0.022, sides=5, colors=('#c8a898', '#8a7a66')))
+                m.add(blob(0.03, 0.02, 0.01, seg=5, rings=3, colors=('#d8b8a8', '#e8c8b8')).xf(R, P((x + 0.04, sgn * 0.1, 0.008))))
+            if nodes:
+                with m.node('leg_' + fb + side, P((x, sgn * 0.08, 0.1))):
+                    lg()
+            else:
+                lg()
+
+
+def rat():
+    """Rattus norvegicus, the brown rat: a grizzled coat, pink ears and feet, the long scaly tail."""
+    m = Model('rat', forward_x=True)
+    rat_body(m)
+    return m, None
+
+
+def rat_king():
+    """A rat king (Rattenkönig): rats whose tails have knotted together, facing out from the knot."""
+    m = Model('rat_king', forward_x=True)
+    knot = np.array([0.0, 0.0, 0.05])
+    for k in range(6):
+        a = TAU * k / 6
+        x0, y0 = 0.38 * math.cos(a) - 0.0, 0.38 * math.sin(a)
+        R = rz(a)
+        # the tail runs from this rat's rump back into the knot
+        rump = R @ np.array([-0.22, 0, 0.14]) + [x0, y0, 0]
+        tail = [rump, (rump + knot) / 2 + [0, 0, 0.02], knot + R @ np.array([0.05, 0.03 * (k % 2), 0.02 * (k % 3)])]
+        rat_body(m, x0, y0, a, nodes=False, tail_to=tail, seed=k, whiskers=False, lo=True)
+    m.add(blob(0.09, 0.09, 0.06, seg=8, rings=5, colors=('#9a7a6a', '#c8a898'), jitter=0.3).xf(None, knot + [0, 0, 0.02]))  # the knot itself
+    return m, None
+
+
+def spider():
+    """A cave spider, Meta menardi: a glossy dark body on long banded legs, eight eyes catching the light."""
+    m = Model('spider', forward_x=True)
+    BODY = ('#1a1210', '#5a3a30')
+    m.add(blob(0.2, 0.17, 0.15, seg=10, rings=7, colors=BODY).xf(None, (-0.18, 0, 0.24)))  # abdomen
+    m.add(blob(0.12, 0.1, 0.07, seg=8, rings=5, colors=BODY).xf(None, (0.06, 0, 0.2)))     # cephalothorax
+    for (x, y) in ((0.16, 0.025), (0.16, -0.025), (0.15, 0.06), (0.15, -0.06), (0.13, 0.04), (0.13, -0.04), (0.14, 0.0), (0.12, 0.0)):
+        m.add(blob(0.012, 0.012, 0.012, seg=5, rings=3, colors=('#2a0a0a', '#ff4a4a')).xf(None, (x, y, 0.25)))
+    for sgn in (-1, 1):  # the fangs
+        m.add(lathe([(0.016, 0), (0.0, 0.05)], sides=4, colors=('#2a1a14', '#5a3a2a'), close_bottom=True, close_top=False).xf(ry(math.pi * 0.8), (0.17, sgn * 0.025, 0.17)))
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for k in range(4):
+            a = sgn * (0.5 + 0.38 * k)
+            hip = np.array([0.06 - 0.03 * k, sgn * 0.06, 0.2])
+            knee = hip + np.array([0.18 * math.cos(a), 0.22 * math.sin(a), 0.16])
+            foot = hip + np.array([0.36 * math.cos(a), 0.4 * math.sin(a), -0.2])
+            with m.node('leg_%s%d' % (side, k), hip):
+                m.add(tube([hip, knee], 0.018, sides=5, colors=('#2a1a14', '#6a4a36')))
+                m.add(tube([knee, foot], lambda s: 0.016 * (1 - 0.6 * s), sides=5, colors=('#6a4a36', '#2a1a14')))
+    return m, '#ff4a4a'
+
+
+def beetle():
+    """A dor beetle, Geotrupes: a domed black-violet shell with a metal sheen, six spiny legs, clubbed antennae."""
+    m = Model('beetle', forward_x=True)
+    SHELL = ('#0e0e1a', '#4a3a8a')
+    el = blob(0.24, 0.18, 0.13, seg=10, rings=7, colors=SHELL)
+    m.add(el.xf(None, (-0.06, 0, 0.17)))
+    m.add(tube([(0.18, 0, 0.27), (-0.3, 0, 0.27)], 0.006, sides=3, colors=('#000000', '#1a1a2a')))  # the line between the wing-cases
+    m.add(blob(0.1, 0.13, 0.08, seg=8, rings=5, colors=SHELL).xf(None, (0.18, 0, 0.17)))  # pronotum
+    with m.node('head', (0.26, 0, 0.14)):
+        m.add(blob(0.06, 0.07, 0.045, seg=7, rings=4, colors=('#0e0e1a', '#2a2a4a')).xf(None, (0.3, 0, 0.13)))
+        for sgn in (-1, 1):
+            m.add(tube([(0.33, sgn * 0.04, 0.15), (0.4, sgn * 0.08, 0.2)], 0.005, sides=3, colors=('#1a1a2a', '#3a3a5a')))
+            m.add(blob(0.02, 0.015, 0.015, seg=5, rings=3, colors=('#3a2a1a', '#8a6a3a')).xf(None, (0.41, sgn * 0.085, 0.205)))
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for k in range(3):
+            a = sgn * (0.7 + 0.8 * k)
+            hip = np.array([0.12 - 0.12 * k, sgn * 0.08, 0.1])
+            foot = hip + np.array([0.24 * math.cos(a) * (1 if k else 1.2), 0.26 * math.sin(a), -0.1])
+            knee = (hip + foot) / 2 + [0, 0, 0.08]
+            with m.node('leg_%s%d' % (side, k), hip):
+                m.add(tube([hip, knee, foot], lambda s: 0.014 * (1 - 0.4 * s), sides=4, colors=('#0e0e1a', '#2a2a4a')))
+    return m, None
+
+
+def centipede():
+    """A great centipede: a long run of flattened russet plates, a pair of legs to each, poison claws at the head."""
+    m = Model('centipede', forward_x=True)
+    n = 15
+    pts = [(0.45 - 0.065 * i, 0.06 * math.sin(i * 0.7), 0.06) for i in range(n)]
+    for i, p in enumerate(pts):
+        w = 0.06 * (1 - 0.3 * abs(i - 4) / n)
+        m.add(blob(0.04, w, 0.03, seg=7, rings=4, colors=('#5a2a14', '#c86a2a')).xf(None, p))
+        for sgn in (-1, 1):
+            leg = [p, (p[0] - 0.01, p[1] + sgn * 0.08, 0.05), (p[0] - 0.04, p[1] + sgn * 0.12, 0.0)]
+            m.add(tube(leg, 0.007, sides=3, colors=('#c88a3a', '#e8b860')))
+    with m.node('head', (0.48, 0, 0.06)):
+        m.add(blob(0.05, 0.05, 0.03, seg=7, rings=4, colors=('#3a1a0a', '#8a4a1a')).xf(None, (0.51, 0, 0.06)))
+        for sgn in (-1, 1):
+            m.add(tube([(0.53, sgn * 0.03, 0.06), (0.62, sgn * 0.09, 0.08), (0.7, sgn * 0.12, 0.06)], 0.005, sides=3, colors=('#8a5a2a', '#c88a4a')))  # antennae
+            m.add(tube([(0.53, sgn * 0.03, 0.04), (0.57, sgn * 0.04, 0.03), (0.58, 0, 0.03)], 0.01, sides=3, colors=('#1a0a0a', '#4a1a14')))  # forcipules
+    with m.node('tail', (pts[-1][0], pts[-1][1], 0.06)):
+        for sgn in (-1, 1):
+            m.add(tube([pts[-1], (pts[-1][0] - 0.12, pts[-1][1] + sgn * 0.06, 0.04)], 0.007, sides=3, colors=('#c88a3a', '#e8b860')))
+    return m, None
+
+
+def slug():
+    """Limax maximus, the leopard slug: a long soft body with a ridged keel and the mantle, two tall eye-stalks; a wet trail."""
+    m = Model('slug', forward_x=True)
+    prof = lathe([(0.0, 0), (0.07, 0.06), (0.09, 0.2), (0.085, 0.4), (0.06, 0.55), (0.0, 0.62)], sides=10, colors=('#3a3a2a', '#9a9a7a'), close_top=False)
+    prof.v[:, 1] *= 1.0
+    for i, v in enumerate(prof.v):  # flatten the underside onto the ground
+        if v[0] < 0:
+            prof.v[i][0] *= 0.6
+    m.add(prof.xf(ry(math.pi / 2) @ rz(0), (-0.32, 0, 0.07)))
+    m.add(blob(0.16, 0.085, 0.05, seg=8, rings=5, colors=('#4a4a36', '#a8a888')).xf(None, (0.12, 0, 0.13)))  # the mantle
+    r = np.random.default_rng(51)
+    for k in range(14):  # the leopard spots
+        x = r.uniform(-0.3, 0.2); a = r.uniform(-1.2, 1.2)
+        m.add(blob(0.02, 0.015, 0.006, seg=5, rings=3, colors=('#14140e', '#2a2a1e')).xf(None, (x, 0.075 * math.sin(a), 0.07 + 0.07 * math.cos(a))))
+    with m.node('head', (0.22, 0, 0.1)):
+        for sgn in (-1, 1):
+            m.add(tube([(0.25, sgn * 0.03, 0.12), (0.31, sgn * 0.05, 0.24)], 0.011, sides=5, colors=('#5a5a46', '#8a8a6a')))
+            m.add(blob(0.016, 0.016, 0.016, seg=5, rings=3, colors=('#1a1a14', '#3a3a2a')).xf(None, (0.31, sgn * 0.05, 0.245)))
+    m.add(blob(0.3, 0.07, 0.002, seg=8, rings=3, colors=('#5a6a6a', '#8a9a9a')).xf(None, (-0.5, 0, 0.002)))  # the silver trail
+    return m, None
+
+
+def adder():
+    """Vipera berus, the adder: a thick coiled body with the black zig-zag down its back, the head raised and the tongue out."""
+    m = Model('adder', forward_x=True)
+    pts = []
+    for i in range(34):  # a loose coil rising to the neck
+        u = i / 33
+        a = u * TAU * 1.35
+        rr = 0.3 - 0.16 * u
+        pts.append((rr * math.cos(a) - 0.05, rr * math.sin(a), 0.05 + 0.08 * max(0, u - 0.75) / 0.25))
+    body = tube(pts, lambda s: 0.06 * (1 - 0.55 * s ** 2) if s < 0.97 else 0.02, sides=8, colors=('#5a5038', '#c8b888'))
+    m.add(body)
+    for i in range(1, 32, 1):  # the zig-zag, a dark diamond on every turn of the back
+        p = np.array(pts[i]); q = np.array(pts[i + 1])
+        d = q - p; d /= np.linalg.norm(d)
+        side = np.cross(d, [0, 0, 1]); side /= (np.linalg.norm(side) + 1e-9)
+        off = side * 0.022 * (1 if i % 2 else -1)
+        w = 0.05 * (1 - 0.5 * i / 33)
+        m.add(blob(w * 0.7, w * 0.5, 0.012, seg=4, rings=2, colors=('#0a0a08', '#1a1a14')).xf(rz(math.atan2(d[1], d[0]) + 0.6 * (1 if i % 2 else -1)), p + off + [0, 0, 0.06 * (1 - 0.5 * i / 33)]))
+    neck = np.array(pts[-1])
+    with m.node('head', tuple(neck)):
+        hp = neck + [0.04, 0.0, 0.12]
+        m.add(tube([neck, neck + [0.0, 0, 0.07], hp], 0.03, sides=7, colors=('#7a6a48', '#c8b888')))
+        m.add(blob(0.07, 0.05, 0.035, seg=8, rings=5, colors=('#6a5a3a', '#b8a878')).xf(None, hp + [0.05, 0, 0.0]))
+        m.add(blob(0.03, 0.018, 0.01, seg=4, rings=2, colors=('#0a0a08', '#1a1a14')).xf(rz(0), hp + [0.03, 0, 0.034]))  # the V on the crown
+        for sgn in (-1, 1):
+            m.add(blob(0.012, 0.012, 0.012, seg=5, rings=3, colors=('#6a1a0a', '#e05a2a')).xf(None, hp + [0.08, sgn * 0.035, 0.012]))  # the red eye
+            m.add(tube([hp + [0.12, 0, -0.01], hp + [0.17, sgn * 0.02, -0.015]], 0.003, sides=3, colors=('#8a1a2a', '#e83a5a')))  # the forked tongue
+    return m, '#e05a2a'
+
+
 CRITTERS = {'rabbit': rabbit, 'embermoth': embermoth, 'thistlehog': hedgehog, 'duskfawn': fawn, 'mirefowl': moorhen,
-            'bramble_boar': boar, 'mossback_tortoise': tortoise, 'gravewing_crow': crow}
+            'bramble_boar': boar, 'mossback_tortoise': tortoise, 'gravewing_crow': crow,
+            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

@@ -25,7 +25,10 @@ function getOrCreateMob2Visual(id, mobType) {
   if (!v) {
     const mesh = makeMob2(mobType);
     mesh.visible = false;
-    mesh.userData = { kind: 'mob2', targetId: id };
+    // Keep what makeMob2 marked (a KayKit body's isKK/kk/kkAttack, the real
+    // bat's rig): replacing userData outright had been dropping isKK, so the
+    // night's KayKit bodies never walked, ran or struck.
+    mesh.userData = { ...mesh.userData, kind: 'mob2', targetId: id };
     getWildsScene().add(mesh);
     const vis = MOB2_VISUALS[mobType] || {};
     v = getMobVisuals2()[id] = { mesh, mobType, fly: vis.fly || 0, wingPhase: Math.random() * 6.28, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, hidden: false, attackAnimStartAt: null,
@@ -138,6 +141,7 @@ function updateMob2Visuals(dt) {
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = tilt;
     v.mesh.visible = getLastWildlifeIsNight() && !v.dead && !v.hidden;
+    if (v.mesh.userData.rig && v.mesh.visible) critterRigPose(v.mesh.userData.rig, v.wingPhase || 0, actualSpeed > 3 ? 1 : 0, performance.now() / 1000);
   }
 }
 

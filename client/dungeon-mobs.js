@@ -7,7 +7,9 @@
 // active/dungeon scenes and `me` are reassigned lets, also getters. THREE and
 // LEGEND_FX are globals; the data tables + helpers are injected by reference.
 // ---------------------------------------------------------------------------
-export default function createDungeonMobs({ DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getActiveScene, getDungeonScene, getDungeonMobVisuals, getMe }) {
+import { critterRigFind, critterRigPose } from './critter-rig.js';
+
+export default function createDungeonMobs({ DUNGEON_BOSS_NAMES, DUNGEON_MOB_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, kkModel, getActiveScene, getDungeonScene, getDungeonMobVisuals, getMe }) {
 // How long a slain mob's death collapse lingers before it's hidden.
 const MOB_DEATH_VIS_MS = 1100;
 // Recolour a KayKit body toward the mob's hue by LERP (so a bone-white skeleton
@@ -154,6 +156,31 @@ function addBossMarkers(g, mobType, visual, yTop, s) {
   glow.name = 'bossGlow'; // recolored red + enlarged when the boss enrages (below half HP)
   g.add(glow);
 }
+// [model, size, 'fit'|'height'] for each critter type; the size is before the
+// type's own scale, as the hand-built rigs were.
+const DUNGEON_CRITTER_MODELS = {
+  cave_rat: ['rat', 40], tunnel_rat: ['rat', 40], boss_rat_king: ['rat_king', 70],
+  stone_bat: ['bat', 56], blood_bat: ['bat', 56],
+  crypt_spider: ['spider', 50], boss_crypt_weaver: ['spider', 50], rock_beetle: ['beetle', 40],
+  venom_crawler: ['centipede', 52], moss_crawler: ['slug', 46],
+  dark_adder: ['adder', 44], void_serpent: ['adder', 44],
+};
+function realDungeonCritter(mobType, visual) {
+  const spec = DUNGEON_CRITTER_MODELS[mobType];
+  const g = spec && kkModel ? kkModel('cr_' + spec[0], spec[1], 'fit') : null;
+  if (!g) return null;
+  // Lean the real colours toward the type's own (a blood bat is red, a void serpent violet).
+  const c = new THREE.Color(visual.color), hsl = {};
+  c.getHSL(hsl);
+  const tint = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.2), 0.82);
+  const tintAmt = /blood|void|moss|venom|weaver/.test(mobType) ? 0.75 : 0.25;
+  const white = new THREE.Color(0xffffff);
+  g.traverse((o) => { if (o.isMesh && o.material && !o.material.emissiveIntensity) { o.material = o.material.clone(); o.material.color.copy(white).lerp(tint, tintAmt); } });
+  g.userData.rig = critterRigFind(g, spec[0]);
+  // flyers fly: lift the bat to where the hand-built one hovered
+  if (spec[0] === 'bat') g.children[0].position.y += 16;
+  return g;
+}
 function makeDungeonMob(mobType) {
   const visual = DUNGEON_MOB_VISUALS[mobType] || { color: 0x2a1a33, eyeColor: 0xff2222, scale: 1.0 };
   // Preferred: an animated KayKit body (shared-rig path, same as the Wilds
@@ -174,6 +201,16 @@ function makeDungeonMob(mobType) {
       return built.group;
     }
   }
+  // The creatures KayKit has no body for are the real animals now
+  // (tools/models/build_critters.py), jointed so they scurry, and tinted toward
+  // each type's own colour; the hand-built rig stands in until a model lands.
+  const real = realDungeonCritter(mobType, visual);
+  if (real) {
+    real.add(makeHealthBarSprite(38));
+    real.scale.setScalar(visual.scale);
+    addBossMarkers(real, mobType, visual, 46 / visual.scale, 1 / visual.scale);
+    return real;
+  }
   const builder = MOB_ARCH_BUILDERS[mobArchetype(mobType)] || MOB_ARCH_BUILDERS.wraith;
   const g = builder(visual.color, visual.eyeColor);
   g.add(makeHealthBarSprite(38));
@@ -189,7 +226,10 @@ function getOrCreateDungeonMobVisual(id, mobType) {
   if (!v) {
     const mesh = makeDungeonMob(mobType);
     mesh.visible = false;
-    mesh.userData = { kind: 'dungeon', targetId: id };
+    // Keep what the builder marked (a KayKit body's isKK/kk/kkAttack, a real
+    // creature's rig): replacing userData outright had been dropping isKK, so
+    // the KayKit bodies never walked, ran, struck or fell.
+    mesh.userData = { ...mesh.userData, kind: 'dungeon', targetId: id };
     mesh.traverse(c => { if (c !== mesh) c.userData = mesh.userData; });
     if (getDungeonScene()) getDungeonScene().add(mesh);
     v = getDungeonMobVisuals()[id] = { mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, attackAnimStartAt: null,
@@ -297,6 +337,12 @@ function updateDungeonMobVisuals(dt) {
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
     v.mesh.visible = shouldShow;
+    const rig = v.mesh.userData.rig;
+    if (rig && shouldShow) {
+      const speed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
+      v.gait = (v.gait || 0) + dt * Math.min(16, 3 + speed * 0.12);
+      critterRigPose(rig, v.gait, speed > 4 ? (speed > 120 ? 2 : 1) : 0, performance.now() / 1000);
+    }
   }
 }
 
