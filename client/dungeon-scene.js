@@ -52,6 +52,122 @@ function makeCaveSigilTexture(variant) {
   return tex;
 }
 let rootcellarSigilTextures = null;
+// ── Things to find and do (lib/dungeonFinds.js on the server) ──────────────
+// Each is drawn where the layout puts it and remembered by id, so the state
+// the server sends (what burns, what is broken, what you have already had)
+// can be shown on it. A kiosk at each is what F / the action button uses.
+const FIND_VERBS = {
+  chest: 'open the chest (it wants a bone key)', cache: 'search the cache', ore: 'work the ore seam',
+  mushroom: 'pick the cave mushrooms', crystal: 'scrape the crystal', brazier: 'light the brazier', seal: 'strike the seal',
+};
+let lastFinds = null;        // the server's last word, kept to show again on a rebuilt scene
+let findsClockSkew = 0;      // server clock minus ours, so vents breathe when the server says they do
+function findSprite(color, size, y) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: LEGEND_FX.glowTexture(), color, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp.scale.set(size, size * 1.25, 1); sp.position.y = y;
+  return sp;
+}
+function buildFinds(scene, layout, theme, rockStain) {
+  const finds = {}, kiosks = [];
+  const stainRock = (g) => { g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(rockStain); } }); return g; };
+  const model = (key, x, z, size, mode, rot, stainIt) => {
+    if (!kkStatic || !hasKK || !hasKK(key)) return null;
+    const g = kkStatic(key, size, mode);
+    if (!g) return null;
+    g.position.set(x, 0, z); g.rotation.y = rot || 0;
+    scene.add(stainIt ? stainRock(g) : g);
+    return g;
+  };
+  const chamberOf = (t) => (layout.chambers || []).find((c) => c.id === t.chamber) || { x: t.x, y: t.y + 1 };
+  const facing = (t) => { const c = chamberOf(t); return Math.atan2(c.x - t.x, c.y - t.y); };
+  const add = (t, kind, entry) => { finds[t.id] = { kind, ...entry }; kiosks.push({ x: t.x, z: t.y, npc: 'dfind', findId: t.id, findKind: kind }); };
+
+  for (const t of (layout.chests || [])) {
+    const shut = model('dg_chest', t.x, t.y, 56, 'fit', facing(t)), open = model('dg_chest_open', t.x, t.y, 56, 'fit', facing(t));
+    if (open) open.visible = false;
+    add(t, 'chest', { shut, open });
+  }
+  for (const t of (layout.caches || [])) add(t, 'cache', { g: model('dg_cache', t.x, t.y, 58, 'fit', facing(t), true) });
+  for (const t of (layout.nodes || [])) {
+    let g = null;
+    if (t.kind === 'ore') g = model('dg_ore', t.x, t.y, 74, 'fit', facing(t), true);
+    else if (t.kind === 'crystal') g = model('alt_crystals', t.x, t.y, 44, 'fit', t.x);
+    else {
+      g = new THREE.Group(); g.position.set(t.x, 0, t.y); scene.add(g);
+      for (const [dx, dz, h] of [[0, 0, 26], [16, 8, 18], [-12, 12, 15], [6, -14, 20]]) { const m = kkStatic && hasKK && hasKK('cave_mushroom') ? kkStatic('cave_mushroom', h, 'height') : null; if (m) { m.position.set(dx, 0, dz); m.rotation.y = dx; g.add(m); } }
+    }
+    add(t, t.kind, { g });
+  }
+  for (const t of (layout.braziers || [])) {
+    const g = model('dg_brazier', t.x, t.y, 62, 'height', 0);
+    const flame = findSprite(0xffa040, 44, 66); flame.visible = false;
+    if (g) g.add(flame);
+    add(t, 'brazier', { g, flame });
+  }
+  for (const t of (layout.seals || [])) {
+    const g = model('dg_seal', t.x, t.y, 70, 'height', facing(t), true);
+    let mark = null;
+    if (g) g.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Glow') { o.material = o.material.clone(); o.material.color.setHex(theme.accent); if (o.material.emissive) o.material.emissive.setHex(theme.glow); mark = o.material; } });
+    add(t, 'seal', { g, mark, lit: theme.glow, tint: theme.accent });
+  }
+  // traps are not used, only stepped round: no kiosk
+  for (const t of (layout.traps || [])) {
+    if (t.kind === 'spikes') finds[t.id] = { kind: 'spikes', g: model('dg_spikes', t.x, t.y, 92, 'fit', t.x, true) };
+    else if (t.kind === 'vent') {
+      const g = model('dg_vent', t.x, t.y, 100, 'fit', t.y, true);
+      const puff = findSprite(0xb8d848, 90, 40); puff.visible = false;
+      if (g) g.add(puff);
+      finds[t.id] = { kind: 'vent', g, puff, x: t.x, y: t.y };
+    } else {
+      const g = model('dg_rockfall', t.x, t.y, 96, 'fit', t.y, true);
+      const warn = new THREE.Mesh(new THREE.RingGeometry(t.r * 0.72, t.r, 28), new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+      warn.rotation.x = -Math.PI / 2; warn.position.set(t.x, 3, t.y); warn.visible = false; scene.add(warn);
+      finds[t.id] = { kind: 'rockfall', g, warn, warnUntil: 0 };
+    }
+  }
+  scene.userData.finds = finds;
+  scene.userData.findKiosks = kiosks;
+  if (lastFinds) applyDungeonFinds(lastFinds);
+}
+// Show the server's state on what is drawn.
+function applyDungeonFinds(msg) {
+  lastFinds = msg;
+  if (msg.now) findsClockSkew = msg.now - Date.now();
+  const scene = getDungeonScene(), finds = scene && scene.userData && scene.userData.finds;
+  if (!finds) return;
+  const used = new Set(msg.used || []), lit = new Set(msg.lit || []), broken = new Set(msg.broken || []);
+  for (const id of Object.keys(finds)) {
+    const f = finds[id];
+    if (f.kind === 'chest') { if (f.shut) f.shut.visible = !used.has(id); if (f.open) f.open.visible = used.has(id); }
+    else if (f.kind === 'cache') { if (f.g) f.g.scale.y = used.has(id) ? 0.55 : 1; }
+    else if (f.kind === 'ore') { if (f.g) f.g.scale.y = used.has(id) ? 0.6 : 1; }
+    else if (f.kind === 'mushroom' || f.kind === 'crystal') { if (f.g) f.g.visible = !used.has(id); }
+    else if (f.kind === 'brazier') { if (f.flame) f.flame.visible = lit.has(id); }
+    else if (f.kind === 'seal') {
+      const gone = broken.has(id);
+      if (f.g) f.g.rotation.z = gone ? 0.5 : 0;
+      if (f.mark) { f.mark.color.setHex(gone ? 0x1a1a1a : f.tint); if (f.mark.emissive) f.mark.emissive.setHex(gone ? 0x000000 : f.lit); }
+    }
+  }
+}
+// The server says the roof over this trap is about to come down.
+function dungeonTrapWarn(id, ms) {
+  const scene = getDungeonScene(), f = scene && scene.userData && scene.userData.finds && scene.userData.finds[id];
+  if (f && f.warn) f.warnUntil = performance.now() + (ms || 1300) + 500;
+}
+// Every frame: vents breathe on the server's clock, a rockfall's ring pulses while it warns, braziers flicker.
+function animateFinds(scene) {
+  const finds = scene.userData.finds;
+  if (!finds) return;
+  const t = Date.now() + findsClockSkew, p = performance.now();
+  for (const id in finds) {
+    const f = finds[id];
+    if (f.kind === 'vent' && f.puff) { f.puff.visible = ((t + (f.x * 7 + f.y * 13)) % 6000) < 2200; if (f.puff.visible) f.puff.position.y = 34 + Math.sin(p * 0.006) * 8; }
+    else if (f.kind === 'rockfall' && f.warn) { f.warn.visible = p < f.warnUntil; if (f.warn.visible) f.warn.material.opacity = 0.45 + 0.4 * Math.abs(Math.sin(p * 0.012)); }
+    else if (f.kind === 'brazier' && f.flame && f.flame.visible) f.flame.scale.y = 55 * (0.9 + 0.12 * Math.sin(p * 0.011 + f.flame.id));
+  }
+}
+
 // Worn cave floor, drawn once: blotches of light and dark rock, hairline
 // cracks, a scatter of grit. Tiles without a seam (everything wraps).
 let caveFloorTexture = null;
@@ -145,6 +261,7 @@ function buildDungeonCaveScene(theme, layout) {
   scene.onBeforeRender = (_r, _s, cam) => {
     const cx = cam.position.x, cz = cam.position.z;
     for (const g of tallRock) { const dx = g.position.x - cx, dz = g.position.z - cz; g.visible = dx * dx + dz * dz > 200 * 200; }
+    animateFinds(scene);
   };
   const caveRock = !!(hasKK && hasKK('dg_wall'));
   // A run of cave wall along a rect's long axis, in lengths of about 200.
@@ -296,9 +413,11 @@ function buildDungeonCaveScene(theme, layout) {
     cg.scale.set(48, 48, 1); cg.position.set(ox, pil ? capY + 11 : 25, oz); scene.add(cg);
   }
 
+  buildFinds(scene, layout, theme, rockStain);
+
   // Exit portal in the entry chamber (by spawn).
   const px = layout.portal.x, pz = layout.portal.y;
-  setDungeonKiosks([{ x: px, z: pz, portal: 'dungeon_exit' }]);
+  setDungeonKiosks([{ x: px, z: pz, portal: 'dungeon_exit' }, ...(scene.userData.findKiosks || [])]);
   const _dngPortal = buildPortalMesh(px, pz); _dngPortal.rotation.y = Math.PI / 2; scene.add(_dngPortal);
 
   const plaque = new THREE.Group();
@@ -383,5 +502,5 @@ function buildDungeonScene() {
   setDungeonCamera(camera);
 }
 
-  return { buildDungeonScene, rebuildDungeonForTier };
+  return { buildDungeonScene, rebuildDungeonForTier, applyDungeonFinds, dungeonTrapWarn, FIND_VERBS };
 }

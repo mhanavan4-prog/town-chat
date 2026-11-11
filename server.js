@@ -3925,6 +3925,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       riteCredit(player, 'kill_creature', t.mobType, 1);
       storyEvent(player, 'kill_mob', { pool: 'dungeon', mobType: t.mobType });
       if (t.delve) noteDelveKill(player, t);
+      dungeonFinds.onKill(player, t); // it may have carried a bone key
       if (t.boss) {
         // Co-op payout (Session L): everyone alive in the room shares the
         // triumph — 60% of the boss's XP to each non-killer present, so a
@@ -8497,6 +8498,7 @@ setInterval(() => {
   tickVillageNpcs(dt);
   tickDungeon(dt);
   tickDelves(dt);
+  dungeonFinds.tick();
   tickPlayerStatusHealth(now, dt);
   tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
   tickTorchNpcs(dt);
@@ -8993,7 +8995,12 @@ setInterval(() => {
 const parties = new Map();
 const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
-const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth });
+const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth,
+  noteDelveFloor: (run, fresh) => { for (const pid of run.members.keys()) { const p = players.get(pid); if (p) dungeonFinds.onEnter(p, { fresh }); } } });
+// Things to do underground besides fighting (chests, caches, gathering, traps,
+// the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
+const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,
+  delveRunsByRoom: delveMod.delveRunsByRoom, delveFloorTier: delveMod.delveFloorTier, playerMaxHealth });
 const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTakenMult, delveMendingBonus, delveStart, delveLeave, tickDelves, noteDelveKill, delveMenuPayload, delveRunOf, allDelveMobs, delveSpawnFloor, delveStatePayloadFor, delveBroadcast, DELVE_MODS, DELVE_BOONS } = delveMod;
 
 // ── The World Boss (Session N) ────────────────────────────────────────────────
@@ -14881,7 +14888,7 @@ wss.on('connection', (ws, req) => {
       // The entering player is still in their OLD room at this point, so
       // playersInRoom() counts only OTHERS already inside — this fires only
       // when nobody else is there, never yanking mobs back mid-fight.
-      if (playersInRoom(room) === 0) resetDungeonRoom(room);
+      if (playersInRoom(room) === 0) { resetDungeonRoom(room); dungeonFinds.resetRoom(room); }
       const _tierEntry = DUNGEON_ENTRY_BY_TIER[tier] || DUNGEON_SPAWN;
       const spawnWithJitter = () => ({
         x: _tierEntry.x + (Math.random() - 0.5) * 60,
@@ -14904,6 +14911,7 @@ wss.on('connection', (ws, req) => {
       player.x = sp.x; player.y = sp.y; player.room = room;
       player.roomLockUntil = Date.now() + 1500;
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
+      dungeonFinds.onEnter(player, { fresh: true });
       noteMilestone(player, 'delve');
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
@@ -14911,15 +14919,19 @@ wss.on('connection', (ws, req) => {
         member.x = msp.x; member.y = msp.y; member.room = room;
         member.roomLockUntil = Date.now() + 1500;
         send(member.ws, { type: 'dungeon_entered', tier, room, spawn: { x: msp.x, y: msp.y }, level: prog.level, affixes: dungeonAffixPublic() });
+        dungeonFinds.onEnter(member, { fresh: true });
         noteMilestone(member, 'delve');
       }
       return;
     }
 
+    // Use a thing in a dungeon or the Delve: a chest, a cache, a vein, a brazier, a seal.
+    if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead
       // (depth recorded, gold kept, room torn down when the last one leaves).
+      dungeonFinds.onLeave(player);
       if (delveRunOf(player)) { delveLeave(player, 'exit'); return; }
       const returnRoom = player.dungeonReturnRoom || 'outside';
       const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;

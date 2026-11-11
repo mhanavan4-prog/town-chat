@@ -3087,6 +3087,8 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
+  if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); return; }
+  if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
     return;
@@ -13907,7 +13909,7 @@ const DUNGEON_CAVE_THEMES = {
 // ── Personal Dungeon scene — extracted to client/dungeon-scene.js (Phase C 3D
 // slice). THREE global; buildPortalMesh + layout/theme tables injected; scene/
 // camera/kiosks/mob-visuals written back via setters. ──
-const { buildDungeonScene, rebuildDungeonForTier } = createDungeonScene({
+const { buildDungeonScene, rebuildDungeonForTier, applyDungeonFinds, dungeonTrapWarn, FIND_VERBS } = createDungeonScene({
   buildPortalMesh, DUNGEON_LAYOUTS, DUNGEON_CAVE_THEMES,
   kkStatic: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode || 'fit') : null),
   hasKK: (key) => KK.has(key),
@@ -18759,6 +18761,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'moot') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'moot_teleport' })); return; }
   if (kiosk && kiosk.npc === 'locksmith') { openLocksmithModal(); return; }
   if (kiosk && kiosk.npc === 'plaque') { openPlaqueModal(); return; }
+  if (kiosk && kiosk.npc === 'dfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'dungeon_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -19059,6 +19062,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'dfind') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${FIND_VERBS[kiosk.findKind] || 'use this'}`;
     return;
   }
   if (kiosk && kiosk.npc === 'quest') {
