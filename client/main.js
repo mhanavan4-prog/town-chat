@@ -456,6 +456,8 @@ const KK = (() => {
     cave_eyejar: 'kk/home/cave_eyejar.glb', cave_jar: 'kk/home/cave_jar.glb', cave_moon: 'kk/home/cave_moon.glb', cave_mushroom: 'kk/home/cave_mushroom.glb', cave_feathers: 'kk/home/cave_feathers.glb',
     // The Wilds' fires and waymarker stones, and what a witch sets on her altar in the manor.
     wl_campfire: 'kk/home/campfire.glb', wl_waymarker: 'kk/home/waymarker.glb',
+    tw_headstone: 'kk/home/headstone.glb', tw_board: 'kk/home/notice_board.glb',
+    wl_tent: 'kk/home/camp_tent.glb', wl_stake: 'kk/home/palisade_stake.glb', wl_tower: 'kk/home/watchtower.glb', wl_rack: 'kk/home/weapon_rack.glb', wl_pennant: 'kk/home/pennant_pole.glb',
     alt_chalice: 'kk/home/chalice.glb', alt_bell: 'kk/home/hand_bell.glb', alt_runes: 'kk/home/rune_stones.glb', alt_mirror: 'kk/home/scrying_mirror.glb',
     alt_pentacle: 'kk/home/pentacle_plaque.glb', alt_crystals: 'kk/home/crystal_cluster.glb', alt_grimoire: 'kk/home/open_grimoire.glb',
     furn_htable: 'kk/home/hall_table.glb', furn_hbench: 'kk/home/hall_bench.glb', furn_bookcase: 'kk/home/bookcase.glb', furn_banner: 'kk/home/hall_banner.glb',
@@ -642,7 +644,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.

@@ -1184,6 +1184,233 @@ def marble_perch():
     return m, None
 
 
+# ── The Thornwarden scouts' camp in the Wilds ──────────────────────────────
+CANVAS = ('#6a5430', '#c8ac74')
+ROPE = ('#7a6238', '#c0a060')
+
+
+def camp_tent():
+    """A ridge tent of waxed canvas: two poles and a ridge, the walls pegged out on guy ropes, one door flap tied back, a bedroll and a lantern inside."""
+    m = Model('camp_tent')
+    L, W, H = 1.1, 0.9, 0.82
+    # the two slopes, sagging a little between ridge and eave
+    for sy in (-1, 1):
+        v, f, t = [], [], []
+        nx, ny = 6, 5
+        for i in range(nx + 1):
+            for j in range(ny + 1):
+                u, w_ = i / nx, j / ny
+                x = -L / 2 + L * u
+                y = sy * (W / 2) * w_
+                z = H * (1 - w_) - 0.045 * math.sin(math.pi * w_) * (0.6 + 0.4 * math.sin(math.pi * u)) + 0.03 * w_
+                v.append((x, y, z)); t.append(1 - 0.75 * w_ + 0.08 * math.sin(u * 17 + w_ * 5))
+        for i in range(nx):
+            for j in range(ny):
+                a = i * (ny + 1) + j
+                f.append((a, a + 1, a + ny + 2, a + ny + 1) if sy > 0 else (a, a + ny + 1, a + ny + 2, a + 1))
+        m.add(trim(Part(v, f, [min(1, max(0, x)) for x in t], CANVAS)))
+    # the back wall, and the front with one flap tied back
+    def gable(x, open_):
+        v = [(x, -W / 2, 0.03), (x, W / 2, 0.03), (x, 0, H)]
+        if not open_:
+            return trim(Part(v, [(0, 1, 2)] if x < 0 else [(0, 2, 1)], [0.2, 0.2, 0.8], ('#584624', '#a89060'), smooth=False))
+        v = [(x, -W / 2, 0.03), (x, -0.02, 0.03), (x, 0, H), (x, W / 2, 0.03), (x, W * 0.3, 0.03), (x + 0.05, W * 0.36, 0.42)]
+        return trim(Part(v, [(0, 2, 1), (3, 4, 5), (3, 5, 2)], [0.2, 0.3, 0.8, 0.2, 0.3, 0.6], ('#584624', '#a89060'), smooth=False))
+    m.add(gable(-L / 2, False)); m.add(gable(L / 2, True))
+    m.add(trim(box(0.02, 0.5, 0.6, ('#0c0a08', '#1a1612'))).xf(None, (L / 2 - 0.05, 0.02, 0.02)))   # the dark inside
+    for x in (-L / 2 - 0.02, L / 2 + 0.02):
+        m.add(tube([(x, 0, 0), (x, 0, H + 0.06)], 0.022, sides=6, colors=OAK_DK))
+    m.add(tube([(-L / 2 - 0.05, 0, H + 0.01), (L / 2 + 0.05, 0, H + 0.01)], 0.018, sides=5, colors=OAK_DK))
+    for sx in (-1, 0, 1):
+        for sy in (-1, 1):
+            ex, ey = sx * L * 0.45, sy * W / 2
+            px, py = ex * 1.08, sy * (W / 2 + 0.26)
+            m.add(trimtube([(ex, ey, 0.06), (px, py, 0.02)], 0.006, sides=3, colors=ROPE))
+            m.add(tube([(px, py + sy * 0.03, 0.0), (px, py - sy * 0.02, 0.08)], 0.012, sides=4, colors=OAK))
+    for x in (-L / 2 - 0.02, L / 2 + 0.02):
+        sx = 1 if x > 0 else -1
+        m.add(trimtube([(x, 0, H + 0.04), (x + sx * 0.4, 0, 0.02)], 0.006, sides=3, colors=ROPE))
+        m.add(tube([(x + sx * 0.42, 0, 0.0), (x + sx * 0.38, 0, 0.08)], 0.012, sides=4, colors=OAK))
+    roll = lathe([(0.0, -0.2), (0.06, -0.2), (0.065, 0.0), (0.06, 0.2), (0.0, 0.2)], sides=8, colors=('#3a4a2a', '#7a8a5a'), close_top=False)
+    m.add(trim(roll).xf(rx(math.pi / 2), (L / 2 + 0.1, -0.2, 0.065)))
+    for dy in (-0.1, 0.1):
+        m.add(trim(lathe([(0.066, -0.01), (0.068, 0.0), (0.066, 0.01)], sides=8, colors=ROPE, close_top=False)).xf(rx(math.pi / 2), (L / 2 + 0.1, -0.2 + dy, 0.065)))
+    return m, None
+
+
+def palisade_stake():
+    """A palisade stake: a barked trunk hewn to a point, the cut pale."""
+    m = Model('palisade_stake')
+    BARK = ('#1e140a', '#4a3620')
+    prof = [(0.09, 0), (0.08, 0.3), (0.075, 0.74), (0.07, 0.8)]
+    trunk = lathe(prof, sides=7, colors=BARK, close_top=False, close_bottom=True)
+    r = np.random.default_rng(9)
+    for i in range(len(trunk.v)):
+        trunk.v[i][0] *= 1 + r.uniform(-0.08, 0.08); trunk.v[i][1] *= 1 + r.uniform(-0.08, 0.08)
+    m.add(trunk)
+    m.add(trim(lathe([(0.07, 0.8), (0.035, 0.92), (0.0, 1.0)], sides=7, colors=('#8a6a40', '#d8b888'))))
+    m.add(trim(lathe([(0.082, 0.55), (0.088, 0.57), (0.082, 0.59)], sides=7, colors=ROPE, close_top=False)))  # the lashing to the rail
+    return m, None
+
+
+def watchtower():
+    """A scouts' watchtower: four splayed legs cross-braced, a plank deck with a railing, a ladder, and a thatched cap on four posts."""
+    m = Model('watchtower')
+    S, T, H = 0.28, 0.2, 1.3
+    legs = [(sx, sy) for sx in (-1, 1) for sy in (-1, 1)]
+    for sx, sy in legs:
+        m.add(tube([(sx * S, sy * S, 0), (sx * T, sy * T, H)], lambda u: 0.04 - 0.008 * u, sides=6, colors=OAK_DK))
+    for k, (a, b) in enumerate((((-1, -1), (1, -1)), ((1, -1), (1, 1)), ((1, 1), (-1, 1)), ((-1, 1), (-1, -1)))):
+        for (z0, z1) in ((0.15, 0.6), (0.7, 1.15)):
+            w0 = S + (T - S) * z0 / H; w1 = S + (T - S) * z1 / H
+            p, q = (a, b) if (k + int(z0 > 0.5)) % 2 == 0 else (b, a)
+            if k == 0 and z0 < 0.5:
+                continue  # the ladder's side stays open below
+            m.add(tube([(p[0] * w0, p[1] * w0, z0), (q[0] * w1, q[1] * w1, z1)], 0.018, sides=4, colors=OAK))
+        wz = S + (T - S) * 0.65 / H
+        m.add(tube([(a[0] * wz, a[1] * wz, 0.65), (b[0] * wz, b[1] * wz, 0.65)], 0.02, sides=4, colors=OAK_DK))
+    D = 0.42
+    for k in range(6):  # the deck
+        m.add(box(2 * D, 2 * D / 6 * 0.95, 0.04, OAK, jitter=0.01, seed=k).xf(None, (0, -D + D / 6 + k * D / 3, H)))
+    for sx, sy in legs:  # rail posts, carrying on up to hold the cap
+        m.add(tube([(sx * (D - 0.03), sy * (D - 0.03), H), (sx * (D - 0.03), sy * (D - 0.03), H + 0.62)], 0.022, sides=5, colors=OAK_DK))
+    for (a, b) in (((-1, -1), (1, -1)), ((1, -1), (1, 1)), ((1, 1), (-1, 1)), ((-1, 1), (-1, -1))):
+        for z in (H + 0.14, H + 0.26):
+            if a == (-1, -1) and b == (1, -1) and z < H + 0.2:
+                continue
+            m.add(tube([(a[0] * (D - 0.03), a[1] * (D - 0.03), z), (b[0] * (D - 0.03), b[1] * (D - 0.03), z)], 0.014, sides=4, colors=OAK))
+    # the ladder, up the front
+    for sx in (-0.09, 0.09):
+        m.add(tube([(sx, -S - 0.16, 0), (sx, -D - 0.01, H + 0.1)], 0.014, sides=4, colors=OAK))
+    for k in range(9):
+        u = (k + 0.5) / 9.5
+        y = (-S - 0.16) + ((-D - 0.01) - (-S - 0.16)) * u
+        m.add(tube([(-0.09, y, (H + 0.1) * u), (0.09, y, (H + 0.1) * u)], 0.011, sides=4, colors=OAK_DK))
+    # the thatch cap
+    cap = lathe([(0.66, H + 0.56), (0.5, H + 0.68), (0.25, H + 0.84), (0.0, H + 0.94)], sides=4, colors=('#6a5a2a', '#c8b060'), phase=TAU / 8)
+    m.add(trim(cap))
+    m.add(trim(lathe([(0.68, H + 0.54), (0.66, H + 0.56), (0.6, H + 0.56)], sides=4, colors=('#4a3e1c', '#8a7a40'), close_top=False, phase=TAU / 8)))
+    # a horn hung on a post, a lantern on the rail
+    m.add(trim(tube([(D - 0.06, -D + 0.03, H + 0.4), (D - 0.1, -D - 0.02, H + 0.33), (D - 0.18, -D - 0.04, H + 0.3)], lambda u: 0.012 + 0.02 * u, sides=6, colors=('#c8b890', '#f0e4c8'))))
+    return m, None
+
+
+def weapon_rack():
+    """A rack of two forked posts and rails, with boar spears, a billhook, two swords in their scabbards and a round shield leant against it."""
+    m = Model('weapon_rack')
+    for sx in (-0.42, 0.42):
+        m.add(tube([(sx, 0.08, 0), (sx, 0, 0.74)], 0.03, sides=6, colors=OAK_DK))
+        m.add(tube([(sx, -0.14, 0), (sx, 0, 0.4)], 0.022, sides=5, colors=OAK_DK))
+    for z in (0.3, 0.68):
+        m.add(tube([(-0.5, 0, z), (0.5, 0, z)], 0.022, sides=5, colors=OAK))
+    STEEL = ('#5a5e68', '#d8dce4')
+    for k, x in enumerate((-0.3, -0.17)):  # spears
+        top = (x + 0.02, 0.03, 1.12 + 0.05 * k)
+        m.add(tube([(x, -0.12, 0), top], 0.012, sides=5, colors=('#5a4020', '#a07840')))
+        hd = lathe([(0.0, 0.0), (0.03, 0.05), (0.0, 0.2)], sides=4, colors=STEEL); hd.v[:, 1] *= 0.3
+        m.add(trim(hd).xf(None, top))
+        m.add(trimtube([(top[0] - 0.035, top[1], top[2] + 0.01), (top[0] + 0.035, top[1], top[2] + 0.01)], 0.006, sides=4, colors=STEEL))
+    top = (-0.03, 0.03, 1.0)   # a billhook
+    m.add(tube([(-0.05, -0.12, 0), top], 0.012, sides=5, colors=('#5a4020', '#a07840')))
+    hook = [(top[0], top[1], top[2]), (top[0], top[1], top[2] + 0.14), (top[0] + 0.05, top[1], top[2] + 0.2), (top[0] + 0.1, top[1], top[2] + 0.16)]
+    hk = tube(hook, lambda u: 0.022 * (1 - 0.6 * u), sides=4, colors=STEEL); hk.v[:, 1] = top[1] + (hk.v[:, 1] - top[1]) * 0.25
+    m.add(trim(hk))
+    for k, x in enumerate((0.12, 0.25)):  # swords hung by their belts
+        m.add(trim(box(0.045, 0.014, 0.42, ('#3a2414', '#7a5030'))).xf(ry(0.08 * (1 if k else -1)), (x, -0.03, 0.22)))
+        m.add(trimtube([(x - 0.06, -0.03, 0.65), (x + 0.06, -0.03, 0.65)], 0.01, sides=4, colors=BRASS))
+        m.add(trimtube([(x, -0.03, 0.65), (x, -0.03, 0.77)], 0.012, sides=5, colors=('#2a1a10', '#5a3a20')))
+        m.add(trim(blob(0.02, 0.02, 0.02, seg=6, rings=4, colors=BRASS)).xf(None, (x, -0.03, 0.79)))
+    sh = lathe([(0.0, 0.05), (0.06, 0.045), (0.07, 0.02), (0.2, 0.0), (0.21, 0.0)], sides=12, colors=('#5a1a1a', '#b03a30'))
+    m.add(trim(sh).xf(rx(math.pi / 2 - 0.25), (0.36, -0.2, 0.22)))
+    m.add(trim(lathe([(0.2, 0.0), (0.215, 0.008), (0.2, 0.016)], sides=12, colors=STEEL, close_top=False)).xf(rx(math.pi / 2 - 0.25), (0.36, -0.2, 0.22)))
+    return m, None
+
+
+def pennant_pole():
+    """A peeled ash pole with a long swallow-tailed pennant, stirring; the field takes a dye."""
+    m = Model('pennant_pole')
+    m.add(trim(tube([(0, 0, 0), (0, 0, 1.4)], lambda u: 0.022 - 0.008 * u, sides=6, colors=('#6a5a40', '#c8b890'))))
+    m.add(trim(lathe([(0.0, 0.0), (0.02, 0.02), (0.0, 0.07)], sides=5, colors=BRASS)).xf(None, (0, 0, 1.4)))
+    v, f, t = [], [], []
+    nx = 10
+    for i in range(nx + 1):
+        u = i / nx
+        x = 0.02 + 0.6 * u
+        half = 0.15 * (1 - 0.35 * u)
+        y = 0.05 * math.sin(u * 7.5) * u
+        zc = 1.2 - 0.07 * u * u
+        notch = 0.1 * max(0.0, (u - 0.7) / 0.3)
+        v += [(x, y, zc + half), (x - notch, y, zc), (x, y, zc - half)]
+        t += [0.9, 0.5 + 0.3 * math.sin(u * 9), 0.3]
+    for i in range(nx):
+        a = i * 3
+        f += [(a, a + 3, a + 4, a + 1), (a + 1, a + 4, a + 5, a + 2)]
+    m.add(Part(v, f, t, ('#8a8a8a', '#ffffff')))
+    for z in (1.33, 1.08):
+        m.add(trimtube([(0, 0, z), (0.03, 0, z - 0.01)], 0.005, sides=3, colors=ROPE))
+    return m, None
+
+
+def headstone():
+    """A round-headed memorial stone on a plinth: weathered, lichened, lines of names cut in the face, two candle stubs at the foot."""
+    m = Model('headstone')
+    ST = ('#5a5852', '#a8a59c')
+    W, T, H = 0.34, 0.08, 0.5
+    v, f, t = [], [], []
+    n = 10
+    outline = [(-W / 2, 0.06), (-W / 2, H - 0.01)] + [(-(W / 2) * math.cos(math.pi * k / n), H - 0.01 + (W / 2) * 0.75 * math.sin(math.pi * k / n)) for k in range(1, n)] + [(W / 2, H - 0.01), (W / 2, 0.06)]
+    r = np.random.default_rng(31)
+    outline = [(x + r.uniform(-0.006, 0.006), z + r.uniform(-0.006, 0.006)) for (x, z) in outline]
+    N = len(outline)
+    for y in (-T / 2, T / 2):
+        for (x, z) in outline:
+            v.append((x, y, z)); t.append(min(1.0, 0.25 + z * 1.1 + r.uniform(-0.08, 0.08)))
+    cf = len(v); v.append((0, -T / 2, 0.3)); t.append(0.7)
+    cb = len(v); v.append((0, T / 2, 0.3)); t.append(0.5)
+    for k in range(N):
+        k1 = (k + 1) % N
+        f.append((k, k1, N + k1, N + k)); f.append((cf, k1, k)); f.append((cb, N + k, N + k1))
+    m.add(trim(Part(v, f, t, ST, smooth=False)))
+    m.add(trim(box(0.46, 0.2, 0.06, ('#4a4844', '#807c74'), jitter=0.02, seed=4)).xf(None, (0, 0, 0)))
+    for i in range(6):  # the names
+        m.add(trim(box(0.18 if i == 0 else 0.24 - 0.02 * (i % 2), 0.006, 0.012, ('#2e2c2a', '#3a3836'))).xf(None, (0.01 * (i % 3 - 1), -T / 2 - 0.002, 0.47 - i * 0.06)))
+    for (x, z, rr) in ((-0.11, 0.56, 0.035), (0.13, 0.3, 0.03), (-0.14, 0.16, 0.025), (0.06, 0.6, 0.02)):  # lichen
+        m.add(trim(blob(rr, 0.006, rr * 0.8, seg=6, rings=3, colors=('#7a8a4a', '#c8c880'), jitter=0.25, seed=int(abs(x) * 100))).xf(None, (x, -T / 2 - 0.002, z)))
+    m.add(trim(blob(0.12, 0.05, 0.03, seg=7, rings=3, colors=('#2e4a24', '#5a7a3a'), jitter=0.2)).xf(None, (0.02, 0.0, H + 0.115)))  # moss on the head
+    for dx in (-0.14, 0.14):
+        m.add(trim(lathe([(0.016, 0.06), (0.016, 0.125), (0.0, 0.13)], sides=7, colors=WAXEN)).xf(None, (dx, -0.08, 0)))
+        m.add(trim(blob(0.028, 0.024, 0.006, seg=6, rings=3, colors=WAXEN, jitter=0.3)).xf(None, (dx + 0.005, -0.08, 0.062)))
+    return m, None
+
+
+def notice_board():
+    """A town board: two oak posts, a plank panel that takes a dye, a little shingled pentice over it, and pages pinned up, one gilt."""
+    m = Model('notice_board')
+    for sx in (-0.33, 0.33):
+        m.add(trim(tube([(sx, 0, 0), (sx, 0, 0.66)], lambda u: 0.032 - 0.006 * u, sides=6, colors=OAK_DK)))
+        m.add(trim(tube([(sx, -0.1, 0.0), (sx, 0, 0.16)], 0.016, sides=4, colors=OAK_DK)))
+    for k in range(5):
+        m.add(box(0.76, 0.035, 0.44 / 5 * 0.97, ('#9a9a9a', '#ffffff'), jitter=0.006, seed=k).xf(None, (0, 0, 0.18 + k * 0.088)))
+    for (bx, bz, sx, sz) in ((0, 0.17, 0.8, 0.025), (0, 0.615, 0.8, 0.025)):
+        m.add(trim(box(sx, 0.05, sz, OAK)).xf(None, (bx, 0, bz)))
+    for sy, a in ((-1, 0.5), (1, -0.5)):  # the pentice, two courses of shingles a side
+        for c in range(2):
+            for k in range(7):
+                x = -0.42 + k * 0.14 + (0.07 if c else 0)
+                m.add(trim(box(0.135, 0.085, 0.012, ('#3a2a1c', '#7a5a3a'), jitter=0.03, seed=k + c * 9 + (5 if sy > 0 else 0))).xf(rx(a), (x, sy * (0.035 + 0.06 * c), 0.71 - 0.033 * c)))
+    m.add(trim(tube([(-0.47, 0, 0.725), (0.5, 0, 0.725)], 0.014, sides=4, colors=OAK_DK)))
+    r = np.random.default_rng(12)
+    pages = [(-0.24, 0.46, '#d8ccb8'), (-0.02, 0.42, '#d8ccb8'), (0.2, 0.45, '#ffd9a0'), (0.1, 0.3, '#cfc3e8'), (-0.16, 0.29, '#d8ccb8'), (0.27, 0.3, '#d8ccb8')]
+    for (x, z, col) in pages:
+        w, h = r.uniform(0.11, 0.15), r.uniform(0.1, 0.14)
+        pg = blade(h, w, lambda s_: 1.0, segs=3, cols=2, fold=0.0, rise=-math.pi / 2 + 0.06, droop=-0.12, colors=(col, col))
+        m.add(trim(pg).xf(rz(-math.pi / 2) @ ry(r.uniform(-0.08, 0.08)), (x, -0.022, z + h / 2)))
+        for k in range(3):
+            m.add(trim(box(w * 0.7, 0.002, 0.006, ('#4a3a2a', '#4a3a2a'))).xf(None, (x, -0.03 - 0.004 * k, z + h / 2 - 0.03 - 0.025 * k)))
+        m.add(trim(blob(0.008, 0.008, 0.008, seg=5, rings=3, colors=BRASS)).xf(None, (x, -0.026, z + h / 2 - 0.008)))
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1196,7 +1423,9 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'bar_counter': bar_counter, 'rug': rug, 'arcade_cabinet': arcade_cabinet, 'pedestal': pedestal, 'relic_orb_stand': relic_orb_stand,
         'relic_blade': relic_blade, 'relic_crescent': relic_crescent, 'relic_lantern': relic_lantern, 'relic_jar': relic_jar,
         'relic_planchette': relic_planchette, 'herb_bundle': herb_bundle, 'pumpkin': pumpkin, 'lectern': lectern, 'vigil_candle': vigil_candle,
-        'marble_perch': marble_perch}
+        'marble_perch': marble_perch,
+        'camp_tent': camp_tent, 'palisade_stake': palisade_stake, 'watchtower': watchtower, 'weapon_rack': weapon_rack, 'pennant_pole': pennant_pole,
+        'headstone': headstone, 'notice_board': notice_board}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

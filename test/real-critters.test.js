@@ -68,7 +68,7 @@ for (const [k, joints] of Object.entries(want)) {
 }
 check('all eight are in the manifest, on disk, sound, face forward, carry their joints, and the rig moves them', !bad.length, bad);
 check('each is small enough to stream (under 100 KB)', maxBytes > 0 && maxBytes < 100 * 1024, maxBytes);
-check('they stream in behind the town with the plants', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\)_\/\.test\(k\)\)/.test(main));
+check('they stream in behind the town with the plants', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\)_\/\.test\(k\)\)/.test(main));
 check('town rabbits and the Wilds five use the real animal, and the hand-built one stands in till it lands', /const mesh = critterOrStandIn\('rabbit', makeRabbit\);/.test(creatures) && /if \(CRITTER_MODELS\[type\]\) return critterOrStandIn\(type, \(\) => makeCritter2StandIn\(type\)\);/.test(creatures) && /g\.userData\.standInFor = type;/.test(creatures));
 check('a stand-in is swapped for the real one when its model arrives, in town and the Wilds', (creatures.match(/if \(v\.mesh\.userData\.standInFor\) critterUpgrade\(v, get(Outdoor|Wilds)Scene\(\)\);/g) || []).length === 2 && /if \(standIn && hasKK && hasKK\('cr_' \+ standIn\)\)/.test(mobsWilds));
 check('they walk: the rig is posed every frame from the gait and the speed', (creatures.match(/critterRigPose\(rig, v\.hopPhase/g) || []).length === 2 && /critterRigPose\(rig, v\.gait/.test(mobsWilds));
