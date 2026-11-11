@@ -5,7 +5,7 @@
 // few external helpers (makeSignSprite/makeNpcNameSprite/createHumanoid) and
 // CAVE_WORLD are injected; scene/camera are handed back via setters.
 // ---------------------------------------------------------------------------
-export default function createCaveScene({ makeSignSprite, makeNpcNameSprite, createHumanoid, CAVE_WORLD, setCaveScene, setCaveCamera }) {
+export default function createCaveScene({ kkModel, makeSignSprite, makeNpcNameSprite, createHumanoid, CAVE_WORLD, setCaveScene, setCaveCamera }) {
 function buildCaveScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d0520);
@@ -408,7 +408,26 @@ function addCaveWallShelves(scene) {
   const baseMat   = new THREE.MeshLambertMaterial({ color: 0x1a0830 });
   const sandMat   = new THREE.MeshLambertMaterial({ color: 0xddaa44 });
 
+  // The shelf things as their real models (tools/models/build_home.py, cave_*),
+  // sized to the hand-built ones, dyed where a colour is given (glass, wax, a
+  // cover, a cap); null until a model has loaded, when the shape below stands in.
+  function shelfModel(key, size, mode, x, y, z, dye, look) {
+    const g = kkModel ? kkModel(key, size, mode) : null;
+    if (!g) return null;
+    if (dye != null || look) g.traverse((o) => {
+      if (!(o.isMesh && o.material && o.material.name === 'Plant')) return;
+      o.material = o.material.clone();
+      if (dye != null) o.material.color.setHex(dye);
+      if (look && look.glow && dye != null) { o.material.emissive = new THREE.Color(dye); o.material.emissiveIntensity = look.glow; }
+      if (look && look.glass) { o.material.transparent = true; o.material.opacity = look.glass; o.material.depthWrite = false; }
+    });
+    g.position.set(x, y, z);
+    scene.add(g);
+    return g;
+  }
+
   function makePotion(x, y, z, col) {
+    { const real = shelfModel('cave_potion', 15, 'height', x, y, z, col, { glow: 0.22 }); if (real) { real.rotation.z = Math.sin(x * 7 + z * 3) * 0.12; return; } }
     const g = new THREE.Group();
     const bH = 10, bR = 3;
     const mat = new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.22 });
@@ -425,6 +444,7 @@ function addCaveWallShelves(scene) {
 
   function makeSkull(x, y, z, sc) {
     sc = sc || 1;
+    { const real = shelfModel('prop_skull', 11 * sc, 'height', x, y, z); if (real) { real.rotation.y = Math.sin(x * 5 + z) * Math.PI; return; } }
     const g = new THREE.Group();
     const head = new THREE.Mesh(new THREE.SphereGeometry(5.5 * sc, 8, 8), skullMat);
     head.scale.set(1, 0.88, 1.1); head.position.y = 5.5 * sc; g.add(head);
@@ -443,6 +463,14 @@ function addCaveWallShelves(scene) {
   function makeCandle(x, y, z, col) {
     const g = new THREE.Group();
     const cH = 14 + Math.abs(Math.sin(x * 3 + z * 2)) * 10;
+    const realCandle = shelfModel('cave_candle', cH + 1, 'height', x, y, z, col || 0x2a1a1a);
+    if (realCandle) {
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(2, 6, 6), new THREE.MeshLambertMaterial({ color: 0xff8800, emissive: 0xff4400, emissiveIntensity: 1 }));
+      fl.scale.y = 1.6; fl.position.y = cH + 2.5; realCandle.add(fl);
+      realCandle.rotation.z = Math.sin(x * 9 + z) * 0.08;
+      if (candleLights < 8) { const li = new THREE.PointLight(0xff6600, 0.55, 100); li.position.set(x, y + cH + 3, z); scene.add(li); candleLights++; }
+      return;
+    }
     const cMat = new THREE.MeshLambertMaterial({ color: col || 0x1a0a0a });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, cH, 7), cMat);
     body.position.y = cH / 2; g.add(body);
@@ -463,6 +491,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeCrystal(x, y, z, col) {
+    if (shelfModel('cave_crystal', 13, 'height', x, y, z, col, { glow: 0.38 })) return;
     const g = new THREE.Group();
     const mat = new THREE.MeshLambertMaterial({ color: col, emissive: col, emissiveIntensity: 0.38, transparent: true, opacity: 0.72 });
     const ball = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), mat);
@@ -474,6 +503,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeBook(x, y, z, col) {
+    { const real = shelfModel('cave_book', 12, 'height', x, y, z, col); if (real) { real.rotation.z = Math.sin(x * 4 + z * 2.3) * 0.2; real.rotation.y = Math.sin(x * 3) * 0.12; return; } }
     const g = new THREE.Group();
     const mat = new THREE.MeshLambertMaterial({ color: col });
     const book = new THREE.Mesh(new THREE.BoxGeometry(9, 12, 4.5), mat);
@@ -487,6 +517,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeHourglass(x, y, z) {
+    if (shelfModel('cave_hourglass', 19, 'height', x, y, z)) return;
     const g = new THREE.Group();
     const glassMat = new THREE.MeshLambertMaterial({ color: 0x334455, transparent: true, opacity: 0.75 });
     const fMat = new THREE.MeshLambertMaterial({ color: 0x2a1a00 });
@@ -509,6 +540,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeEyeJar(x, y, z) {
+    if (shelfModel('cave_eyejar', 15.5, 'height', x, y, z, null, { glass: 0.5 })) return;
     const g = new THREE.Group();
     const jMat = new THREE.MeshLambertMaterial({ color: 0x1a3322, transparent: true, opacity: 0.68 });
     const jar = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 13, 9), jMat);
@@ -526,6 +558,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeBone(x, y, z) {
+    { const real = shelfModel('prop_bone_a', 18, 'fit', x, y, z); if (real) { real.rotation.y = Math.sin(x * 6 + z * 2) * 1.5; return; } }
     const g = new THREE.Group();
     const ang = Math.abs(Math.sin(x * 6 + z * 2)) * 0.5 + 0.2;
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 18, 6), boneMat);
@@ -540,6 +573,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeJar(x, y, z, col) {
+    if (shelfModel('cave_jar', 17, 'height', x, y, z, col || 0x4a3a6a)) return;
     const g = new THREE.Group();
     const mat = new THREE.MeshLambertMaterial({ color: col || 0x221133 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 5.5, 11, 9), mat);
@@ -559,6 +593,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeMoon(x, y, z) {
+    if (shelfModel('cave_moon', 18, 'height', x, y, z)) return;
     const g = new THREE.Group();
     const mMat = new THREE.MeshLambertMaterial({ color: 0xddcc66, emissive: 0x554411, emissiveIntensity: 0.5 });
     const sphere = new THREE.Mesh(new THREE.SphereGeometry(5, 10, 10), mMat);
@@ -574,6 +609,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeMushroom(x, y, z, col) {
+    if (shelfModel('cave_mushroom', 13.5, 'height', x, y, z, col || 0xcc2200, { glow: 0.12 })) return;
     const g = new THREE.Group();
     const stemMat = new THREE.MeshLambertMaterial({ color: 0xc8bfa8 });
     const capCol  = col || 0xcc2200;
@@ -590,6 +626,7 @@ function addCaveWallShelves(scene) {
   }
 
   function makeFeatherBundle(x, y, z) {
+    if (shelfModel('cave_feathers', 25, 'height', x, y, z)) return;
     const g = new THREE.Group();
     const FCOLS = [0x2a2a44, 0x1a3a2a, 0x4a1a2a, 0x332244, 0x1a1a3a];
     const bind = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 4, 8), brktMat);

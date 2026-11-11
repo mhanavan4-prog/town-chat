@@ -338,6 +338,10 @@ def trim(p):
     return p
 
 
+def trimtube(*a, **k):
+    return trim(tube(*a, **k))
+
+
 def hall_table():
     """An oak trestle table: a thick plank top on two A-frame trestles and a stretcher, set with a jug, bowls and a candle."""
     m = Model('hall_table')
@@ -509,6 +513,153 @@ def standing_torch():
     return m, None
 
 
+# ── The witch's shelves: small things, 1 unit tall or so; the game sizes them.
+# Glass, wax, covers and caps are pale where the game dyes them. ────────────
+PALEG = ('#9a9a9a', '#ffffff')
+
+
+def cave_potion():
+    """A stoppered glass bottle: a round belly, a narrow neck, a cork tied down with twine, the liquor showing through."""
+    m = Model('cave_potion')
+    m.add(lathe([(0.0, 0), (0.2, 0.0), (0.3, 0.1), (0.32, 0.3), (0.24, 0.52), (0.1, 0.62), (0.09, 0.8), (0.12, 0.82)], sides=10, colors=PALEG, close_top=False))
+    m.add(trim(lathe([(0.085, 0.78), (0.1, 0.9), (0.08, 0.94), (0.0, 0.94)], sides=8, colors=('#6a4a2a', '#b08a58'), close_top=False)))
+    m.add(trim(lathe([(0.1, 0.7), (0.115, 0.72), (0.1, 0.74)], sides=8, colors=('#8a7a5a', '#c8b890'), close_top=False)))
+    m.add(trim(blob(0.07, 0.02, 0.1, seg=5, rings=3, colors=('#ffffff', '#ffffff'))).xf(None, (0.2, -0.24, 0.34)))  # a glint on the glass
+    return m, None
+
+
+def cave_candle():
+    """A fat candle burnt down unevenly, run with drips, on a little iron dish. The wax is pale: the game dyes it black, red or bone."""
+    m = Model('cave_candle')
+    m.add(trim(lathe([(0.0, 0), (0.3, 0.0), (0.34, 0.04), (0.3, 0.05)], sides=9, colors=IRON, close_top=False)))
+    m.add(lathe([(0.2, 0.04), (0.19, 0.86), (0.16, 0.94), (0.06, 0.9), (0.0, 0.9)], sides=9, colors=PALEG, close_top=False))
+    r = np.random.default_rng(111)
+    for k in range(6):
+        a = r.uniform(0, TAU); L = r.uniform(0.15, 0.6)
+        m.add(tube([(0.2 * math.cos(a), 0.2 * math.sin(a), 0.9), (0.21 * math.cos(a), 0.21 * math.sin(a), 0.9 - L)], lambda s_: 0.04 * (1 - 0.3 * s_), sides=4, colors=PALEG))
+    m.add(trim(tube([(0, 0, 0.9), (0.01, 0, 1.0)], 0.012, sides=3, colors=('#1a1410', '#2a2018'))))
+    return m, None
+
+
+def cave_crystal():
+    """A scrying ball on a turned stand with three claws."""
+    m = Model('cave_crystal')
+    m.add(trim(lathe([(0.0, 0), (0.3, 0.0), (0.32, 0.05), (0.16, 0.1), (0.12, 0.2), (0.2, 0.26)], sides=10, colors=('#1e0e30', '#5a3a7a'), close_top=False)))
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(trim(tube([(0.18 * math.cos(a), 0.18 * math.sin(a), 0.24), (0.3 * math.cos(a), 0.3 * math.sin(a), 0.4), (0.26 * math.cos(a), 0.26 * math.sin(a), 0.52)], 0.025, sides=4, colors=('#8a6a2a', '#e0b858'))))
+    ball = blob(0.36, 0.36, 0.36, seg=12, rings=9, colors=PALEG)
+    m.add(ball.xf(None, (0, 0, 0.62)))
+    m.add(trim(blob(0.08, 0.03, 0.11, seg=5, rings=3, colors=('#ffffff', '#ffffff'))).xf(None, (0.16, -0.3, 0.76)))
+    return m, None
+
+
+def cave_book():
+    """A grimoire stood on a shelf: a thick leather cover the game dyes, raised bands on the spine, brass corners and a clasp, deckled pages."""
+    m = Model('cave_book')
+    m.add(box(0.75, 0.37, 1.0, PALEG).xf(None, (0, 0, 0)))
+    m.add(trim(box(0.68, 0.31, 0.94, ('#b8a878', '#efe4c0'))).xf(None, (0.06, 0, 0.03)))  # pages, proud at the fore-edge
+    for z in (0.2, 0.5, 0.8):
+        m.add(box(0.05, 0.39, 0.035, PALEG).xf(None, (-0.36, 0, z)))
+    for z in (0.02, 0.9):
+        for sy in (-1, 1):
+            m.add(trim(box(0.14, 0.02, 0.1, ('#8a6a2a', '#e0b858'))).xf(None, (0.3, sy * 0.185, z)))
+    m.add(trim(box(0.05, 0.4, 0.09, ('#8a6a2a', '#e0b858'))).xf(None, (0.37, 0, 0.46)))
+    return m, None
+
+
+def cave_hourglass():
+    """An hourglass in a turned wooden frame, the sand half run."""
+    m = Model('cave_hourglass')
+    for z in (0.0, 0.94):
+        m.add(lathe([(0.0, z), (0.26, z), (0.28, z + 0.03), (0.26, z + 0.06), (0.0, z + 0.06)], sides=10, colors=OAK, close_top=False))
+    for k in range(3):
+        a = TAU * k / 3
+        m.add(lathe([(0.022, 0.06), (0.03, 0.3), (0.018, 0.5), (0.03, 0.7), (0.022, 0.94)], sides=5, colors=OAK_DK, close_top=False).xf(None, (0.22 * math.cos(a), 0.22 * math.sin(a), 0)))
+    glass = ('#5a7a8a', '#c8e0ea')
+    m.add(lathe([(0.0, 0.07), (0.17, 0.09), (0.18, 0.3), (0.03, 0.5), (0.18, 0.7), (0.17, 0.91), (0.0, 0.93)], sides=10, colors=glass, close_top=False))
+    m.add(lathe([(0.0, 0.065), (0.175, 0.085), (0.185, 0.2), (0.0, 0.34)], sides=10, colors=('#b88a2a', '#f0cc60'), close_top=False))  # the sand that has fallen
+    m.add(lathe([(0.03, 0.5), (0.12, 0.6), (0.0, 0.62)], sides=8, colors=('#b88a2a', '#f0cc60'), close_top=False))  # and what is left
+    return m, None
+
+
+def cave_eyejar():
+    """A specimen jar, its lid tied down with cloth and cord, and an eye floating in it that looks back."""
+    m = Model('cave_eyejar')
+    m.add(lathe([(0.0, 0), (0.3, 0.0), (0.32, 0.06), (0.32, 0.7), (0.26, 0.78)], sides=11, colors=('#2a4a3a', '#8ab8a0'), close_top=False))
+    m.add(trim(lathe([(0.26, 0.76), (0.3, 0.8), (0.31, 0.9), (0.2, 0.96), (0.0, 0.97)], sides=11, colors=('#8a7a5a', '#d8c8a0'), close_top=False)))
+    m.add(trim(lathe([(0.3, 0.79), (0.33, 0.81), (0.3, 0.83)], sides=11, colors=('#4a3a2a', '#8a6a4a'), close_top=False)))
+    m.add(trim(blob(0.2, 0.2, 0.2, seg=10, rings=7, colors=('#d8d0c0', '#ffffff'))).xf(None, (0, -0.04, 0.4)))
+    m.add(glowing(blob(0.1, 0.05, 0.1, seg=8, rings=5, colors=('#6a0a0a', '#e02a1a'))).xf(None, (0, -0.21, 0.4)))
+    m.add(trim(blob(0.045, 0.03, 0.045, seg=6, rings=4, colors=('#000000', '#0a0a0a'))).xf(None, (0, -0.25, 0.4)))
+    for k in range(4):
+        a = 0.6 + k * 1.5
+        m.add(trimtube([(0.12 * math.cos(a), 0.1, 0.4 + 0.12 * math.sin(a)), (0.2 * math.cos(a), 0.2, 0.4 + 0.24 * math.sin(a))], 0.012, sides=3, colors=('#a02a2a', '#d86a6a')))  # trailing nerves
+    return m, '#ff3a2a'
+
+
+def cave_jar():
+    """A lidded stoneware crock the game glazes, a paper label pasted on, the lid tied with twine."""
+    m = Model('cave_jar')
+    m.add(lathe([(0.0, 0), (0.26, 0.0), (0.34, 0.12), (0.36, 0.45), (0.3, 0.66), (0.2, 0.74), (0.22, 0.8)], sides=11, colors=PALEG, close_top=False))
+    m.add(trim(lathe([(0.24, 0.78), (0.26, 0.84), (0.1, 0.92), (0.06, 0.98), (0.0, 0.99)], sides=11, colors=('#3a2a1a', '#7a5a3a'), close_top=False)))
+    m.add(trim(lathe([(0.21, 0.73), (0.235, 0.75), (0.21, 0.77)], sides=11, colors=('#a89868', '#d8c8a0'), close_top=False)))
+    m.add(trim(box(0.26, 0.012, 0.2, ('#c8b888', '#f0e4c0'))).xf(None, (0, -0.355, 0.26)))
+    for z in (0.3, 0.36, 0.42):
+        m.add(trim(box(0.18, 0.006, 0.015, ('#2a1a10', '#2a1a10'))).xf(None, (0, -0.365, z)))
+    return m, None
+
+
+def cave_moon():
+    """A brass crescent moon on a stand, with two little stars on wires."""
+    m = Model('cave_moon')
+    BRASS = ('#7a5a1a', '#f0cc60')
+    m.add(lathe([(0.0, 0), (0.22, 0.0), (0.24, 0.04), (0.06, 0.08), (0.04, 0.4)], sides=9, colors=IRON, close_top=False))
+    outer = [(0.3 * math.cos(a), 0.3 * math.sin(a)) for a in np.linspace(-1.9, 1.9, 13)]
+    inner = [(0.14 + 0.25 * math.cos(a), 0.25 * math.sin(a)) for a in np.linspace(-1.55, 1.55, 13)]
+    v, f, t = [], [], []
+    for (ox, oz), (ix, iz) in zip(outer, inner):
+        for y in (-0.03, 0.03):
+            v.append((-ox, y, 0.68 + oz)); t.append(0.5 + oz); v.append((-ix + 0.0, y, 0.68 + iz)); t.append(0.5 + iz)
+    for i in range(12):
+        a = i * 4
+        f += [(a, a + 4, a + 5, a + 1), (a + 2, a + 3, a + 7, a + 6), (a, a + 2, a + 6, a + 4), (a + 1, a + 5, a + 7, a + 3)]
+    crescent = Part(v, f, t, BRASS, smooth=False); crescent.glow = True
+    m.add(crescent)
+    for (x, z, r_) in ((0.3, 0.86, 0.05), (0.18, 0.98, 0.035)):
+        m.add(tube([(0.0, 0, 0.4), (x, 0, z)], 0.006, sides=3, colors=IRON))
+        st = blob(r_, r_ * 0.5, r_, seg=4, rings=2, colors=BRASS); st.glow = True
+        m.add(st.xf(None, (x, 0, z)))
+    return m, '#e8c860'
+
+
+def cave_mushroom():
+    """A dried toadstool kept on the shelf: a wrinkled cap the game colours, pale gills and a bent stem."""
+    m = Model('cave_mushroom')
+    m.add(trim(tube([(0.05, 0, 0), (0.0, 0, 0.3), (0.03, 0, 0.6)], lambda s_: 0.1 - 0.03 * s_, sides=7, colors=('#b8a888', '#efe4cc'))))
+    m.add(trim(lathe([(0.08, 0.56), (0.4, 0.58)], sides=11, colors=('#d8c8a8', '#efe4cc'), close_top=False)).xf(None, (0.03, 0, 0)))
+    cap = lathe([(0.42, 0.58), (0.4, 0.7), (0.3, 0.84), (0.14, 0.94), (0.0, 0.97)], sides=11, colors=PALEG, close_top=False)
+    m.add(cap.xf(None, (0.03, 0, 0)))
+    for k in range(6):
+        a = TAU * k / 6 + 0.3
+        m.add(trim(blob(0.05, 0.045, 0.02, seg=5, rings=3, colors=('#efe8da', '#ffffff'))).xf(None, (0.03 + 0.24 * math.cos(a), 0.24 * math.sin(a), 0.82)))
+    return m, None
+
+
+def cave_feathers():
+    """A bunch of long feathers (crow, jay, owl) bound at the quills with red thread."""
+    m = Model('cave_feathers')
+    cols = [('#14141e', '#3a3a5a'), ('#2a4a7a', '#6a9ad0'), ('#5a4630', '#c8a878'), ('#1a1a1a', '#4a4a4a'), ('#6a5a48', '#e8dcc0')]
+    for k in range(5):
+        a = TAU * k / 5
+        lean = 0.22
+        R = rz(a) @ ry(-(math.pi / 2 - lean))
+        m.add(blade(0.95, 0.2, lambda s_: math.sin(math.pi * min(1, s_ * 0.9 + 0.1)) ** 0.5 * (0.5 + 0.5 * s_) if s_ < 1 else 0, segs=5, cols=3, fold=0.12, rise=0, droop=-0.25, colors=cols[k]).xf(R, (0.03 * math.cos(a), 0.03 * math.sin(a), 0.05)))
+        m.add(tube([(0.03 * math.cos(a), 0.03 * math.sin(a), 0.0), (0.03 * math.cos(a) + 0.07 * math.cos(a), 0.03 * math.sin(a) + 0.07 * math.sin(a), 0.4)], 0.008, sides=3, colors=('#d8d0c0', '#ffffff')))
+    m.add(lathe([(0.06, 0.06), (0.065, 0.1), (0.06, 0.2)], sides=7, colors=('#8a1414', '#d83a2a'), close_top=False))
+    return m, None
+
+
 def glowing(p):
     p.glow = True
     return p
@@ -518,7 +669,9 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
         'hall_table': hall_table, 'hall_bench': hall_bench, 'bookcase': bookcase, 'hall_banner': hall_banner, 'high_seat': high_seat,
-        'chandelier': chandelier, 'wall_shield': wall_shield, 'standing_torch': standing_torch}
+        'chandelier': chandelier, 'wall_shield': wall_shield, 'standing_torch': standing_torch,
+        'cave_potion': cave_potion, 'cave_candle': cave_candle, 'cave_crystal': cave_crystal, 'cave_book': cave_book, 'cave_hourglass': cave_hourglass,
+        'cave_eyejar': cave_eyejar, 'cave_jar': cave_jar, 'cave_moon': cave_moon, 'cave_mushroom': cave_mushroom, 'cave_feathers': cave_feathers}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
