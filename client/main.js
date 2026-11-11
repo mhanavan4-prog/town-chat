@@ -460,7 +460,9 @@ const KK = (() => {
     dg_wall: 'kk/home/cave_wall.glb', dg_stalag: 'kk/home/stalagmites.glb', dg_column: 'kk/home/rock_column.glb', dg_door: 'kk/home/door_props.glb',
     dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
     dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
-    tw_pyre: 'kk/home/pyre.glb',
+    tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
+    wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
+    furn_vaultdoor: 'kk/home/vault_door.glb', furn_hoard: 'kk/home/coin_hoard.glb', furn_scrytable: 'kk/home/scry_table.glb', furn_altar: 'kk/home/stone_altar.glb',
     wl_megalith: 'kk/home/megalith.glb', wl_altarslab: 'kk/home/altar_slab.glb',
     wl_tent: 'kk/home/camp_tent.glb', wl_stake: 'kk/home/palisade_stake.glb', wl_tower: 'kk/home/watchtower.glb', wl_rack: 'kk/home/weapon_rack.glb', wl_pennant: 'kk/home/pennant_pole.glb',
     alt_chalice: 'kk/home/chalice.glb', alt_bell: 'kk/home/hand_bell.glb', alt_runes: 'kk/home/rune_stones.glb', alt_mirror: 'kk/home/scrying_mirror.glb',
@@ -649,7 +651,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw|dg)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw|dg|wd)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -13106,7 +13108,7 @@ function exitManor() {
 
 // ── The cottage (player housing, slice 2) ───────────────────────────────────
 const { buildCottageScene, setWards: setCottageWards } = createCottageScene({
-  makeSignSprite, COTTAGE_WORLD,
+  makeSignSprite, COTTAGE_WORLD, kkStatic: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode || 'fit') : null),
   setCottageScene: (s) => { cottageScene = s; },
   setCottageCamera: (c) => { cottageCamera = c; },
 });

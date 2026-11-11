@@ -14,6 +14,8 @@
 import { buildDecoration, ALTAR_SLOT_POS } from './altar-decor.js';
 
 export default function createManorScene({ makeStoneTexture, makeSignSprite, makeSigilFloorTexture, MANOR_WORLD, MANOR_BED_SPOTS, kkPlace, setManorScene, setManorCamera, setManorEmbers }) {
+// A model set down in a group, or null if models are not to hand (then the hand-built piece is used).
+const place = (...a) => (kkPlace ? kkPlace(...a) : null);
 // slot -> the empty THREE.Group on that altar's top surface that holds its
 // owner's decorations; repopulated at runtime by setAltarDecor as altar state
 // arrives from the server. Rebuilt whenever the manor scene is (re)built.
@@ -104,12 +106,15 @@ function buildManorScene() {
     ring.onBeforeRender = () => { ring.material.opacity = 0.34 + Math.sin(performance.now() * 0.0022) * 0.18; };
     const pl = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xcdc7b0, transparent: true, opacity: 0.55, depthWrite: false }));
     pl.rotation.x = -Math.PI / 2; pl.position.set(10, 48.6, 6); g.add(pl);
+    // The table as its model once loaded: dark wood on a turned pedestal, the letters inlaid, a planchette on it.
+    const board = place(g, 'furn_scrytable', 0, 0, 134, 0, 'fit');
+    if (board) { g.remove(top); g.remove(pedestal); g.remove(pl); ring.position.y = 52.6; }
     g.position.set(W / 2, 0, D / 2);
     scene.add(g);
     // The actual spirit board laid flat on the table top (the glowing ring +
     // planchette circle above still animate over it). kkPlace grounds at y=0, so
     // lift it onto the ~48u-high table surface. No-ops if KK hasn't streamed in.
-    if (kkPlace) { const ouija = kkPlace(scene, 'prop_ouija', W / 2, D / 2, 62, Math.PI * 0.5); if (ouija) ouija.position.y = 48.2; }
+    if (kkPlace) { const ouija = kkPlace(scene, 'prop_ouija', W / 2, D / 2, 62, Math.PI * 0.5); if (ouija) ouija.position.y = board ? 51.4 : 48.2; }
     const bsign = makeSignSprite('🔮 The Séance Board — Press F');
     bsign.position.set(W / 2, 112, D / 2);
     scene.add(bsign);
@@ -161,6 +166,8 @@ function buildManorScene() {
   const chand = new THREE.Group();
   const hubRing = new THREE.Mesh(new THREE.TorusGeometry(46, 4, 8, 28), new THREE.MeshLambertMaterial({ color: 0x3a2d1a }));
   hubRing.rotation.x = Math.PI / 2; chand.add(hubRing);
+  const wheel = place(chand, 'furn_chandelier', 0, 0, 100, 0, 'fit');
+  if (wheel) { chand.remove(hubRing); wheel.position.y = -8; }
   for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; addCandle(chand, Math.cos(a) * 46, 6, Math.sin(a) * 46, 0.8); }
   const chain = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, WALL_H * 0.2, 6), new THREE.MeshBasicMaterial({ color: 0x2a2018 }));
   chain.position.y = WALL_H * 0.1 + 6; chand.add(chain);
@@ -200,8 +207,10 @@ function buildManorScene() {
   // ── local prop helpers ──────────────────────────────────────────────────
   function addCandle(parent, x, y, z, scale) {
     const g = new THREE.Group();
-    const stick = new THREE.Mesh(new THREE.CylinderGeometry(2.5 * scale, 3.5 * scale, 14 * scale, 8), new THREE.MeshLambertMaterial({ color: 0xe8e0d0 }));
-    stick.position.y = 7 * scale; g.add(stick);
+    if (!place(g, 'alt_candle', 0, 0, 15 * scale, 0, 'height')) {
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(2.5 * scale, 3.5 * scale, 14 * scale, 8), new THREE.MeshLambertMaterial({ color: 0xe8e0d0 }));
+      stick.position.y = 7 * scale; g.add(stick);
+    }
     const flame = new THREE.Mesh(new THREE.ConeGeometry(2.4 * scale, 7 * scale, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a }));
     flame.position.y = 17 * scale; g.add(flame);
     g.position.set(x, y, z);
@@ -221,16 +230,24 @@ function buildManorScene() {
     const iron = new THREE.MeshLambertMaterial({ color: 0x1b1720 });
     const clothMat = new THREE.MeshLambertMaterial({ color: cloth });
     const W = 80, L = 120;
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(W - 10, 48, L - 10), stoneDark); plinth.position.y = 24; g.add(plinth);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(W + 6, 10, L + 6), stone); base.position.y = 5; g.add(base);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(W, 10, L), stone); top.position.y = 53; g.add(top);
-    const runner = new THREE.Mesh(new THREE.BoxGeometry(W * 0.5, 2, L + 8), clothMat); runner.position.y = 58.3; g.add(runner);
+    // The altar as its model once loaded (dressed stone, a cloth runner dyed the
+    // coven's colour, a pentacle cut in its side, two candle-posts), turned to
+    // lie the way the old one did.
+    const carved = place(g, 'furn_altar', 0, 0, 126, Math.PI / 2, 'fit');
+    if (carved) {
+      carved.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'Plant') { o.material = o.material.clone(); o.material.color.setHex(cloth); } });
+      for (const sz of [-1, 1]) { const fl = new THREE.Mesh(new THREE.ConeGeometry(2.6, 7.5, 8), new THREE.MeshBasicMaterial({ color: 0xffd27a })); fl.position.set(-30, 112, sz * 49); g.add(fl); }
+    }
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(W - 10, 48, L - 10), stoneDark); plinth.position.y = 24; if (!carved) g.add(plinth);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(W + 6, 10, L + 6), stone); base.position.y = 5; if (!carved) g.add(base);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W, 10, L), stone); top.position.y = 53; if (!carved) g.add(top);
+    const runner = new THREE.Mesh(new THREE.BoxGeometry(W * 0.5, 2, L + 8), clothMat); runner.position.y = 58.3; if (!carved) g.add(runner);
     // carved pentacle glowing faintly in the stone front (south face, +z local)
     const sig = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlow(), color: 0x8e6bff, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
     sig.scale.set(34, 34, 1); sig.position.set(0, 30, L / 2 + 2); g.add(sig);
     sig.onBeforeRender = () => { sig.material.opacity = 0.26 + Math.sin(performance.now() * 0.0018 + slot) * 0.14; };
     // short back candelabra posts + candles (the altar's own light)
-    [[-W / 2 + 8, -L / 2 + 8], [W / 2 - 8, -L / 2 + 8]].forEach((p) => {
+    if (!carved) [[-W / 2 + 8, -L / 2 + 8], [W / 2 - 8, -L / 2 + 8]].forEach((p) => {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 70, 8), iron); post.position.set(p[0], 35, p[1]); g.add(post);
       addCandle(g, p[0], 70, p[1], 1.1);
     });

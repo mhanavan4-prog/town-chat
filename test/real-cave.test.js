@@ -10,7 +10,7 @@ const main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8');
 const cave = fs.readFileSync(path.join(root, 'client/cave-scene.js'), 'utf8');
 const glb = (f) => { const p = path.join(root, 'public/kk/home', f + '.glb'); if (!fs.existsSync(p)) return null; const b = fs.readFileSync(p); return JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString('utf8')); };
 const made = ['cave_potion', 'cave_candle', 'cave_crystal', 'cave_book', 'cave_hourglass', 'cave_eyejar', 'cave_jar', 'cave_moon', 'cave_mushroom', 'cave_feathers'];
-check('the ten shelf models are in the manifest, streamed, and on disk', made.every((k) => main.includes(k + ": 'kk/home/" + k + ".glb'") && glb(k)) && /\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\|dg\)_/.test(main));
+check('the ten shelf models are in the manifest, streamed, and on disk', made.every((k) => main.includes(k + ": 'kk/home/" + k + ".glb'") && glb(k)) && /\(pl\|cr\|gv\|gd\|fl\|cave\|wl\|alt\|tw\|dg\|wd\)_/.test(main));
 const uses = { makePotion: 'cave_potion', makeSkull: 'prop_skull', makeCandle: 'cave_candle', makeCrystal: 'cave_crystal', makeBook: 'cave_book', makeHourglass: 'cave_hourglass', makeEyeJar: 'cave_eyejar', makeBone: 'prop_bone_a', makeJar: 'cave_jar', makeMoon: 'cave_moon', makeMushroom: 'cave_mushroom', makeFeatherBundle: 'cave_feathers' };
 const body = (fn) => cave.slice(cave.indexOf('  function ' + fn + '('), cave.indexOf('\n  }\n', cave.indexOf('  function ' + fn + '(')));
 check('each of the twelve shelf builders uses a model and keeps its hand-built shape behind it', Object.entries(uses).every(([fn, k]) => body(fn).includes("shelfModel('" + k + "'") && /new THREE\.Mesh\(/.test(body(fn))), Object.keys(uses).filter((fn) => !body(fn).includes("shelfModel('" + uses[fn] + "'")));
