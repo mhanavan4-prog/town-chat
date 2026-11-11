@@ -14,6 +14,7 @@
 //   • pumpkin → prop_pumpkin  (Halloween Bits jack-o'-lantern, already loaded)
 //   • stag    → guise_antlers (Adventurers Druid hooded-antler head, baked to
 //                              head-bone-local space so it sockets exactly)
+// The turnip (the Moot) has no KayKit prop either, and is always drawn here.
 // The other three (ghost, raven, witch hat) have no KayKit prop, so they stay
 // procedural — but are scaled/placed into the same head-bone space so they no
 // longer float.
@@ -53,6 +54,26 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     return g;
   }
 
+  // 🏮 The Moot — a hollowed turnip for a head, the older Hallowe'en lantern of
+  // Ireland and Man: cream below, purple at the shoulder where it stood out of
+  // the ground, the cut lid set back on with its stalks, a face carved through
+  // and lit from inside. (The door lanterns in town are the same turnip:
+  // client/props-turnip.js.) KayKit has no turnip, so it is always drawn here.
+  function makeTurnip() {
+    const g = new THREE.Group();
+    const cream = lambert(0xeddfba);
+    const root = new THREE.Mesh(new THREE.SphereGeometry(HR + 2, 14, 12), cream); root.position.y = HY; root.scale.set(1.05, 0.95, 1.05); g.add(root);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(HR + 2.15, 14, 6, 0, Math.PI * 2, 0, 1.0), lambert(0x7b3f72));
+    shoulder.position.y = HY; shoulder.scale.set(1.05, 0.95, 1.05); g.add(shoulder);
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.6, 1.2, 12), lambert(0x5e2f57)); lid.position.y = HY + HR + 1.2; g.add(lid);
+    const leaf = lambert(0x5d7a3a);
+    for (const [x, rz] of [[-0.8, 0.25], [1, -0.3]]) { const st = new THREE.Mesh(new THREE.ConeGeometry(0.7, 4.2, 5), leaf); st.position.set(x, HY + HR + 3.4, 0); st.rotation.z = rz; g.add(st); }
+    const glow = basic(0xffb347);
+    for (const s of [-1, 1]) { const eye = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2, 1.2), glow); eye.position.set(s * 3.3, HY + 1.6, HR + 1.2); g.add(eye); }
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.5, 1.2), glow); mouth.position.set(0, HY - 3.6, HR + 1.1); g.add(mouth);
+    return g;
+  }
+
   // 🐦‍⬛ Plague Raven — a long-beaked black bird mask.
   function makeRaven() {
     const g = new THREE.Group();
@@ -79,7 +100,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
   // Procedural builders — used for the raven (no KayKit prop) and as a fallback
   // for the KayKit ones until their asset has streamed in. (The devil is KayKit-
   // only; it simply doesn't draw until guise_devil loads.)
-  const PROC = { skull: makeSkull, pumpkin: makePumpkin, raven: makeRaven, witch: makeWitchHat, stag: makeStag };
+  const PROC = { skull: makeSkull, pumpkin: makePumpkin, turnip: makeTurnip, raven: makeRaven, witch: makeWitchHat, stag: makeStag };
   const isGuise = (id) => !!(PROC[id] || GLB[id]);
 
   // 🦌 The Horned — procedural fallback crown of antlers (the real guise is the
@@ -115,7 +136,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
     // already loaded for its NPC (`node`), anchor it on that character's own
     // head bone (`center:true`), and are then fitted to HEAD_FIT below — they
     // carry no hand-tuned scale/y, because hand-tuned numbers are exactly what
-    // left them sitting low and small next to the free six.
+    // left them sitting low and small next to the free ones.
     werewolf:     { key: 'npc_werewolf', node: 'Werewolf_Wolf_Head', center: true, ry: 0 },
     vampire:      { key: 'npc_vampire',  node: 'Vampire_Head',       center: true, ry: 0 },
     frankenstein: { key: 'guise_frank',  node: 'Monstrosity_Head',   center: true, ry: 0 },
