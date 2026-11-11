@@ -451,6 +451,9 @@ const KK = (() => {
     // The altar's trinkets (the skull is KayKit's own): a beeswax stub, a black-hafted knife, a brass censer.
     alt_candle: 'kk/home/altar_candle.glb', alt_athame: 'kk/home/athame.glb', alt_censer: 'kk/home/censer.glb',
     // The halls' own (tools/models/build_home.py): trestle table, bench, bookcase, banner, high seat, chandelier, shield, cresset.
+    // The witch's shelves in her cave (cave_*): bottle, candle, scrying ball, grimoire, hourglass, the jar with the eye, crock, brass moon, dried toadstool, feathers.
+    cave_potion: 'kk/home/cave_potion.glb', cave_candle: 'kk/home/cave_candle.glb', cave_crystal: 'kk/home/cave_crystal.glb', cave_book: 'kk/home/cave_book.glb', cave_hourglass: 'kk/home/cave_hourglass.glb',
+    cave_eyejar: 'kk/home/cave_eyejar.glb', cave_jar: 'kk/home/cave_jar.glb', cave_moon: 'kk/home/cave_moon.glb', cave_mushroom: 'kk/home/cave_mushroom.glb', cave_feathers: 'kk/home/cave_feathers.glb',
     furn_htable: 'kk/home/hall_table.glb', furn_hbench: 'kk/home/hall_bench.glb', furn_bookcase: 'kk/home/bookcase.glb', furn_banner: 'kk/home/hall_banner.glb',
     furn_highseat: 'kk/home/high_seat.glb', furn_chandelier: 'kk/home/chandelier.glb', furn_shield: 'kk/home/wall_shield.glb', furn_torch: 'kk/home/standing_torch.glb',
     furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
@@ -631,7 +634,7 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -11191,6 +11194,7 @@ const VAULT_KIOSKS = [
 // includes addCaveWallShelves + its nested decoration makers). THREE global;
 // helpers + CAVE_WORLD injected; scene/camera written back via setters. ──
 const { buildCaveScene } = createCaveScene({
+  kkModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
   makeSignSprite, makeNpcNameSprite, createHumanoid: createStaticNpc, CAVE_WORLD,
   setCaveScene: (s) => { caveScene = s; },
   setCaveCamera: (c) => { caveCamera = c; },
