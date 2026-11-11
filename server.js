@@ -4950,6 +4950,8 @@ function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
   return {
     bottle: w.bottle ? 'buried' : (w.bottleSpent ? 'spent' : 'none'),
+    // Where it was set (data/wards.js BOTTLE_PLACES): the cottage marks that spot.
+    bottlePlace: w.bottle ? (w.bottle.place || 'hearth') : (w.bottleSpent ? (w.bottleSpentPlace || 'hearth') : null),
     charges: w.bottle ? w.bottle.charges : 0,
     hexafoil: !!w.hexafoil,
     shoe: !!w.shoe,
@@ -5000,8 +5002,11 @@ function bottleTurnsCurse(p, statusType) {
   p.bottleTurnUntil = now + BOTTLE_TURN_GRACE_MS;
   let msg;
   if (w.bottle.charges <= 0) {
-    w.bottle = null; w.bottleSpent = (w.bottleSpent || 0) + 1;
-    msg = '🍶 Your witch bottle turns the curse back on its sender — and cracks under the hearth. It is spent; bury another.';
+    // Remember where it lay, so the cracked stone (or split board) stays there.
+    const where = w.bottle.place || 'hearth';
+    w.bottle = null; w.bottleSpent = (w.bottleSpent || 0) + 1; w.bottleSpentPlace = where;
+    const under = where === 'threshold' ? 'beneath the threshold' : where === 'floor' ? 'under the floor' : 'under the hearth';
+    msg = `🍶 Your witch bottle turns the curse back on its sender — and cracks ${under}. It is spent; bury another.`;
   } else {
     msg = `🍶 Your witch bottle turns the curse back on its sender. (${w.bottle.charges} left in it)`;
   }

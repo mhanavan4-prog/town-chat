@@ -55,6 +55,14 @@ setTimeout(() => {
   check('the toast says where and which way up', /beneath the threshold, upright, its pins bent/.test(s.sent.filter((m) => m.type === 'toast').map((m) => m.message).join(' ')));
   say(s, { type: 'wards_state' });
   check('…and the panel can show it', s.lastOfType('wards_state').bottleFill.set.place === 'threshold');
+  // Marked in the cottage where it was set, for you and for visitors.
+  check('the house marks it where it went: beneath the threshold', s.lastOfType('wards_state').bottlePlace === 'threshold' && h.homeLayoutForKey('bfill_a').wards.bottlePlace === 'threshold');
+  for (let i = 0; i < 9 && h.accounts.bfill_a.wards.bottle; i++) { p.bottleTurnUntil = 0; h.bottleTurnsCurse(p, 'wither'); }
+  check('spent, it cracks where it lay, and the stone stays there', h.accounts.bfill_a.wards.bottle === null && h.homeLayoutForKey('bfill_a').wards.bottle === 'spent' && h.homeLayoutForKey('bfill_a').wards.bottlePlace === 'threshold');
+  check('…and the toast says where it cracked', /cracks beneath the threshold/.test(s.sent.filter((m) => m.type === 'toast' || m.type === 'wards_toast' || m.message).map((m) => m.message || '').join(' ')));
+  const cs = require('fs').readFileSync(require('path').join(__dirname, '..', 'client', 'cottage-scene.js'), 'utf8');
+  check('the cottage draws a hearthstone, a threshold slab or re-laid boards by place, cracked or split once spent', /place === 'threshold'/.test(cs) && /place === 'floor'/.test(cs) && /makeRelaidBoardsTexture\(spent\)/.test(cs) && /makeHearthstoneTexture\(spent\)/.test(cs));
+  check('the concealed shoe shows only as newer plaster by the chimney, never the shoe', /makePlasterPatchTexture\(\)/.test(cs) && /if \(w\.shoe\)/.test(cs) && !/w\.shoeItem|itemId/.test(cs));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 300);
