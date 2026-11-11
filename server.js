@@ -4945,7 +4945,7 @@ function wardContrib(player, statKey) {
   if (statKey === 'forage') return w.ladder ? (isHearthWitch(key) ? LADDER_FORAGE_HEARTH : LADDER_FORAGE) : 0;
   const each = isHearthWitch(key) ? WARD_GUARD_HEARTH : WARD_GUARD;
   // The last sheaf, while it hangs: Campbell's Maiden was hung up "to aid in keeping them out".
-  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0) + (w.sheaf ? each : 0) + (w.rowan ? each : 0);
+  return (w.hexafoil ? each : 0) + (w.shoe ? each : 0) + (w.marian ? each : 0) + (w.sator ? each : 0) + (w.burn ? each : 0) + (w.sheaf ? each : 0) + (w.rowan ? each : 0) + (w.horseshoe ? each : 0) + (w.hagstone ? each : 0);
 }
 function wardsPublic(key) {
   const w = (key && accounts[key] && accounts[key].wards) || {};
@@ -4965,12 +4965,18 @@ function wardsPublic(key) {
     sheaf: w.sheaf ? w.sheaf.form : null,
     // The rowan cross over the door, and which way it was made.
     rowan: w.rowan ? w.rowan.way : null,
+    // The found horseshoe and the hag stone, and where each went.
+    horseshoe: w.horseshoe ? w.horseshoe.place : null,
+    horseshoeUp: w.horseshoe ? w.horseshoe.up : null,
+    hagstone: w.hagstone ? w.hagstone.place : null,
   };
 }
 // The taper burn mark's window (data/wards.js).
 const { BURN_ANGLE, BURN_HOLD, burnProblem } = require('./data/wards');
 // The rowan cross, the Scots way or the Manx (data/wards.js).
 const { ROWAN_WAYS, rowanProblem } = require('./data/wards');
+// The found horseshoe and the hag stone (data/wards.js).
+const { HORSESHOE_PLACES, horseshoeProblem, HORSESHOE_FIND_CHANCE, HAGSTONE_PLACES, hagstoneProblem, HAGSTONE_FIND_CHANCE } = require('./data/wards');
 // Filling and setting a witch bottle, as the record has it (data/wards.js).
 const { BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem } = require('./data/wards');
 // The last sheaf, plaited at harvest and kept in the house (data/lastSheaf.js).
@@ -4989,6 +4995,8 @@ function wardsStateBody(player) {
     haveBottle: inv ? countItemQty(inv, 'witch_bottle') : 0,
     ladderParts: LADDER_PARTS.map((pt) => ({ id: pt.id, qty: pt.qty, name: (ITEM_CATALOG[pt.id] && ITEM_CATALOG[pt.id].name) || pt.id, have: inv ? countItemQty(inv, pt.id) : 0 })),
     ladderForage: hearth ? LADDER_FORAGE_HEARTH : LADDER_FORAGE,
+    horseshoePlaces: HORSESHOE_PLACES, haveHorseshoe: inv ? countItemQty(inv, 'found_horseshoe') : 0,
+    hagstonePlaces: HAGSTONE_PLACES, haveHagstone: inv ? countItemQty(inv, 'hag_stone') : 0,
     rowanWays: Object.fromEntries(Object.entries(ROWAN_WAYS).map(([k, r]) => [k, { label: r.label, how: r.how, parts: r.parts.map((pt) => ({ id: pt.id, qty: pt.qty, name: (ITEM_CATALOG[pt.id] && ITEM_CATALOG[pt.id].name) || (PLANT_CATALOG[pt.id] && PLANT_CATALOG[pt.id].name) || pt.id, have: inv ? countItemQty(inv, pt.id) : 0 })) }])),
     feet: feet.filter((f, i, arr) => arr.findIndex((x) => x.itemId === f.itemId) === i),
     atHome: inOwnCottage(player),
@@ -14210,6 +14218,20 @@ wss.on('connection', (ws, req) => {
           : `Harvested 🪵 Holly Wood${bonusYield ? ' ×2' : ''} (${total}/${WAND_WOOD_COST}) — collect ${WAND_WOOD_COST - total} more and you can build a wand.`;
       }
       send(ws, { type: 'harvest_result', message });
+      // Now and then, something for the house at your feet: a cast horseshoe on
+      // the road, or a stone holed by nature at the foot of a crotal stone
+      // (data/wards.js). Only one of each in the pack at a time.
+      {
+        const wk = player.accountKey ? wardsOfKey(player.accountKey) : null;
+        let find = null;
+        if (decor.type === 'crotal_stone' && !(wk && wk.hagstone) && countItemQty(inv, 'hag_stone') < 1 && Math.random() < HAGSTONE_FIND_CHANCE) find = ['hag_stone', '🪨 At the foot of the stone, a pebble with a hole worn right through it, by nature: a hag stone. Hang it in your house (Wards).'];
+        else if (!(wk && wk.horseshoe) && countItemQty(inv, 'found_horseshoe') < 1 && Math.random() < HORSESHOE_FIND_CHANCE) find = ['found_horseshoe', '🧲 In the grass at your feet, a horseshoe some horse has cast. A found one is the one to nail up (Wards).'];
+        if (find && addItemToAccount(inv, find[0], 1)) {
+          if (player.accountKey) saveInventories();
+          send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+          send(ws, { type: 'toast', message: find[1] });
+        }
+      }
       noteFirstStep(player, 'harvested'); // any harvest counts — a town tree as much as a Wilds herb
       // Regrowth is per player, so only THIS client's plants change looks.
       pushDecorState(player);
@@ -16611,7 +16633,7 @@ wss.on('connection', (ws, req) => {
       broadcastCottageLayout(player.accountKey); // the sheaf shows in the house for anyone inside
       return;
     }
-    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark' || msg.type === 'make_rowan_cross') {
+    if (msg.type === 'bury_witch_bottle' || msg.type === 'scribe_hexafoil' || msg.type === 'conceal_shoe' || msg.type === 'hang_witch_ladder' || msg.type === 'cut_marian' || msg.type === 'write_sator' || msg.type === 'burn_mark' || msg.type === 'make_rowan_cross' || msg.type === 'nail_horseshoe' || msg.type === 'hang_hagstone') {
       const fail = (m) => { send(ws, { type: 'wards_error', message: m }); send(ws, { type: 'wards_state', ...wardsStateBody(player) }); };
       if (!player.accountKey) { fail('Log into an account — a ward needs a house that stays put.'); return; }
       if (!inOwnCottage(player)) { fail('Wards are worked at home — step inside your own cottage first.'); return; }
@@ -16655,6 +16677,26 @@ wss.on('connection', (ws, req) => {
         if (problem) { fail(problem); return; }
         w.sator = { at: Date.now() };
         toast = '🍽️ SATOR AREPO TENET OPERA ROTAS, written on both faces of the plate, and the plate set by the hearth. It reads the same whichever way you hold it.';
+      } else if (msg.type === 'nail_horseshoe') {
+        if (w.horseshoe) { fail('A horseshoe is already at your door.'); return; }
+        if (countItemQty(inv, 'found_horseshoe') < 1) { fail('It should be a horse-shoe that one finds (Aubrey). Keep an eye on the ground as you gather: horses cast their shoes.'); return; }
+        const problem = horseshoeProblem(msg);
+        if (problem) { fail(problem); return; }
+        removeItemFromAccount(inv, 'found_horseshoe', 1);
+        w.horseshoe = { place: msg.place, up: msg.up, at: Date.now() };
+        saveInventories();
+        toast = `🧲 The shoe you found, nailed ${{ threshold: 'on the threshold', over: 'over the door', behind: 'behind the door' }[msg.place]}, ${msg.up === 'points_up' ? 'points up' : 'points down'}. Cold iron at the way in.`;
+      } else if (msg.type === 'hang_hagstone') {
+        if (w.hagstone) { fail('A hag stone already hangs in your house.'); return; }
+        const problem = hagstoneProblem(msg);
+        if (problem) { fail(problem); return; }
+        if (countItemQty(inv, 'hag_stone') < 1) { fail('You need a stone holed by nature. Look at the foot of the crotal stones in the Wilds as you scrape them.'); return; }
+        removeItemFromAccount(inv, 'hag_stone', 1);
+        w.hagstone = { place: msg.place, at: Date.now() };
+        saveInventories();
+        toast = msg.place === 'bed'
+          ? '🪨 The holed stone on a string at the head of your bed, against the night-hag.'
+          : '🪨 The holed stone on a nail on your door, as Kimber the carter had his at Rushmore.';
       } else if (msg.type === 'make_rowan_cross') {
         if (w.rowan) { fail('A rowan cross is already over your door.'); return; }
         const way = ROWAN_WAYS[msg.way];

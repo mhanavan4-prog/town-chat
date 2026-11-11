@@ -83,7 +83,7 @@ export default function createWards({ send }) {
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Walking the bounds of the house…')); return; }
     if (compass) { renderCompass(body); return; }
-    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'rowan') { renderRowan(body); return; } if (draw.kind === 'sheaf') { renderSheaf(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
+    if (draw) { if (draw.kind === 'bottle') { renderBottle(body); return; } if (draw.kind === 'rowan') { renderRowan(body); return; } if (draw.kind === 'horseshoe') { renderHorseshoe(body); return; } if (draw.kind === 'hagstone') { renderHagstone(body); return; } if (draw.kind === 'sheaf') { renderSheaf(body); return; } if (draw.kind === 'marian') renderMarian(body); else if (draw.kind === 'pentangle') renderPentangle(body); else if (draw.kind === 'burn') renderBurn(body); else renderSator(body); return; }
 
     const intro = el('div', 'wardIntro', state.atHome
       ? 'Old houses were warded at their weak places — the hearth, the door, the chimney. Work your own.'
@@ -194,9 +194,69 @@ export default function createWards({ send }) {
       card.appendChild(loreBox(state.lore.ladder));
       cols.appendChild(card);
     }
+    horseshoeCard(cols, pct);
+    hagstoneCard(cols, pct);
     rowanCard(cols, pct);
     sheafCard(cols, pct);
     pentangleCard(cols);
+  }
+
+  // 🧲 The found horseshoe, and 🪨 the hag stone (data/wards.js).
+  function horseshoeCard(cols, pct) {
+    if (!state.lore.horseshoe || !state.horseshoePlaces) return;
+    const where = state.horseshoe && state.horseshoePlaces[state.horseshoe];
+    const card = wardCard('horseshoe', where ? `${where.label}, ${state.horseshoeUp === 'points_down' ? 'points down' : 'points up'} · +${pct}% damage resist` : 'None nailed up', !!where);
+    if (!where) {
+      const b = el('button', 'btn wardBtn', state.haveHorseshoe ? 'Nail up the horseshoe you found' : 'Find a horseshoe first');
+      b.disabled = !state.atHome || !state.haveHorseshoe;
+      b.addEventListener('click', () => { draw = { kind: 'horseshoe', place: null, up: null, slips: 0, note: 'Where will it go?' }; render(); });
+      card.appendChild(b);
+      if (!state.haveHorseshoe) card.appendChild(el('div', 'wardHow', 'It should be one you find, not one you buy. Horses cast their shoes: keep an eye on the ground as you gather.'));
+    }
+    card.appendChild(loreBox(state.lore.horseshoe));
+    cols.appendChild(card);
+  }
+  function renderHorseshoe(body) {
+    body.appendChild(el('div', 'wardIntro', '🧲 Nail up the horseshoe you found'));
+    keysPanel(body, 'Where', Object.entries(state.horseshoePlaces).map(([k, p]) => ({
+      text: `${draw.place === k ? '✓ ' : ''}${p.label} (${p.note})`, disabled: draw.pending || draw.done,
+      on: () => { draw.place = k; draw.note = `${p.label}, as ${p.note} has it.`; render(); } })));
+    keysPanel(body, 'Which way up (the old writers don\'t say)', [
+      { text: `${draw.up === 'points_up' ? '✓ ' : ''}Points up`, disabled: draw.pending || draw.done, on: () => { draw.up = 'points_up'; draw.note = 'Points up.'; render(); } },
+      { text: `${draw.up === 'points_down' ? '✓ ' : ''}Points down`, disabled: draw.pending || draw.done, on: () => { draw.up = 'points_down'; draw.note = 'Points down.'; render(); } },
+    ]);
+    keysPanel(body, 'And', [{ text: '🔨 Nail it up', disabled: draw.pending || draw.done || !draw.place || !draw.up,
+      on: () => { draw.pending = true; draw.note = 'Three good blows…'; send({ type: 'nail_horseshoe', place: draw.place, up: draw.up }); render(); } }]);
+    drawFooter(body, 'Put the horseshoe away');
+  }
+  function hagstoneCard(cols, pct) {
+    if (!state.lore.hagstone || !state.hagstonePlaces) return;
+    const where = state.hagstone && state.hagstonePlaces[state.hagstone];
+    const card = wardCard('hagstone', where ? `${where.label} · +${pct}% damage resist` : 'None hung', !!where);
+    if (!where) {
+      const b = el('button', 'btn wardBtn', 'Hang a hag stone');
+      b.disabled = !state.atHome;
+      b.addEventListener('click', () => { draw = { kind: 'hagstone', stone: null, place: null, slips: 0, note: 'Which stone?' }; render(); });
+      card.appendChild(b);
+      if (!state.haveHagstone) card.appendChild(el('div', 'wardHow', 'It must be holed by nature. Look at the foot of the crotal stones in the Wilds as you scrape them.'));
+    }
+    card.appendChild(loreBox(state.lore.hagstone));
+    cols.appendChild(card);
+  }
+  function renderHagstone(body) {
+    body.appendChild(el('div', 'wardIntro', '🪨 Hang a hag stone against the night-hag'));
+    keysPanel(body, 'Which stone', [
+      { text: `${draw.stone === 'natural' ? '✓ ' : ''}The holed stone you found${state.haveHagstone ? '' : ' (you have none)'}`, disabled: draw.pending || draw.done || !state.haveHagstone,
+        on: () => { draw.stone = 'natural'; draw.note = 'Holed right through, and nobody made the hole.'; render(); } },
+      { text: `${draw.stone === 'bored' ? '✓ ' : ''}A pebble you bore through yourself`, disabled: draw.pending || draw.done,
+        on: () => { draw.stone = 'bored'; draw.note = 'A good round pebble, and an awl.'; render(); } },
+    ]);
+    keysPanel(body, 'Where', Object.entries(state.hagstonePlaces).map(([k, p]) => ({
+      text: `${draw.place === k ? '✓ ' : ''}${p.label} (${p.note})`, disabled: draw.pending || draw.done,
+      on: () => { draw.place = k; draw.note = `${p.label}.`; render(); } })));
+    keysPanel(body, 'And', [{ text: '🪨 Hang it', disabled: draw.pending || draw.done || !draw.stone || !draw.place,
+      on: () => { draw.pending = true; draw.note = 'You thread the string…'; send({ type: 'hang_hagstone', stone: draw.stone, place: draw.place }); render(); } }]);
+    drawFooter(body, 'Put the stone down');
   }
 
   // ✝️ The rowan cross over the door: the Scots way or the Manx (data/wards.js).
