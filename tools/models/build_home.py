@@ -810,6 +810,380 @@ def glowing(p):
     return p
 
 
+# ── The rooms of the town: bar, rugs, cabinets, pedestals and their relics ──
+BRASS = ('#7a5a1a', '#f0cc60')
+PEWTER = ('#5a5a62', '#d0d0d8')
+SILVER = ('#7a8090', '#f0f4ff')
+WAXEN = ('#c89a48', '#f4dc98')
+
+
+def bottle(h, rr, col, cork=True):
+    """A hand-blown bottle: shouldered, a long neck, a cork."""
+    parts = [lathe([(rr * 0.85, 0), (rr, h * 0.06), (rr, h * 0.5), (rr * 0.35, h * 0.68), (rr * 0.3, h * 0.92), (rr * 0.4, h * 0.94), (rr * 0.38, h)], sides=7, colors=col, close_bottom=True)]
+    if cork:
+        parts.append(lathe([(rr * 0.3, h), (rr * 0.32, h * 1.07)], sides=5, colors=('#8a6a3a', '#c8a060')))
+    return parts
+
+
+def bar_counter():
+    """An oak bar: a panelled front on a kick-board, a thick worn top with a brass rail, and behind it a back-bar of bottles, tankards and a tapped cask."""
+    m = Model('bar_counter')
+    L, D, H = 1.6, 0.22, 0.34
+    m.add(box(L, D, H, OAK).xf(None, (0, 0, 0)))
+    m.add(box(L + 0.02, D - 0.04, 0.05, OAK_DK).xf(None, (0, 0.02, 0)))
+    n = 6
+    for k in range(n):  # raised panels between stiles
+        x = -L / 2 + (k + 0.5) * L / n
+        m.add(box(L / n * 0.74, 0.02, H * 0.58, ('#5a3a20', '#9a6a3e')).xf(None, (x, -D / 2 - 0.006, H * 0.2)))
+        m.add(box(0.03, 0.03, H * 0.9, OAK_DK).xf(None, (x - L / n / 2, -D / 2 - 0.006, 0.02)))
+    m.add(box(0.03, 0.03, H * 0.9, OAK_DK).xf(None, (L / 2 - 0.015, -D / 2 - 0.006, 0.02)))
+    for k in range(3):  # the top, three long boards
+        m.add(box(L + 0.06, 0.09, 0.035, ('#3a2414', '#6a4426'), jitter=0.004, seed=k).xf(None, (0, -0.09 + k * 0.09, H)))
+    m.add(trimtube([(-L / 2, -D / 2 - 0.05, 0.09), (L / 2, -D / 2 - 0.05, 0.09)], 0.012, sides=6, colors=BRASS))  # the foot rail
+    for k in range(5):
+        x = -L / 2 + 0.05 + k * (L - 0.1) / 4
+        m.add(trimtube([(x, -D / 2, 0.09), (x, -D / 2 - 0.05, 0.09)], 0.009, sides=5, colors=BRASS))
+    # things left on the top
+    for (x, y) in ((-0.5, -0.02), (0.1, 0.03), (0.55, -0.04)):
+        m.add(trim(lathe([(0.022, 0), (0.026, 0.005), (0.024, 0.05), (0.027, 0.055), (0.022, 0.055), (0.02, 0.01)], sides=8, colors=PEWTER, close_top=False)).xf(None, (x, y, H + 0.035)))
+        m.add(trimtube([(x + 0.024, y, H + 0.08), (x + 0.045, y, H + 0.07), (x + 0.045, y, H + 0.05), (x + 0.025, y, H + 0.045)], 0.004, sides=4, colors=PEWTER))
+    m.add(trim(box(0.12, 0.08, 0.008, ('#b0a890', '#e8e0c8'))).xf(rz(0.2), (-0.2, 0.0, H + 0.035)))  # a bar cloth
+    # the back-bar: uprights, three shelves, a plank back
+    BY, BH, BD = 0.185, 0.62, 0.1
+    m.add(box(L * 0.9, 0.02, BH, OAK_DK).xf(None, (0, BY + BD / 2, 0)))
+    for sx in (-1, 0, 1):
+        m.add(box(0.035, BD, BH, OAK).xf(None, (sx * L * 0.44, BY, 0)))
+    shelves = (0.16, 0.34, 0.5)
+    for z in shelves:
+        m.add(box(L * 0.9, BD, 0.022, OAK).xf(None, (0, BY, z)))
+    m.add(box(L * 0.94, BD + 0.03, 0.035, OAK).xf(None, (0, BY - 0.01, BH)))
+    r = np.random.default_rng(301)
+    GLASS = [('#1e4a24', '#5a9a50'), ('#5a1a1a', '#b0443a'), ('#1a3050', '#4a80b0'), ('#4a3414', '#a8803a'), ('#3a1a4a', '#8a5ab0'), ('#2a4a4a', '#6ab0a8')]
+    for si, z in enumerate(shelves[1:]):
+        x = -L * 0.42
+        while x < L * 0.42:
+            if abs(x) < 0.05 or abs(abs(x) - L * 0.44) < 0.04:
+                x += 0.05; continue
+            h = r.uniform(0.075, 0.12); rr = r.uniform(0.016, 0.024)
+            for pt in bottle(h, rr, GLASS[int(r.integers(0, len(GLASS)))]):
+                m.add(trim(pt).xf(None, (x, BY - 0.005, z + 0.022)))
+            x += rr * 2 + r.uniform(0.012, 0.04)
+    for k in range(5):  # tankards hung in a row under the low shelf
+        x = -0.6 + k * 0.11
+        m.add(trim(lathe([(0.022, 0), (0.024, 0.05), (0.02, 0.05), (0.018, 0.004)], sides=7, colors=PEWTER, close_top=False)).xf(None, (x, BY - 0.02, shelves[0] + 0.03)))
+    # a tapped cask on its cradle
+    cask = lathe([(0.0, -0.11), (0.07, -0.11), (0.09, -0.05), (0.095, 0.0), (0.09, 0.05), (0.07, 0.11), (0.0, 0.11)], sides=10, colors=('#5a3a1e', '#a0703e'), close_top=False)
+    m.add(cask.xf(ry(math.pi / 2), (0.42, BY, shelves[0] + 0.07), 0.48))
+    for dx in (-0.034, 0.034):
+        m.add(trim(lathe([(0.088, -0.008), (0.094, 0.0), (0.088, 0.008)], sides=10, colors=IRON, close_top=False)).xf(ry(math.pi / 2), (0.42 + dx, BY, shelves[0] + 0.07), 0.48))
+    m.add(trimtube([(0.474, BY, shelves[0] + 0.05), (0.49, BY, shelves[0] + 0.05), (0.49, BY, shelves[0] + 0.035)], 0.004, sides=5, colors=BRASS))
+    return m, None
+
+
+def rug():
+    """A hand-knotted rug: a dyed field inside two borders, a lozenge medallion, a knotted fringe at each end."""
+    m = Model('rug')
+    W, D, T = 1.0, 1.0, 0.012
+    PALE = ('#b8b0a8', '#ffffff')
+    GOLD = ('#7a6238', '#b0915a')
+    UMBER = ('#241a14', '#40302a')
+    m.add(box(W, D, T, PALE).xf(None, (0, 0, 0)))
+    def band(w, d, t, col):
+        for (bx, by, sx, sy) in ((0, d / 2, w + t, t), (0, -d / 2, w + t, t), (w / 2, 0, t, d + t), (-w / 2, 0, t, d + t)):
+            m.add(trim(box(sx, sy, 0.004, col)).xf(None, (bx, by, T - 0.001)))
+    band(0.94, 0.94, 0.03, GOLD)
+    band(0.84, 0.84, 0.012, UMBER)
+    band(0.78, 0.78, 0.008, GOLD)
+    for (rr, col) in ((0.26, GOLD), (0.2, UMBER), (0.1, GOLD)):
+        m.add(trim(lathe([(rr - 0.025, T + 0.002), (rr, T + 0.002)], sides=4, colors=col, close_top=False)))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            m.add(trim(lathe([(0.0, T + 0.002), (0.05, T + 0.002)], sides=4, colors=GOLD, close_top=False)).xf(None, (sx * 0.3, sy * 0.3, 0)))
+    n = 110
+    r = np.random.default_rng(5)
+    for sx in (-1, 1):  # the fringe: fine, short, a little unruly
+        for k in range(n):
+            y = -D / 2 + (k + 0.5) * D / n
+            m.add(trimtube([(sx * W / 2, y, T * 0.6), (sx * (W / 2 + r.uniform(0.008, 0.013)), y + r.uniform(-0.003, 0.003), 0.003)], 0.0016, sides=3, colors=('#8a7c60', '#c0b08a')))
+    return m, None
+
+
+def arcade_cabinet():
+    """An enchanted cabinet: a night-blue case with silver edging, a hooded screen, a control deck with a crystal lever and studs, runes down the front, a crown of quartz."""
+    m = Model('arcade_cabinet')
+    NIGHT = ('#0a1228', '#22366a')
+    W, D = 0.30, 0.26
+    m.add(trim(box(W, D, 0.3, NIGHT)).xf(None, (0, 0, 0)))            # the lower case
+    m.add(trim(box(W + 0.02, D + 0.02, 0.03, ('#060a18', '#141f3d'))).xf(None, (0, 0, 0)))
+    m.add(trim(box(W, D, 0.34, NIGHT)).xf(None, (0, 0, 0.3)))                # the upper case
+    deck = trim(box(W, D * 0.46, 0.03, ('#1a2a52', '#3a56a0')))
+    m.add(deck.xf(rx(0.32), (0, -D / 2 - 0.045, 0.285)))                      # the control deck, tilted to the hands
+    for sx in (-1, 1):                                                # cheek boards
+        m.add(trim(box(0.018, D, 0.66, ('#101a38', '#2a4080'))).xf(None, (sx * (W / 2 + 0.006), 0, 0)))
+        m.add(trimtube([(sx * (W / 2 + 0.016), -D / 2, 0.02), (sx * (W / 2 + 0.016), -D / 2, 0.66)], 0.006, sides=4, colors=SILVER))
+    m.add(trim(box(W + 0.04, D * 0.5, 0.05, NIGHT)).xf(rx(-0.25), (0, -D / 2 + 0.03, 0.59)))   # the hood over the screen
+    # the screen's silver frame; the game lays the lit screen inside it
+    for (bx, bz, sx, sz) in ((0, 0.345, 0.22, 0.014), (0, 0.535, 0.22, 0.014), (-0.105, 0.44, 0.014, 0.2), (0.105, 0.44, 0.014, 0.2)):
+        m.add(trim(box(sx, 0.012, sz, SILVER)).xf(None, (bx, -D / 2 + 0.004, bz - sz / 2)))
+    # the lever and studs
+    m.add(trimtube([(-0.07, -0.19, 0.32), (-0.075, -0.2, 0.37)], 0.005, sides=5, colors=SILVER))
+    m.add(glowing(blob(0.014, 0.014, 0.014, seg=6, rings=4, colors=('#5ad0ff', '#d8f6ff'))).xf(None, (-0.075, -0.2, 0.38)))
+    for k, col in enumerate((('#ff5a8a', '#ffc0d8'), ('#5affc0', '#d8fff0'), ('#ffd45a', '#fff4c8'))):
+        m.add(glowing(lathe([(0.012, 0), (0.012, 0.008), (0.0, 0.012)], sides=7, colors=col)).xf(rx(0.32), (0.02 + k * 0.035, -0.19 + 0.004 * k, 0.318 - 0.001 * k)))
+    # runes cut down the front panel
+    r = np.random.default_rng(88)
+    for k in range(5):
+        x = -0.1 + k * 0.05
+        z = 0.2 - (k % 2) * 0.05
+        m.add(glowing(box(0.008, 0.006, 0.05, ('#3a8aff', '#bfe4ff'))).xf(None, (x, -D / 2 - 0.002, z - 0.025)))
+        m.add(glowing(box(0.024, 0.006, 0.007, ('#3a8aff', '#bfe4ff'))).xf(ry(r.uniform(-0.7, 0.7)), (x, -D / 2 - 0.002, z + r.uniform(-0.012, 0.012))))
+    m.add(glowing(lathe([(0.03, 0.0), (0.04, 0.0)], sides=12, colors=('#3a8aff', '#bfe4ff'), close_top=False)).xf(rx(math.pi / 2), (0, -D / 2 - 0.003, 0.08)))  # a coin-moon
+    # the crown: a silver cornice and quartz points
+    m.add(trim(box(W + 0.05, D + 0.03, 0.025, SILVER)).xf(None, (0, 0, 0.64)))
+    for (x, y, h, a) in ((-0.12, 0.04, 0.11, -0.25), (0.12, 0.04, 0.11, 0.25), (0.0, 0.05, 0.15, 0.0), (-0.06, 0.07, 0.08, -0.12), (0.06, 0.07, 0.08, 0.12)):
+        m.add(glowing(lathe([(0.0, 0), (0.022, 0.0), (0.026, h * 0.7), (0.0, h)], sides=6, colors=('#3a7ae0', '#d8f0ff'))).xf(ry(a), (x, y, 0.66)))
+    return m, '#6ab8ff'
+
+
+def pedestal():
+    """A turned stone pedestal for a thing under glass: a stepped foot, a waisted shaft, a moulded cap with a brass collar for the dome."""
+    m = Model('pedestal')
+    PALE = ('#8a8a8a', '#ffffff')
+    m.add(lathe([(0.15, 0), (0.15, 0.025), (0.135, 0.03), (0.135, 0.05), (0.11, 0.07), (0.095, 0.13), (0.1, 0.2), (0.12, 0.225), (0.14, 0.235), (0.145, 0.26), (0.13, 0.27)], sides=12, colors=PALE, close_top=True, close_bottom=True))
+    for z in (0.085, 0.2):
+        m.add(lathe([(0.1, z - 0.008), (0.112, z), (0.1, z + 0.008)], sides=12, colors=PALE, close_top=False))
+    m.add(trim(lathe([(0.128, 0.27), (0.134, 0.275), (0.128, 0.285), (0.12, 0.285)], sides=14, colors=BRASS, close_top=False)))
+    m.add(trim(box(0.09, 0.008, 0.035, BRASS)).xf(None, (0, -0.105, 0.14)))  # the label plate
+    return m, None
+
+
+def relic_orb_stand():
+    """Three brass claws on a ring foot, to hold a scrying ball."""
+    m = Model('relic_orb_stand')
+    m.add(trim(lathe([(0.0, 0), (0.07, 0.0), (0.075, 0.012), (0.05, 0.02), (0.03, 0.03), (0.0, 0.03)], sides=10, colors=BRASS, close_top=False)))
+    for k in range(3):
+        a = TAU * k / 3 + 0.5
+        c, s_ = math.cos(a), math.sin(a)
+        m.add(trimtube([(0.03 * c, 0.03 * s_, 0.025), (0.06 * c, 0.06 * s_, 0.045), (0.07 * c, 0.07 * s_, 0.075), (0.068 * c, 0.068 * s_, 0.1)], lambda u: 0.009 * (1 - 0.5 * u), sides=5, colors=BRASS))
+    return m, None
+
+
+def relic_blade():
+    """A starforged short sword, point down in a block of dark stone: a fullered blade, a crescent guard, a wrapped grip and a star-stone pommel."""
+    m = Model('relic_blade')
+    m.add(trim(box(0.11, 0.09, 0.035, ('#1a2238', '#3a4a70'), jitter=0.04, seed=3)).xf(None, (0, 0, 0)))
+    bl = lathe([(0.0, 0.0), (0.014, 0.05), (0.02, 0.22), (0.02, 0.235)], sides=4, colors=('#8aa8e0', '#f4f8ff'), close_top=True)
+    bl.v[:, 1] *= 0.28
+    m.add(glowing(bl).xf(None, (0, 0, 0.02)))
+    m.add(trim(box(0.004, 0.012, 0.16, ('#5a78c0', '#a8c0f0'))).xf(None, (0, 0, 0.08)))   # the fuller
+    m.add(trimtube([(-0.05, 0, 0.245), (-0.03, 0, 0.258), (0, 0, 0.262), (0.03, 0, 0.258), (0.05, 0, 0.245)], lambda u: 0.007 + 0.004 * math.sin(u * math.pi), sides=5, colors=SILVER))
+    m.add(trimtube([(0, 0, 0.262), (0, 0, 0.33)], 0.008, sides=6, colors=('#1a2a52', '#3a56a0')))
+    for k in range(4):
+        m.add(trim(lathe([(0.0095, 0.272 + k * 0.015), (0.0095, 0.277 + k * 0.015)], sides=6, colors=SILVER, close_top=False)))
+    st = lathe([(0.0, 0.0), (0.016, 0.014), (0.0, 0.03)], sides=6, colors=('#5ab0ff', '#e8f8ff'))
+    m.add(glowing(st).xf(None, (0, 0, 0.33)))
+    return m, '#8ac0ff'
+
+
+def relic_crescent():
+    """A silver crescent moon on a slender stand, two star-motes on wires beside it."""
+    m = Model('relic_crescent')
+    m.add(trim(lathe([(0.0, 0), (0.045, 0.0), (0.05, 0.008), (0.012, 0.02), (0.008, 0.06), (0.0, 0.06)], sides=9, colors=SILVER, close_top=False)))
+    pts_o, pts_i = [], []
+    n = 14
+    for k in range(n + 1):
+        a = math.radians(-125 + 250 * k / n)
+        pts_o.append((0.065 * math.cos(a), 0.065 * math.sin(a)))
+        pts_i.append((0.022 + 0.055 * math.cos(a) * 0.9, 0.058 * math.sin(a)))
+    v, f, t = [], [], []
+    for side in (-1, 1):
+        for k in range(n + 1):
+            w = math.sin(math.pi * k / n)
+            xo, zo = pts_o[k]; xi, zi = pts_i[k]
+            v.append((-xo, side * 0.012 * w, zo)); v.append((-xi, side * 0.006 * w, zi))
+            t += [0.3 + 0.7 * w, 1.0]
+    off = 2 * (n + 1)
+    for k in range(n):
+        a = 2 * k
+        f.append((a, a + 2, a + 3, a + 1))
+        f.append((off + a, off + a + 1, off + a + 3, off + a + 2))
+        f.append((a, off + a, off + a + 2, a + 2))
+        f.append((a + 1, a + 3, off + a + 3, off + a + 1))
+    moon = Part(v, f, t, ('#8a94d0', '#f4f6ff'), smooth=False)
+    m.add(glowing(moon).xf(None, (0.005, 0, 0.125)))
+    for (x, z, rr) in ((0.06, 0.15, 0.011), (0.04, 0.19, 0.007)):
+        m.add(trimtube([(0.0, 0, 0.06), (x * 0.6, 0, z * 0.7), (x, 0, z)], 0.0018, sides=3, colors=SILVER))
+        m.add(glowing(lathe([(0.0, -rr), (rr, 0.0), (0.0, rr)], sides=4, colors=('#c8d0ff', '#ffffff'))).xf(None, (x, 0, z)))
+    return m, '#aab4ff'
+
+
+def relic_lantern():
+    """A wrought-iron lantern: a footed base, four barred sides, a pierced cap and a carrying ring. The game sets the flame inside."""
+    m = Model('relic_lantern')
+    m.add(trim(lathe([(0.0, 0), (0.06, 0.0), (0.065, 0.012), (0.055, 0.02), (0.0, 0.02)], sides=8, colors=IRON, close_top=False, phase=TAU / 16)))
+    for k in range(8):
+        a = TAU * k / 8 + TAU / 16
+        rr = 0.0045 if k % 2 == 0 else 0.0028
+        m.add(trimtube([(0.052 * math.cos(a), 0.052 * math.sin(a), 0.02), (0.052 * math.cos(a), 0.052 * math.sin(a), 0.155)], rr, sides=4, colors=IRON))
+    for z in (0.065, 0.11):
+        m.add(trim(lathe([(0.05, z - 0.003), (0.054, z), (0.05, z + 0.003)], sides=8, colors=IRON, close_top=False, phase=TAU / 16)))
+    m.add(trim(lathe([(0.062, 0.155), (0.058, 0.165), (0.03, 0.195), (0.015, 0.2), (0.012, 0.215), (0.0, 0.215)], sides=8, colors=IRON, close_top=False, phase=TAU / 16)))
+    ring = [(0.02 * math.cos(u), 0, 0.235 + 0.02 * math.sin(u)) for u in np.linspace(-math.pi / 2, math.pi * 1.5, 9)]
+    m.add(trimtube(ring, 0.004, sides=4, colors=IRON))
+    m.add(trim(lathe([(0.0, 0.02), (0.018, 0.02), (0.02, 0.03), (0.0, 0.032)], sides=6, colors=('#3a3a36', '#6a6a60'))))  # the candle cup
+    return m, None
+
+
+def relic_jar():
+    """The furniture of a spirit jar: an iron foot, a waxed-cloth lid bound with cord, a lead seal, a paper ward. The game sets the glass and what is in it."""
+    m = Model('relic_jar')
+    m.add(trim(lathe([(0.0, 0), (0.06, 0.0), (0.062, 0.012), (0.05, 0.016)], sides=10, colors=IRON)))
+    m.add(trim(lathe([(0.058, 0.135), (0.062, 0.14), (0.062, 0.155), (0.05, 0.17), (0.0, 0.175)], sides=10, colors=('#4a3a2a', '#9a8060'))))
+    m.add(trim(lathe([(0.064, 0.14), (0.068, 0.146), (0.064, 0.152)], sides=10, colors=('#a08a5a', '#d8c090'), close_top=False)))
+    for k in range(7):  # the cloth's skirt, below the cord
+        a = TAU * k / 7
+        m.add(trim(blade(0.035, 0.04, round_, segs=2, cols=3, fold=0.05, rise=-1.2, droop=0.2, colors=('#4a3a2a', '#8a7050'))).xf(rz(a), (0.058 * math.cos(a), 0.058 * math.sin(a), 0.14)))
+    m.add(trim(lathe([(0.0, 0.0), (0.018, 0.0), (0.016, 0.008), (0.0, 0.01)], sides=7, colors=('#5a5a60', '#a0a0a8'))).xf(None, (0, 0, 0.175)))
+    m.add(trim(box(0.035, 0.002, 0.07, ('#c8b888', '#f0e4c0'))).xf(None, (0, -0.058, 0.05)))  # the ward, pasted on the glass
+    m.add(glowing(lathe([(0.007, 0.0), (0.011, 0.0)], sides=8, colors=('#8a1a1a', '#e04a3a'), close_top=False)).xf(rx(math.pi / 2), (0, -0.0595, 0.1)))  # a binding mark in red ink
+    for (dx, a_) in ((-0.006, 0.5), (0.006, -0.5), (0.0, 0.0)):
+        m.add(glowing(box(0.003, 0.003, 0.04, ('#8a1a1a', '#e04a3a'))).xf(ry(a_), (dx, -0.06, 0.055)))
+    return m, '#e04a3a'
+
+
+def relic_planchette():
+    """A heart-shaped planchette of dark wood on three bone pegs, a glass eye set in it, lying on a scrap of talking board."""
+    m = Model('relic_planchette')
+    m.add(trim(box(0.24, 0.17, 0.008, ('#3a2a1a', '#7a5a34'))).xf(rz(0.25), (0, 0, 0)))
+    for k in range(5):
+        m.add(trim(box(0.012, 0.016, 0.002, ('#1a1008', '#1a1008'))).xf(rz(0.25), (-0.08 + k * 0.04, 0.05 - 0.004 * k, 0.008)))
+    pts = []
+    n = 16
+    for k in range(n):
+        u = TAU * k / n
+        x = 16 * math.sin(u) ** 3
+        y = 13 * math.cos(u) - 5 * math.cos(2 * u) - 2 * math.cos(3 * u) - math.cos(4 * u)
+        pts.append((x * 0.0056, -y * 0.0056 - 0.012))
+    v, f, t = [], [], []
+    for z in (0.03, 0.04):
+        for (x, y) in pts:
+            v.append((x, y, z)); t.append(0.3 if z < 0.035 else 0.9)
+    v.append((0, -0.01, 0.03)); t.append(0.3); cb = len(v) - 1
+    v.append((0, -0.01, 0.041)); t.append(1.0); ct = len(v) - 1
+    for k in range(n):
+        k1 = (k + 1) % n
+        f.append((k, k1, n + k1, n + k)); f.append((cb, k1, k)); f.append((ct, n + k, n + k1))
+    m.add(trim(Part(v, f, t, ('#2a1a10', '#6a4426'), smooth=False)).xf(rz(-0.3), (0.0, 0.0, 0)))
+    m.add(glowing(lathe([(0.0, 0.0), (0.016, 0.0), (0.012, 0.006), (0.0, 0.008)], sides=9, colors=('#6affc0', '#e0fff0'))).xf(None, (0.0, 0.005, 0.04)))
+    m.add(trim(lathe([(0.016, 0.0), (0.02, 0.0), (0.02, 0.003)], sides=9, colors=BRASS, close_top=False)).xf(None, (0.0, 0.005, 0.04)))
+    for (x, y) in ((-0.045, 0.035), (0.045, 0.035), (0.02, -0.06)):
+        m.add(trim(lathe([(0.004, 0.008), (0.006, 0.03)], sides=5, colors=('#c8bca0', '#f0e8d4'), close_top=False)).xf(None, (x, y, 0)))
+    return m, '#6affc0'
+
+
+def herb_bundle():
+    """Herbs tied to dry, hung heads-down on a length of twine: lavender, sage and rosemary, bound with a twist of cord."""
+    m = Model('herb_bundle')
+    TW = ('#8a6a3a', '#c8a468')
+    m.add(tube([(0, 0, 0.46), (0, 0, 0.26)], 0.004, sides=3, colors=TW))
+    m.add(lathe([(0.02, 0.235), (0.024, 0.245), (0.02, 0.255)], sides=7, colors=TW, close_top=False))
+    r = np.random.default_rng(64)
+    for k in range(13):
+        a = r.uniform(0, TAU); sp = r.uniform(0.02, 0.075); L = r.uniform(0.17, 0.24)
+        tip = (sp * math.cos(a), sp * math.sin(a), 0.25 - L)
+        kind = k % 3
+        scol = (('#5a6a3a', '#8a9a5a'), ('#6a7a5a', '#a8b890'), ('#3a4a2a', '#6a7a4a'))[kind]
+        m.add(tube([(0.008 * math.cos(a), 0.008 * math.sin(a), 0.3), (0.012 * math.cos(a), 0.012 * math.sin(a), 0.24), tip], 0.0035, sides=3, colors=scol))
+        if kind == 0:  # lavender: a spike of dried buds
+            for j in range(5):
+                u = 0.62 + 0.09 * j
+                p = (tip[0] * u, tip[1] * u, 0.25 - L * u)
+                m.add(blob(0.008, 0.008, 0.011, seg=5, rings=3, colors=('#5a4a7a', '#a890d0')).xf(None, p))
+        elif kind == 1:  # sage: grey felted leaves
+            for j in range(4):
+                u = 0.35 + 0.18 * j
+                p = (tip[0] * u, tip[1] * u, 0.25 - L * u)
+                m.add(blade(0.06, 0.024, lanceolate, segs=2, cols=3, fold=0.2, rise=-1.1, droop=0.3, colors=('#6a7a5a', '#b0c098')).xf(rz(a + (1.2 if j % 2 else -1.2)), p))
+        else:  # rosemary: needles up the stem
+            for j in range(8):
+                u = 0.3 + 0.085 * j
+                p = (tip[0] * u, tip[1] * u, 0.25 - L * u)
+                m.add(blade(0.028, 0.006, linear, segs=1, cols=2, fold=0.0, rise=-0.7, droop=0.0, colors=('#2e4a2a', '#5a7a4a')).xf(rz(a + j * 2.4), p))
+    return m, None
+
+
+def pumpkin():
+    """A ribbed field pumpkin with a corky stem and a curl of vine."""
+    m = Model('pumpkin')
+    ribs, per = 9, 4
+    prof = [(0.0, 0.03), (0.2, 0.0), (0.4, 0.08), (0.5, 0.24), (0.52, 0.38), (0.46, 0.54), (0.3, 0.66), (0.12, 0.69), (0.0, 0.66)]
+    body = lathe(prof, sides=ribs * per, colors=('#8a3a10', '#f09030'), close_top=False)
+    for i, v in enumerate(body.v):
+        ang = math.atan2(v[1], v[0])
+        crease = abs(math.cos(ang * ribs / 2)) ** 0.6      # 1 on a rib's crown, 0 in the groove
+        k = 0.86 + 0.14 * crease
+        v[0] *= k; v[1] *= k
+        body.t[i] = 0.25 + 0.75 * crease * (0.5 + 0.5 * min(1.0, v[2] / 0.5))
+    m.add(body)
+    m.add(tube([(0, 0, 0.66), (0.01, 0.0, 0.76), (0.06, 0.02, 0.84)], lambda u: 0.06 * (1 - 0.45 * u), sides=6, colors=('#4a4a20', '#8a8a4a')))
+    curl = [(0.03 + 0.07 * u + 0.03 * math.cos(u * 9), 0.03 * math.sin(u * 9), 0.7 + 0.03 * u) for u in np.linspace(0, 1.6, 12)]
+    m.add(tube(curl, 0.008, sides=3, colors=('#3a5a2a', '#6a9a4a')))
+    m.add(blade(0.22, 0.2, heart, segs=3, cols=5, fold=0.12, rise=0.2, droop=0.5, colors=('#2e5a24', '#5a8a3a')).xf(rz(2.4), (-0.02, 0.03, 0.69)))
+    return m, None
+
+
+def lectern():
+    """A locked lectern: a carved oak column on a stepped foot, a sloped desk with a lip, and a great chained book on it, its clasp and sigil burning."""
+    m = Model('lectern')
+    DARK = ('#1e1428', '#4a3a6a')
+    m.add(trim(box(0.3, 0.26, 0.04, DARK)).xf(None, (0, 0, 0)))
+    m.add(trim(box(0.22, 0.19, 0.035, DARK)).xf(None, (0, 0, 0.04)))
+    m.add(trim(lathe([(0.075, 0.075), (0.085, 0.09), (0.055, 0.14), (0.05, 0.3), (0.07, 0.34), (0.05, 0.38), (0.06, 0.44), (0.09, 0.47)], sides=8, colors=DARK, close_top=True)))
+    desk = trim(box(0.36, 0.26, 0.035, ('#2a1e3a', '#5a4880')))
+    m.add(desk.xf(rx(0.5), (0, 0.0, 0.44)))
+    m.add(trim(box(0.36, 0.03, 0.04, DARK)).xf(rx(0.5), (0, -0.115, 0.4)))
+    # the book, lying shut on the slope
+    R = rx(0.5)
+    def on(p, c):
+        return p.xf(R, tuple(np.asarray(R) @ np.asarray(c) + np.array([0, 0, 0.44])))
+    m.add(on(trim(box(0.27, 0.19, 0.05, ('#120a22', '#2e1e50'))), (0, 0.005, 0.035)))
+    m.add(on(trim(box(0.25, 0.175, 0.036, ('#b8a878', '#e8dcb8'))), (0.008, 0.005, 0.042)))
+    for sx in (-0.11, 0.11):
+        m.add(on(trim(box(0.02, 0.2, 0.054, BRASS)), (sx, 0.005, 0.033)))
+    m.add(on(glowing(lathe([(0.03, 0.0), (0.042, 0.0)], sides=10, colors=('#7a4acc', '#d0a8ff'), close_top=False)), (0, 0.005, 0.087)))
+    m.add(on(glowing(lathe([(0.0, 0.0), (0.012, 0.0)], sides=5, colors=('#7a4acc', '#e8d0ff'), close_top=False)), (0, 0.005, 0.087)))
+    m.add(on(trim(box(0.03, 0.03, 0.02, IRON)), (0.14, 0.005, 0.05)))   # the lock
+    ch = [(0.15, -0.02, 0.5), (0.2, -0.03, 0.36), (0.16, 0.0, 0.2), (0.09, 0.02, 0.1)]
+    m.add(trimtube(ch, 0.006, sides=4, colors=IRON))
+    return m, '#9a6aee'
+
+
+def vigil_candle():
+    """A black pillar candle in an iron dish, guttered and run with wax."""
+    m = Model('vigil_candle')
+    m.add(trim(lathe([(0.0, 0), (0.3, 0.0), (0.36, 0.06), (0.33, 0.08), (0.14, 0.05)], sides=10, colors=('#141c18', '#3a4a42'), close_top=False)))
+    BLACK = ('#1c1a1a', '#5a5650')
+    m.add(trim(lathe([(0.15, 0.05), (0.155, 0.9), (0.13, 0.96), (0.06, 0.93), (0.0, 0.92)], sides=10, colors=BLACK)))
+    r = np.random.default_rng(13)
+    for k in range(7):
+        a = r.uniform(0, TAU); L = r.uniform(0.2, 0.7)
+        m.add(trimtube([(0.155 * math.cos(a), 0.155 * math.sin(a), 0.93), (0.165 * math.cos(a), 0.165 * math.sin(a), 0.93 - L)], lambda u: 0.03 * (1 - 0.3 * u), sides=4, colors=BLACK))
+    m.add(trim(blob(0.2, 0.17, 0.025, seg=6, rings=3, colors=BLACK, jitter=0.3)).xf(None, (0.08, -0.05, 0.07)))
+    m.add(trimtube([(0, 0, 0.92), (0.01, 0, 1.0)], 0.01, sides=3, colors=('#3a3028', '#5a5048')))
+    return m, None
+
+
+def marble_perch():
+    """A veined marble column with an iron T-perch, for a bird that watches."""
+    m = Model('marble_perch')
+    MAR = ('#8a8a94', '#f0f0f4')
+    col = lathe([(0.11, 0), (0.11, 0.03), (0.09, 0.05), (0.075, 0.08), (0.07, 0.34), (0.085, 0.37), (0.095, 0.4), (0.08, 0.42)], sides=12, colors=MAR, close_top=True, close_bottom=True)
+    for i, v in enumerate(col.v):
+        col.t[i] = min(1.0, max(0.0, col.t[i] * 0.5 + 0.35 + 0.3 * math.sin(v[2] * 31 + math.atan2(v[1], v[0]) * 2)))
+    m.add(trim(col))
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -818,7 +1192,11 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'cave_potion': cave_potion, 'cave_candle': cave_candle, 'cave_crystal': cave_crystal, 'cave_book': cave_book, 'cave_hourglass': cave_hourglass,
         'cave_eyejar': cave_eyejar, 'cave_jar': cave_jar, 'cave_moon': cave_moon, 'cave_mushroom': cave_mushroom, 'cave_feathers': cave_feathers,
         'campfire': campfire, 'waymarker': waymarker, 'chalice': chalice, 'hand_bell': hand_bell, 'rune_stones': rune_stones,
-        'scrying_mirror': scrying_mirror, 'pentacle_plaque': pentacle_plaque, 'crystal_cluster': crystal_cluster, 'open_grimoire': open_grimoire}
+        'scrying_mirror': scrying_mirror, 'pentacle_plaque': pentacle_plaque, 'crystal_cluster': crystal_cluster, 'open_grimoire': open_grimoire,
+        'bar_counter': bar_counter, 'rug': rug, 'arcade_cabinet': arcade_cabinet, 'pedestal': pedestal, 'relic_orb_stand': relic_orb_stand,
+        'relic_blade': relic_blade, 'relic_crescent': relic_crescent, 'relic_lantern': relic_lantern, 'relic_jar': relic_jar,
+        'relic_planchette': relic_planchette, 'herb_bundle': herb_bundle, 'pumpkin': pumpkin, 'lectern': lectern, 'vigil_candle': vigil_candle,
+        'marble_perch': marble_perch}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

@@ -461,6 +461,10 @@ const KK = (() => {
     furn_htable: 'kk/home/hall_table.glb', furn_hbench: 'kk/home/hall_bench.glb', furn_bookcase: 'kk/home/bookcase.glb', furn_banner: 'kk/home/hall_banner.glb',
     furn_highseat: 'kk/home/high_seat.glb', furn_chandelier: 'kk/home/chandelier.glb', furn_shield: 'kk/home/wall_shield.glb', furn_torch: 'kk/home/standing_torch.glb',
     furn_cbed: 'kk/home/bed.glb', furn_hearth: 'kk/home/hearth.glb', furn_candle: 'kk/home/candle_stand.glb', furn_witchball: 'kk/home/witch_ball.glb',
+    furn_bar: 'kk/home/bar_counter.glb', furn_wrug: 'kk/home/rug.glb', furn_arcade: 'kk/home/arcade_cabinet.glb', furn_pedestal: 'kk/home/pedestal.glb',
+    furn_orbstand: 'kk/home/relic_orb_stand.glb', furn_rblade: 'kk/home/relic_blade.glb', furn_rmoon: 'kk/home/relic_crescent.glb', furn_rlantern: 'kk/home/relic_lantern.glb',
+    furn_rjar: 'kk/home/relic_jar.glb', furn_rplanchette: 'kk/home/relic_planchette.glb', furn_herbs: 'kk/home/herb_bundle.glb', furn_pumpkin: 'kk/home/pumpkin.glb',
+    furn_lectern: 'kk/home/lectern.glb', furn_vigil: 'kk/home/vigil_candle.glb', furn_perch: 'kk/home/marble_perch.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.

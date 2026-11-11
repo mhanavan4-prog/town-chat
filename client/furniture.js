@@ -196,6 +196,9 @@ function makeThrone(x, z, rotY) {
 }
 
 function makeRug(x, z, w, d, color) {
+  // A knotted rug, dyed: laid thin so the circles painted on the floor still lie over it.
+  const real = hallModel('furn_wrug', 102.6, 'fit', x, 0.05, z, 0, color);
+  if (real) { real.scale.set(w / 100, 0.4, d / 100); return real; }
   const rug = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ color }));
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(x, 0.3, z);
@@ -203,9 +206,11 @@ function makeRug(x, z, w, d, color) {
 }
 
 function makeBarCounter(x, z1, z2) {
-  const g = new THREE.Group();
   const len = Math.abs(z2 - z1);
   const midZ = (z1 + z2) / 2;
+  const real = hallModel('furn_bar', len + 6, 'fit', x, 0, midZ, Math.PI / 2);
+  if (real) return real;
+  const g = new THREE.Group();
   const counter = new THREE.Mesh(new THREE.BoxGeometry(20, 34, len), new THREE.MeshLambertMaterial({ color: 0x5a3d24 }));
   counter.position.set(x, 17, midZ);
   g.add(counter);
@@ -348,6 +353,14 @@ function makeArcadeCabinet(x, z, rotY, screenColor) {
   // Enchanted arcane machine — rune-etched night-blue body, crystal crown
   // where the wooden marquee used to be. Same footprint, same screen, same
   // kiosk interaction; only the dressing changed with the room.
+  const cab = hallModel('furn_arcade', 81, 'height', 0, 0, 0, 0);
+  if (cab) {
+    const lit = new THREE.Mesh(new THREE.PlaneGeometry(20, 18), new THREE.MeshBasicMaterial({ color: screenColor }));
+    lit.position.set(0, 44, 13.1); cab.add(lit);
+    const shine = new THREE.PointLight(screenColor, 0.6, 60); shine.position.set(0, 44, 18); cab.add(shine);
+    cab.position.set(x, 0, z); cab.rotation.y = rotY || 0;
+    return cab;
+  }
   const g = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(30, 64, 26),
@@ -473,10 +486,14 @@ function makeGlowGlyphMesh(glyph, size, halo, ink) {
 function makeDisplayPedestal(scene, x, z, opts) {
   const o = opts || {};
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 26, 10), new THREE.MeshLambertMaterial({ color: o.stone != null ? o.stone : 0x243761 }));
-  base.position.y = 13; g.add(base);
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 2.5, 10), new THREE.MeshLambertMaterial({ color: o.cap != null ? o.cap : 0x2f4a7f }));
-  cap.position.y = 27; g.add(cap);
+  const stone = hallModel('furn_pedestal', 28.5, 'height', 0, 0, 0, 0, o.cap != null ? o.cap : 0x2f4a7f);
+  if (stone) g.add(stone);
+  else {
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 26, 10), new THREE.MeshLambertMaterial({ color: o.stone != null ? o.stone : 0x243761 }));
+    base.position.y = 13; g.add(base);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 2.5, 10), new THREE.MeshLambertMaterial({ color: o.cap != null ? o.cap : 0x2f4a7f }));
+    cap.position.y = 27; g.add(cap);
+  }
   const dome = new THREE.Mesh(new THREE.SphereGeometry(13, 12, 10), new THREE.MeshLambertMaterial({ color: o.dome != null ? o.dome : 0xbfe2ff, transparent: true, opacity: 0.22 }));
   dome.position.y = 40; g.add(dome);
   const light = new THREE.PointLight(o.light != null ? o.light : 0x66aaff, 0.5, 90);
@@ -484,6 +501,20 @@ function makeDisplayPedestal(scene, x, z, opts) {
   g.position.set(x, o.baseY || 0, z);
   scene.add(g);
   return g;
+}
+
+// The thing a pedestal shows, as its model: set on the cap (28.5 up), or null
+// until it has streamed in, when the hand-built relic is put there instead.
+function relicModel(p, key, size, mode, y, dye, rotY) {
+  const r = hallModel(key, size, mode, 0, y == null ? 28.5 : y, 0, rotY || 0, dye);
+  if (r) p.add(r);
+  return r;
+}
+// A small flame for a model that has a wick or a cage for one.
+function relicFlame(p, y, r, color) {
+  const f = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), new THREE.MeshBasicMaterial({ color }));
+  f.scale.y = 1.6; f.position.y = y; p.add(f);
+  return f;
 }
 
 function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
@@ -555,12 +586,16 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // A bubbling cauldron beside the bar (decor only — Joss still runs the shop)
     const cauldron = new THREE.Group();
     const potMat = new THREE.MeshLambertMaterial({ color: 0x14100e });
-    const pot = new THREE.Mesh(new THREE.SphereGeometry(16, 12, 10), potMat);
-    pot.scale.y = 0.78; pot.position.y = 15;
-    cauldron.add(pot);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(13.5, 2.2, 8, 16), potMat);
-    rim.rotation.x = Math.PI / 2; rim.position.y = 26;
-    cauldron.add(rim);
+    const ironPot = kkFurn('wprop_cauldron', 38, 'fit', 0, 0, 0);
+    if (ironPot) cauldron.add(ironPot);
+    else {
+      const pot = new THREE.Mesh(new THREE.SphereGeometry(16, 12, 10), potMat);
+      pot.scale.y = 0.78; pot.position.y = 15;
+      cauldron.add(pot);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(13.5, 2.2, 8, 16), potMat);
+      rim.rotation.x = Math.PI / 2; rim.position.y = 26;
+      cauldron.add(rim);
+    }
     const brew = new THREE.Mesh(new THREE.CircleGeometry(12.5, 16),
       new THREE.MeshBasicMaterial({ color: 0x6fe86a }));
     brew.rotation.x = -Math.PI / 2; brew.position.y = 25;
@@ -584,6 +619,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     const herbMat = new THREE.MeshLambertMaterial({ color: 0x4a6a2a });
     const twineMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3a });
     for (const [hx, hz] of [[roomW * 0.35, roomD / 4], [roomW * 0.62, roomD / 4], [roomW * 0.45, roomD / 2], [roomW * 0.7, (roomD / 4) * 3]]) {
+      const dried = hallModel('furn_herbs', 46, 'height', hx, INDOOR_WALL_HEIGHT - 46, hz, hx * 0.7);
+      if (dried) { scene.add(dried); continue; }
       const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 24, 4), twineMat);
       tie.position.set(hx, INDOOR_WALL_HEIGHT - 12, hz);
       scene.add(tie);
@@ -595,6 +632,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // Pumpkins stacked in the far corner
     const pumpMat = new THREE.MeshLambertMaterial({ color: 0xd87a2a });
     for (const [px, pz, pr] of [[roomW - 30, roomD - 40, 9], [roomW - 46, roomD - 30, 6.5], [roomW - 30, roomD - 58, 5]]) {
+      const grown = hallModel('furn_pumpkin', pr * 2.1, 'fit', px, 0, pz, px + pr);
+      if (grown) { scene.add(grown); continue; }
       const p = new THREE.Mesh(new THREE.SphereGeometry(pr, 10, 8), pumpMat);
       p.scale.y = 0.8; p.position.set(px, pr * 0.8, pz);
       scene.add(p);
@@ -773,13 +812,17 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // Books that never learned to sit still
     [0x6a3a8a, 0x2a5a7a, 0x8a2a3a, 0x3a6a4a].forEach((col, i) => {
       const book = new THREE.Group();
-      const cover = new THREE.Mesh(new THREE.BoxGeometry(13, 2.6, 9),
-        new THREE.MeshLambertMaterial({ color: col }));
-      book.add(cover);
-      const pages = new THREE.Mesh(new THREE.BoxGeometry(11.4, 1.6, 7.6),
-        new THREE.MeshLambertMaterial({ color: 0xe8e0c8 }));
-      pages.position.y = 0.4;
-      book.add(pages);
+      const bound = hallModel('cave_book', 13, 'height', 0, 0, 0, 0, col);
+      if (bound) { bound.rotation.x = Math.PI / 2; bound.position.set(0, 0, -6.5); book.add(bound); }
+      else {
+        const cover = new THREE.Mesh(new THREE.BoxGeometry(13, 2.6, 9),
+          new THREE.MeshLambertMaterial({ color: col }));
+        book.add(cover);
+        const pages = new THREE.Mesh(new THREE.BoxGeometry(11.4, 1.6, 7.6),
+          new THREE.MeshLambertMaterial({ color: 0xe8e0c8 }));
+        pages.position.y = 0.4;
+        book.add(pages);
+      }
       book.position.set([cx - 60, cx + 55, cx - 20, cx + 90][i],
         62 + (i % 3) * 16, [cz - 55, cz - 70, cz + 60, cz + 40][i]);
       book.rotation.set(0.15 * (i - 1.5), i * 1.3, 0.1 * (i % 2 ? 1 : -1));
@@ -790,9 +833,9 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       new THREE.MeshLambertMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.55, emissive: 0x4a3a8a, emissiveIntensity: 0.5 }));
     orbGlass.position.set(cx, 40, cz - 10);
     scene.add(orbGlass);
-    const orbBase = new THREE.Mesh(new THREE.CylinderGeometry(5, 7, 4, 8),
+    const orbBase = hallModel('furn_orbstand', 16, 'fit', cx, 29, cz - 10, 0) || new THREE.Mesh(new THREE.CylinderGeometry(5, 7, 4, 8),
       new THREE.MeshLambertMaterial({ color: 0x3a2a1a }));
-    orbBase.position.set(cx, 31, cz - 10);
+    if (orbBase.isMesh) orbBase.position.set(cx, 31, cz - 10);
     scene.add(orbBase);
     const orbLight = new THREE.PointLight(0xb98aff, 0.8, 140);
     orbLight.position.set(cx, 46, cz - 10);
@@ -834,17 +877,20 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // and read it; a new volume surfaces each day. (Emissive glow, no extra
       // point light, so it stays cheap on mobile.)
       const shelfX = cx, shelfZ = roomD - 70;
-      const lectern = new THREE.Group();
-      const column = new THREE.Mesh(new THREE.CylinderGeometry(7, 10, 46, 8),
-        new THREE.MeshLambertMaterial({ color: 0x2a2140 }));
-      column.position.y = 23; lectern.add(column);
-      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(34, 4, 24),
-        new THREE.MeshLambertMaterial({ color: 0x3a2d55 }));
-      deskTop.position.y = 48; deskTop.rotation.x = -0.5; lectern.add(deskTop);
-      const tome = new THREE.Mesh(new THREE.BoxGeometry(26, 3, 18),
-        new THREE.MeshLambertMaterial({ color: 0x1a1230, emissive: 0x7a4acc, emissiveIntensity: 0.55 }));
-      tome.position.set(0, 52, 1); tome.rotation.x = -0.5; lectern.add(tome);
-      lectern.position.set(shelfX, 0, shelfZ);
+      let lectern = hallModel('furn_lectern', 64, 'height', shelfX, 0, shelfZ, Math.PI);
+      if (!lectern) {
+        lectern = new THREE.Group();
+        const column = new THREE.Mesh(new THREE.CylinderGeometry(7, 10, 46, 8),
+          new THREE.MeshLambertMaterial({ color: 0x2a2140 }));
+        column.position.y = 23; lectern.add(column);
+        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(34, 4, 24),
+          new THREE.MeshLambertMaterial({ color: 0x3a2d55 }));
+        deskTop.position.y = 48; deskTop.rotation.x = -0.5; lectern.add(deskTop);
+        const tome = new THREE.Mesh(new THREE.BoxGeometry(26, 3, 18),
+          new THREE.MeshLambertMaterial({ color: 0x1a1230, emissive: 0x7a4acc, emissiveIntensity: 0.55 }));
+        tome.position.set(0, 52, 1); tome.rotation.x = -0.5; lectern.add(tome);
+        lectern.position.set(shelfX, 0, shelfZ);
+      }
       scene.add(lectern);
       const shelfLabel = makeNpcNameSprite('📖 The Forbidden Shelf', 'a new volume each day');
       shelfLabel.position.set(shelfX, 86, shelfZ);
@@ -854,8 +900,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // ── The Real Shelf — a plain oak bookcase beside the forbidden lectern,
       // holding real books of witchcraft and herb-lore (data/realBooks.js).
       const realX = shelfX + 120, realZ = roomD - 40;
-      const caseG = new THREE.Group();
+      const oakCase = hallModel('furn_bookcase', 84, 'height', realX, 0, realZ, 0);
+      const caseG = oakCase || new THREE.Group();
       const oak = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
+      if (!oakCase) {
       const back = new THREE.Mesh(new THREE.BoxGeometry(70, 80, 6), oak); back.position.set(0, 40, -9); caseG.add(back);
       for (const sx of [-34, 34]) { const side = new THREE.Mesh(new THREE.BoxGeometry(4, 80, 22), oak); side.position.set(sx, 40, 0); caseG.add(side); }
       const SPINES = [0x7a2e2e, 0x2e4a7a, 0x3d6b3a, 0x7a6a2e, 0x4a2e6b, 0x6b3d2a, 0x2e6b66];
@@ -866,6 +914,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
           const book = new THREE.Mesh(new THREE.BoxGeometry(6, h, 14), new THREE.MeshLambertMaterial({ color: SPINES[(i + row * 3) % SPINES.length] }));
           book.position.set(-26 + i * 7.4, 9.5 + row * 24 + h / 2, 0); caseG.add(book);
         }
+      }
       }
       caseG.position.set(realX, 0, realZ);
       scene.add(caseG);
@@ -1017,10 +1066,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // cold light, a few sparks hanging over the brew.
     (function() {
       const g = new THREE.Group();
-      const pot = new THREE.Mesh(new THREE.CylinderGeometry(13, 9, 16, 10), new THREE.MeshLambertMaterial({ color: 0x1c1c28 }));
-      pot.position.y = 10; g.add(pot);
-      const brew = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 2, 10), new THREE.MeshBasicMaterial({ color: 0x4fd8ff }));
-      brew.position.y = 18; g.add(brew);
+      const ironPot = kkFurn('wprop_cauldron', 32, 'fit', 0, 0, 0);
+      if (ironPot) g.add(ironPot);
+      else {
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(13, 9, 16, 10), new THREE.MeshLambertMaterial({ color: 0x1c1c28 }));
+        pot.position.y = 10; g.add(pot);
+      }
+      const brew = new THREE.Mesh(new THREE.CylinderGeometry(ironPot ? 10 : 11, ironPot ? 10 : 11, 2, 12), new THREE.MeshBasicMaterial({ color: 0x4fd8ff }));
+      brew.position.y = ironPot ? 20.5 : 18; g.add(brew);
       const sparkMat = new THREE.MeshBasicMaterial({ color: 0xbfe9ff });
       for (const [sx, sy, sz] of [[-6, 30, 4], [7, 38, -3], [-2, 46, -6]]) {
         const spark = new THREE.Mesh(new THREE.OctahedronGeometry(1.7, 0), sparkMat);
@@ -1173,6 +1226,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // Scrying orb
       (function() {
         const p = makeDisplayPedestal(scene, 90, 120);
+        relicModel(p, 'furn_orbstand', 16, 'fit');
         const orb = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 12), new THREE.MeshLambertMaterial({ color: 0x66ccff, emissive: 0x2f7fff, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 }));
         orb.position.y = 38; p.add(orb);
         const core = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0xd8f2ff }));
@@ -1186,7 +1240,9 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         const p = makeDisplayPedestal(scene, roomW - 90, 120);
         const coverMat = new THREE.MeshLambertMaterial({ color: 0x1a2f5e, emissive: 0x0a1830, emissiveIntensity: 0.5 });
         const pageMat = new THREE.MeshLambertMaterial({ color: 0xe8f0ff, emissive: 0x3355aa, emissiveIntensity: 0.25 });
-        for (const s of [-1, 1]) {
+        const openBook = relicModel(p, 'alt_grimoire', 19, 'fit', 34, 0x9ab4ff);
+        if (openBook) openBook.rotation.x = 0.25;
+        for (const s of openBook ? [] : [-1, 1]) {
           const cover = new THREE.Mesh(new THREE.BoxGeometry(9, 1.4, 12), coverMat);
           cover.position.set(s * 4.4, 37, 0);
           cover.rotation.z = -s * 0.28;
@@ -1203,12 +1259,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // Starforged blade — upright, point down
       (function() {
         const p = makeDisplayPedestal(scene, 90, 356);
+        if (!relicModel(p, 'furn_rblade', 30, 'height')) {
         const blade = new THREE.Mesh(new THREE.BoxGeometry(2.2, 24, 5), new THREE.MeshLambertMaterial({ color: 0xdfeaff, emissive: 0x6f9fe8, emissiveIntensity: 0.5 }));
         blade.position.y = 44; blade.rotation.z = 0.12; p.add(blade);
         const guard = new THREE.Mesh(new THREE.BoxGeometry(9, 2, 3), new THREE.MeshLambertMaterial({ color: 0x2f4a7f }));
         guard.position.set(-0.7, 53.5, 0); guard.rotation.z = 0.12; p.add(guard);
         const pommel = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x1d5ecc, emissiveIntensity: 0.9 }));
         pommel.position.set(-1.4, 58.5, 0); p.add(pommel);
+        }
         const sign = makeSignSprite('🗡️ Starforged Blade');
         sign.position.set(90, 78, 356); scene.add(sign);
         if (kiosksOut) kiosksOut.push({ x: 90, z: 356, npc: 'relic', relicId: 'starforged_blade', npcName: '🗡️ Starforged Blade' });
@@ -1216,6 +1274,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // Moon relic — a silver crescent with two trailing motes
       (function() {
         const p = makeDisplayPedestal(scene, roomW - 90, 356);
+        if (!relicModel(p, 'furn_rmoon', 23, 'height')) {
         const moonMat = new THREE.MeshLambertMaterial({ color: 0xe4e9ff, emissive: 0x6a74c8, emissiveIntensity: 0.55 });
         const body = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), moonMat);
         body.position.y = 40; p.add(body);
@@ -1225,6 +1284,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         m1.position.set(-7, 46, 0); p.add(m1);
         const m2 = new THREE.Mesh(new THREE.SphereGeometry(0.9, 6, 6), moonMat);
         m2.position.set(-4, 50, 2); p.add(m2);
+        }
         const sign = makeSignSprite('🌙 Moon Relic');
         sign.position.set(roomW - 90, 78, 356); scene.add(sign);
         if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 356, npc: 'relic', relicId: 'moon_relic', npcName: '🌙 Moon Relic' });
@@ -1477,11 +1537,18 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // The hearth, now burning witchfire — same footprint as the old
     // fireplace, green flame, cold green light, embers drifting up.
     (function() {
-      const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(50, 60, 18), new THREE.MeshLambertMaterial({ color: 0x2e4438 }));
-      body.position.y = 30; g.add(body);
-      const hole = new THREE.Mesh(new THREE.BoxGeometry(30, 34, 10), new THREE.MeshBasicMaterial({ color: 0x49ff9e }));
-      hole.position.set(0, 20, 2); g.add(hole);
+      // The same stone hearth as the café's, gone cold and green.
+      const stones = hallModel('furn_hearth', 62, 'fit', 0, 0, 0, 0, 0xa8dcc0);
+      const g = stones || new THREE.Group();
+      if (stones) {
+        const witchfire = new THREE.Mesh(new THREE.ConeGeometry(6, 16, 8), new THREE.MeshBasicMaterial({ color: 0x49ff9e, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+        witchfire.position.set(0, 10, 0); witchfire.onBeforeRender = () => { witchfire.scale.y = 0.85 + Math.sin(performance.now() * 0.005) * 0.18; }; g.add(witchfire);
+      } else {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(50, 60, 18), new THREE.MeshLambertMaterial({ color: 0x2e4438 }));
+        body.position.y = 30; g.add(body);
+        const hole = new THREE.Mesh(new THREE.BoxGeometry(30, 34, 10), new THREE.MeshBasicMaterial({ color: 0x49ff9e }));
+        hole.position.set(0, 20, 2); g.add(hole);
+      }
       const emberMat = new THREE.MeshBasicMaterial({ color: 0xb8ffd8 });
       for (const [ex, ey, ez, er] of [[-8, 66, 6, 1.8], [5, 74, 4, 1.3], [0, 82, 6, 0.9]]) {
         const ember = new THREE.Mesh(new THREE.SphereGeometry(er, 6, 6), emberMat);
@@ -1539,16 +1606,19 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // ── The Midnight Vigil (roadmap #6) — a single black candle on the séance
     // circle's centre is the interact point: sit the vigil after dark and the
     // night's restless portrait speaks. (Emissive flame, no extra point light.)
-    const vigil = new THREE.Group();
-    const vCandle = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.6, 22, 8),
-      new THREE.MeshLambertMaterial({ color: 0x14130f }));
-    vCandle.position.y = 11; vigil.add(vCandle);
-    const vFlame = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
-    vFlame.scale.y = 1.7; vFlame.position.y = 25; vigil.add(vFlame);
-    const vDish = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 2.2, 10),
-      new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
-    vDish.position.y = 1.1; vigil.add(vDish);
+    const vigil = hallModel('furn_vigil', 24, 'height', 0, 0, 0, 0) || new THREE.Group();
+    if (vigil.children.length) relicFlame(vigil, 26.5, 2.2, 0x8fffbe);
+    else {
+      const vCandle = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.6, 22, 8),
+        new THREE.MeshLambertMaterial({ color: 0x14130f }));
+      vCandle.position.y = 11; vigil.add(vCandle);
+      const vFlame = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
+      vFlame.scale.y = 1.7; vFlame.position.y = 25; vigil.add(vFlame);
+      const vDish = new THREE.Mesh(new THREE.CylinderGeometry(7, 8, 2.2, 10),
+        new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+      vDish.position.y = 1.1; vigil.add(vDish);
+    }
     vigil.position.set(hallCx, 0, hallCz);
     scene.add(vigil);
     const vigilLabel = makeNpcNameSprite('🌙 The Midnight Vigil', 'the spirits stir after dark');
@@ -1601,6 +1671,8 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const lx = roomW * 0.30, lz = roomD * 0.30;
       const p = makeDisplayPedestal(scene, lx, lz, PARLOR_PED);
       const iron = new THREE.MeshLambertMaterial({ color: 0x1a2420 });
+      if (relicModel(p, 'furn_rlantern', 22, 'height')) relicFlame(p, 38.5, 2.3, 0x6fffb0);
+      else {
       const bot = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 1.6, 8), iron);
       bot.position.y = 33; p.add(bot);
       const top = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 6, 1.6, 8), iron);
@@ -1612,6 +1684,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       }
       const flame = new THREE.Mesh(new THREE.SphereGeometry(3.4, 8, 8), new THREE.MeshBasicMaterial({ color: 0x6fffb0 }));
       flame.scale.y = 1.5; flame.position.y = 40.5; p.add(flame);
+      }
       const sign = makeSignSprite('🕯️ Phantom Lantern');
       sign.position.set(lx, 74, lz); scene.add(sign);
       if (kiosksOut) kiosksOut.push({ x: lx, z: lz, npc: 'relic', relicId: 'phantom_lantern', npcName: '🕯️ Phantom Lantern' });
@@ -1621,12 +1694,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const bx = roomW * 0.30, bz = roomD * 0.70;
       const p = makeDisplayPedestal(scene, bx, bz, PARLOR_PED);
       const bellMat = new THREE.MeshLambertMaterial({ color: 0xcfe8dc, emissive: 0x2e5a48, emissiveIntensity: 0.35 });
+      if (!relicModel(p, 'alt_bell', 16, 'height', 31, 0xcfe8dc)) {
       const bell = new THREE.Mesh(new THREE.ConeGeometry(6.5, 11, 10), bellMat);
       bell.position.y = 41; p.add(bell);
       const knob = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6), bellMat);
       knob.position.y = 47.5; p.add(knob);
       const clapper = new THREE.Mesh(new THREE.SphereGeometry(1.4, 6, 6), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
       clapper.position.set(1.2, 35, 0); p.add(clapper);
+      }
       const sign = makeSignSprite('🔔 Spirit Bell');
       sign.position.set(bx, 74, bz); scene.add(sign);
       if (kiosksOut) kiosksOut.push({ x: bx, z: bz, npc: 'relic', relicId: 'spirit_bell', npcName: '🔔 Spirit Bell' });
@@ -1637,8 +1712,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       const p = makeDisplayPedestal(scene, jx, jz, PARLOR_PED);
       const jar = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 13, 9), new THREE.MeshLambertMaterial({ color: 0x9fd8c0, transparent: true, opacity: 0.35 }));
       jar.position.y = 40; p.add(jar);
-      const lid = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 2, 9), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
-      lid.position.y = 47.5; p.add(lid);
+      if (!relicModel(p, 'furn_rjar', 17, 'height', 31.5)) {
+        const lid = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 2, 9), new THREE.MeshLambertMaterial({ color: 0x1a2420 }));
+        lid.position.y = 47.5; p.add(lid);
+      }
       const wisp = new THREE.Mesh(new THREE.SphereGeometry(2.6, 8, 8), new THREE.MeshBasicMaterial({ color: 0x8fffbe }));
       wisp.position.set(-1, 39, 0.5); p.add(wisp);
       const mote = new THREE.Mesh(new THREE.SphereGeometry(1.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xd8ffe8 }));
@@ -1651,12 +1728,14 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     (function() {
       const px = roomW * 0.70, pz = roomD * 0.70;
       const p = makeDisplayPedestal(scene, px, pz, PARLOR_PED);
+      if (!relicModel(p, 'furn_rplanchette', 22, 'fit', 28.5, null, 0.4)) {
       const board = new THREE.Mesh(new THREE.BoxGeometry(13, 1.8, 17), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
       board.position.y = 36; board.rotation.y = 0.5; p.add(board);
       const window_ = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 2.2, 10), new THREE.MeshLambertMaterial({ color: 0xbfffe0, transparent: true, opacity: 0.6 }));
       window_.position.set(0, 36.6, 2); window_.rotation.y = 0.5; p.add(window_);
       const tip = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.5, 6), new THREE.MeshLambertMaterial({ color: 0x2e4a3e }));
       tip.position.set(-2.6, 36.6, -7.2); tip.rotation.z = Math.PI / 2; tip.rotation.y = 0.5; p.add(tip);
+      }
       const sign = makeSignSprite('🔮 Séance Planchette');
       sign.position.set(px, 74, pz); scene.add(sign);
       if (kiosksOut) kiosksOut.push({ x: px, z: pz, npc: 'relic', relicId: 'seance_planchette', npcName: '🔮 Séance Planchette' });
@@ -1748,9 +1827,10 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     for (let i = 0; i < 13; i++) {
       const a = i * Math.PI * 2 / 13;
       const cxp = cx + Math.cos(a) * 128, czp = cz + 40 + Math.sin(a) * 128;
-      const candle = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 10 + (i % 3) * 3, 6),
+      const wax = hallModel('alt_candle', 11 + (i % 3) * 3, 'height', cxp, 0, czp, i * 1.9);
+      const candle = wax || new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 10 + (i % 3) * 3, 6),
         new THREE.MeshLambertMaterial({ color: 0xe8dcc8 }));
-      candle.position.set(cxp, 5 + (i % 3) * 1.5, czp);
+      if (!wax) candle.position.set(cxp, 5 + (i % 3) * 1.5, czp);
       scene.add(candle);
       if (i % 4 === 0) {
         const fl = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 6),
@@ -1945,10 +2025,13 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
     // ── Witchy dressing: the Gilded Vault ──
     // The Auditor — a raven on a marble perch, watching every transaction
-    const perch = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 42, 8),
+    const marble = hallModel('furn_perch', 42, 'height', roomW - 60, 0, roomD * 0.2, 0);
+    const perch = marble || new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 42, 8),
       new THREE.MeshLambertMaterial({ color: 0x8a8a92 }));
-    perch.position.set(roomW - 60, 21, roomD * 0.2);
+    if (!marble) perch.position.set(roomW - 60, 21, roomD * 0.2);
     scene.add(perch);
+    const auditor = hallModel('cr_gravewing_crow', 22, 'height', roomW - 60, 42, roomD * 0.2, -Math.PI / 4);
+    if (auditor) scene.add(auditor);
     const raven = new THREE.Group();
     const ravenMat = new THREE.MeshLambertMaterial({ color: 0x0c0c12 });
     const rBody = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 8), ravenMat);
@@ -1974,7 +2057,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     }
     raven.position.set(roomW - 60, 46, roomD * 0.2);
     raven.rotation.y = -Math.PI / 4;
-    scene.add(raven);
+    if (!auditor) scene.add(raven);
 
     // The treasure chamber above is just a recessed alcove (a peek from
     // outside) — this kiosk is what actually lets the player walk into a
