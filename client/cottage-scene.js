@@ -267,7 +267,7 @@ function setWards(w) {
   // door, and the bowl of cream on the hearthstone on a night it is set out.
   if (w.besom && kkStatic) {
     const broom = kkStatic('wd_besom', 96, 'height');
-    if (broom) { broom.name = 'besom'; broom.position.set(W / 2 - 62, 0, D - 16); broom.rotation.set(-0.16, 0.4, 0.1); wardGroup.add(broom); }
+    if (broom) { broom.name = 'besom'; broom.position.set(W / 2 - 78, 0, D - 40); broom.rotation.set(0.2, 0.4, 0.06); wardGroup.add(broom); }
   }
   if (w.cream && kkStatic) {
     const bowl = kkStatic('wd_cream', 18, 'fit');
