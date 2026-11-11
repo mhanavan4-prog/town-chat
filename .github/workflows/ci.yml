@@ -43,8 +43,17 @@ jobs:
       - name: Install Chromium + system deps (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      # The runner image already carries nearly everything Chromium needs; this
+      # tops it up from Ubuntu's mirrors. When those mirrors can't be reached
+      # (it happens), try twice, five minutes at most each, then carry on: if a library really is missing, the
+      # browser smoke test just below fails loudly, so nothing is hidden.
       - name: Install Chromium system deps (cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: |
+          for i in 1 2; do
+            timeout 300 npx playwright install-deps chromium && exit 0
+            echo "::warning::Ubuntu mirrors unreachable (try $i of 2)"; sleep 20
+          done
+          echo "::warning::Could not top up Chromium's system deps; going on with the runner image's own
       - name: Browser smoke test (boots client.js, catches load crashes)
         run: npm run test:smoke
