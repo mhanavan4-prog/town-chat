@@ -2922,7 +2922,7 @@ function onWsMessage(ev) {
     cottageHostName = msg.host || null;
     swapToCottageMap();
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
-    setCottageWards(msg.wards || null); // the daisy wheel over the door, the sealed hearthstone
+    setCottageWards(msg.wards ? { ...msg.wards, bedAt: lastCottageBedAt } : null); // the daisy wheel over the door, the sealed hearthstone
     if (Modals.isOpen('homeOpen')) closeHomeModal(); // get out of the way — show the room
     // The cottage wears the season — name the dressing on the way in.
     const _sk = (calendarState && calendarState.season && calendarState.season.key) || null;
@@ -2959,7 +2959,7 @@ function onWsMessage(ev) {
   if (msg.type === 'wards_error') { if (msg.message) setUnlockToast(`🛡️ ${msg.message}`); _wards.error(msg.message); return; }
   if (msg.type === 'cottage_layout') {
     renderCottageFurniture({ grid: msg.grid, pieces: msg.pieces, catalog: msg.catalog });
-    setCottageWards(msg.wards || null);
+    setCottageWards(msg.wards ? { ...msg.wards, bedAt: lastCottageBedAt } : null);
     return;
   }
   if (msg.type === 'cottage_showcase') {
@@ -11240,6 +11240,7 @@ let manorYourUnlocks = {};     // decoId -> true, which premium pieces I've unlo
 // editor and the 3D room.
 let cottageScene, cottageCamera;
 let lastCottageLayout = null;       // the most recent {grid,pieces,catalog} we rendered
+let lastCottageBedAt = null;        // where the bed stands, if one is placed (for the hag stone)
 const cottagePlacedProps = [];      // THREE objects we've placed, cleared on each refresh
 let cottageWalls = [];              // {x,y,w,h} collider rects for solid furniture (x,y in world x/z)
 // Furniture you can walk through: flat floor coverings and wall-mounted pieces.
@@ -13044,6 +13045,7 @@ function renderCottageFurniture(layout) {
     o.traverse && o.traverse((c) => { if (c.geometry) c.geometry.dispose && c.geometry.dispose(); if (c.material) { const m = c.material; if (m.map) m.map.dispose && m.map.dispose(); m.dispose && m.dispose(); } });
   }
   cottagePlacedProps.length = 0;
+  lastCottageBedAt = null;
   const newWalls = [];
   if (!st || !Array.isArray(st.pieces)) { cottageWalls = newWalls; if (activeScene === cottageScene) walls = cottageWalls; return; }
   const byId = {};
@@ -13079,6 +13081,8 @@ function renderCottageFurniture(layout) {
     }
     cottageScene.add(obj);
     cottagePlacedProps.push(obj);
+    // Where the bed stands, for a hag stone hung at its head (cottage-scene.js).
+    if (pc.id === 'bed') { obj.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(obj); lastCottageBedAt = { x: obj.position.x, z: obj.position.z, top: isFinite(bb.max.y) ? bb.max.y : 40, minZ: isFinite(bb.min.z) ? bb.min.z : obj.position.z }; }
     // Solid pieces get a collider matching their real rendered footprint, so you
     // bump into the bed and the hearth instead of walking through them. Rugs and
     // the wall charm stay walk-through (flat / wall-mounted).

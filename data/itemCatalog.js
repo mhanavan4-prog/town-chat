@@ -57,6 +57,8 @@ module.exports = {
   hemp_cord:      { name: 'Hemp Cord',      icon: '🧶', slot: null },
   cock_feathers:  { name: "Cock's Feathers", icon: '🪶', slot: null }, // a bundle — for a witch's ladder
   red_thread:     { name: 'Red Thread',     icon: '🧵', slot: null }, // a skein — to bind a rowan cross
+  found_horseshoe: { name: 'Found Horseshoe', icon: '🧲', slot: null }, // cast on the road: a found one is the one to nail up
+  hag_stone:      { name: 'Holed Stone',    icon: '🪨', slot: null }, // a pebble holed right through, naturally
   wind_cord_3:    { name: 'Wind Cord (three knots)', icon: '🪢', slot: null },
   wind_cord_2:    { name: 'Wind Cord (two knots)',   icon: '🪢', slot: null },
   wind_cord_1:    { name: 'Wind Cord (one knot)',    icon: '🪢', slot: null },

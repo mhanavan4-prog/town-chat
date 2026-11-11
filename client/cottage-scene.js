@@ -203,6 +203,41 @@ function setWards(w) {
     ladder.position.set(W - 46, 0, 46);
     wardGroup.add(ladder);
   }
+  if (w.horseshoe) {
+    // The found horseshoe: flat on the threshold just inside the door, over
+    // the door, or behind it, points up or down as it was nailed.
+    const shoe = makeCottageHorseshoe();
+    shoe.name = 'horseshoe';
+    shoe.userData.place = w.horseshoe; shoe.userData.up = w.horseshoeUp;
+    if (w.horseshoeUp === 'points_down') shoe.rotation.z = Math.PI;
+    if (w.horseshoe === 'threshold') {
+      shoe.rotation.x = -Math.PI / 2; shoe.position.set(W / 2 + 26, 1.2, D - 20);
+    } else if (w.horseshoe === 'behind') {
+      shoe.rotation.y = Math.PI; shoe.position.set(W / 2 + 82, 64, D - 8.2);
+    } else {
+      shoe.rotation.y = Math.PI; shoe.position.set(W / 2 + 40, WALL_H * 0.88, D - 8.2);
+    }
+    wardGroup.add(shoe);
+  }
+  if (w.hagstone) {
+    // The hag stone on a string: at the head of the bed if there is one (or the
+    // bed's corner of the room if not), else nailed on the inside of the door.
+    const hs = new THREE.Group();
+    hs.name = 'hagStone'; hs.userData.place = w.hagstone;
+    const stone = new THREE.Mesh(new THREE.TorusGeometry(2.6, 1.9, 8, 14), new THREE.MeshLambertMaterial({ color: 0x8c8a82 }));
+    stone.scale.set(1, 1.15, 0.7);
+    const string = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 12, 4), new THREE.MeshLambertMaterial({ color: 0x6e5a3e }));
+    string.position.y = 10;
+    hs.add(stone, string);
+    if (w.hagstone === 'bed') {
+      const b = w.bedAt;
+      if (b) hs.position.set(b.x, Math.max(48, (b.top || 40) + 14), (b.minZ != null ? b.minZ : b.z) + 4);
+      else hs.position.set(40, 60, 40);
+    } else {
+      hs.rotation.y = Math.PI; hs.position.set(W / 2 - 84, 70, D - 9);
+    }
+    wardGroup.add(hs);
+  }
   if (w.rowan) {
     // The rowan cross over the door, on the inside of the lintel beside the
     // daisy wheel: two peeled twigs, bound with red thread the Scots way, or
@@ -250,6 +285,20 @@ function setWards(w) {
 // bundle of straws tied below the ears, hung ears-down from a cord; the Maiden
 // is dressed (here, with a red ribbon). The kern baby is a small figure of the sheaf,
 // "crowned with wheat-ears and dressed up in gay finery" (Henderson), standing.
+// A horseshoe, points up: half a ring of iron with the two heels run down.
+function makeCottageHorseshoe() {
+  const g = new THREE.Group();
+  const iron = new THREE.MeshLambertMaterial({ color: 0x4a4744 });
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(5, 1.1, 6, 16, Math.PI), iron);
+  arc.rotation.z = Math.PI; // the round toe at the bottom, the heels up
+  g.add(arc);
+  for (const side of [-1, 1]) {
+    const heel = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 4, 6), iron);
+    heel.position.set(side * 5, 2, 0); g.add(heel);
+  }
+  return g;
+}
+
 function makeLastSheaf(form) {
   const g = new THREE.Group();
   g.name = 'lastSheaf';

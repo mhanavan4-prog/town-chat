@@ -103,6 +103,26 @@ const WARDS = {
     tier: 'record',
     source: "Pitt Rivers Museum 1911.32.7 · A. Colles, \"A Witches' Ladder\", The Folk-Lore Journal 5 (1887) · E. B. Tylor, International Folk-Lore Congress, Papers and Transactions (1892)",
   },
+  // Iron at the door, and it must be a shoe you found.
+  horseshoe: {
+    name: 'Horseshoe',
+    icon: '🧲',
+    where: 'at the door',
+    blurb: 'A horseshoe you found, nailed on the threshold, over the door or behind it. Bought ones won\'t do.',
+    lore: "\"It is a thing very common to nail horse-shoes on the thresholds of doors: which is to hinder the power of witches that enter into the house. Most houses of the West end of London, have the horse-shoe on the threshold. It should be a horse-shoe that one finds\" (Aubrey, 1696). Gay's old woman of 1727 has \"The horse-shoe's nail'd (each threshold's guard)\". On the Isle of Man, where iron \"was the only one invested with magical power\" of the metals, \"a horse-shoe is hung up over the entrance door of a house, a stable, or a cow-house\" (Moore, 1891); in the west of Scotland a found shoe was hung \"behind the house door\", for luck and against witchcraft and the evil eye (Napier, 1879). Which way up, these writers do not say.",
+    tier: 'folk',
+    source: "J. Aubrey, Miscellanies (1696), \"Magick\" · J. Gay, Fables (1727), XXIII, \"The Old Woman and her Cats\" · J. Napier, Folk Lore, or Superstitious Beliefs in the West of Scotland (1879), ch. X · A. W. Moore, The Folk-Lore of the Isle of Man (1891), pp. 152–3",
+  },
+  // A stone with a natural hole, against the night-hag.
+  hagstone: {
+    name: 'Hag Stone',
+    icon: '🪨',
+    where: 'at the bed head, or on the door',
+    blurb: 'A stone holed right through by nature, hung at the head of your bed or nailed to the door, to keep the night-hag off. One you bore yourself won\'t do.',
+    lore: "\"To hinder the night mare, they hang in a string, a flint with a hole in it (naturally) by the manger\": \"to prevent the nightmare, viz. the hag, from riding their horses, who will sometimes sweat all night\" (Aubrey, 1696). In the north, \"Self-bored stones are considered charms against witchcraft, and they keep away nightmare both from man and beast. They are therefore suspended at the head of the bed as well as in stables\" (Henderson, 1879). At Rushmore, near Salisbury, about 1880, General Pitt Rivers took one \"found fixed on a nail to the cottage-door\" of his carter, Kimber, \"to keep away witches\"; it is in the Pitt Rivers Museum. Every one of them was holed by nature.",
+    tier: 'folk',
+    source: "J. Aubrey, Miscellanies (1696), \"Magick\" · W. Henderson, Notes on the Folk-Lore of the Northern Counties of England and the Borders (1879), p. 166 n. · Pitt Rivers Museum, the Dorset hag stone (Rushmore, 1880–81), its card catalogue as the museum gives it",
+  },
   // Two twigs of rowan made into a cross and set over the door: the Scots way
   // bound with red thread and never knotted, the Manx way made without a knife.
   rowan: {
@@ -215,6 +235,32 @@ function satorProblem(rows) {
   return null;
 }
 
+// The horseshoe: where it goes (each where a writer put it), which way up
+// (either: the writers don't say), and it must be one you found.
+const HORSESHOE_PLACES = {
+  threshold: { label: 'On the threshold', note: 'Aubrey; Gay' },
+  over: { label: 'Over the door', note: 'Moore, on Man' },
+  behind: { label: 'Behind the door', note: 'Napier, the west of Scotland' },
+};
+function horseshoeProblem(m) {
+  if (!m || !HORSESHOE_PLACES[m.place]) return 'Where will it go: on the threshold, over the door, or behind it?';
+  if (m.up !== 'points_up' && m.up !== 'points_down') return 'Which way up? Either will do; choose.';
+  return null;
+}
+const HORSESHOE_FIND_CHANCE = 1 / 30; // a cast shoe on the road, now and then, while you gather
+// The hag stone: holed by nature, and hung at the bed head or on the door.
+const HAGSTONE_PLACES = {
+  bed: { label: 'At the head of your bed', note: 'Henderson' },
+  door: { label: 'Nailed to the door', note: 'the Rushmore stone' },
+};
+function hagstoneProblem(m) {
+  if (!m || (m.stone !== 'natural' && m.stone !== 'bored')) return 'Which stone?';
+  if (m.stone === 'bored') return 'Not one you bored yourself: Aubrey\'s flint has its hole "naturally", Henderson\'s are "self-bored". Only a stone holed by nature will do.';
+  if (!HAGSTONE_PLACES[m.place]) return 'Where will it hang: at the head of your bed, or on the door?';
+  return null;
+}
+const HAGSTONE_FIND_CHANCE = 1 / 5; // at the foot of a crotal stone in the Wilds
+
 // The rowan cross, two ways, each with the one rule its record gives.
 const ROWAN_WAYS = {
   scots: {
@@ -294,4 +340,4 @@ const BOTTLE_TURN_GRACE_MS = 10000; // once a curse is turned, the house holds f
 // trap) can lay on another. Self-buffs are never touched.
 const TURNABLE_CURSES = ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'bloodcurse', 'reversed', 'rooted'];
 
-module.exports = { ROWAN_WAYS, rowanProblem, BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem, WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
+module.exports = { HORSESHOE_PLACES, horseshoeProblem, HORSESHOE_FIND_CHANCE, HAGSTONE_PLACES, hagstoneProblem, HAGSTONE_FIND_CHANCE, ROWAN_WAYS, rowanProblem, BOTTLE_FILLINGS, BOTTLE_PLACES, BOTTLE_PINS, bottleProblem, WARDS, BURN_ANGLE, BURN_HOLD, burnProblem, MARIAN_TOPS, MARIAN_BOTTOMS, marianProblem, PENTANGLE_POINTS, pentangleProblem, PENTANGLE_VITALITY, SATOR_WORDS, satorProblem, WITCH_BOTTLE_PARTS, BOTTLE_CHARGES, BOTTLE_CHARGES_HEARTH, WARD_GUARD, WARD_GUARD_HEARTH, BOTTLE_TURN_GRACE_MS, TURNABLE_CURSES, LADDER_FORAGE, LADDER_FORAGE_HEARTH, LADDER_PARTS };
