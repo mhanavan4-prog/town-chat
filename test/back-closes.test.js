@@ -23,5 +23,6 @@ const main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8');
 check('on a phone the chat sheet (and the Log in it) closes on the back gesture too; on a desktop the chat is not a panel', sel.includes('#chatPanel') && /BACK_TOUCH_ONLY = new Set\(\['chatPanel'\]\)/.test(src) && /BACK_TOUCH_ONLY\.has\(el\.id\) && !document\.body\.classList\.contains\('touchMode'\)/.test(src) && /chatPanel: \(\) => toggleMobileChat\(false\)/.test(main));
 check('…as do the menu on a player and the spy glass', sel.includes('#playerContextMenu') && sel.includes('#spyGlassPanel') && /if \(backClosers\[top\.id\]\) \{ backClosers\[top\.id\]\(\); return; \}/.test(src));
 check('a struck creature flashes alone: it takes its own copy of the shared material, and keeps its own glow after', /if \(!child\.userData\.ownMaterial\) \{ child\.material = child\.material\.clone\(\); child\.userData\.ownMaterial = true; \}/.test(main) && /child\.material\.emissive\.setHex\(child\.userData\.restEmissive\)/.test(main));
+check('a card never stands taller than the screen: a long text scrolls inside it', /:where\(\.overlay\) > \.card \{\s+max-height:calc\(100vh - 20px\); max-height:calc\(100dvh - 20px\);\s+overflow-y:auto; overscroll-behavior:contain;/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

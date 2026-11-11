@@ -79,6 +79,15 @@
     border:1px solid rgba(230,190,120,0.38);
     box-shadow:0 12px 44px rgba(0,0,0,0.55);
   }
+  /* A card never stands taller than the screen: one with a long text (the
+     memorial's names, a book's page) scrolls inside itself instead of running
+     off the top and bottom where nothing can reach it. :where() keeps this as
+     weak as .card itself, so a card with its own height or scrolling keeps it. */
+  :where(.overlay) > .card {
+    max-height:calc(100vh - 20px); max-height:calc(100dvh - 20px);
+    overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
+  }
 
   /* Story beat dialogue box — gothic/violet, prose set like story text. */
   #storyBeatCard {
