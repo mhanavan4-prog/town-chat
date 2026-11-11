@@ -24,6 +24,7 @@ import createCryptScene from './crypt-scene.js';
 import createManorScene from './manor-scene.js';
 import createCottageScene from './cottage-scene.js';
 import createWards from './wards.js';
+import { decorBatchable, batchDecorGroups, setDecorBatchHarvested } from './decor-batch.js';
 import createOgham from './ogham.js';
 import createMonas from './monas.js';
 import createKamea from './kamea.js';
@@ -14244,6 +14245,7 @@ let decorVisuals2 = {}; // Wilds (world2.natureDecor), same shape, separate pool
 let decorAvailability = {}; // decorId -> bool, from server's wildlife_state/decor_state — shared, ids are globally unique
 
 function applyDecorHarvestedLook(v, harvested) {
+  if (v.batch) { setDecorBatchHarvested(v, harvested); return; } // a batched plant (client/decor-batch.js)
   if (harvested) {
     v.group.scale.setScalar(0.42);
     for (const { mesh, material } of v.originalMaterials) {
@@ -14340,6 +14342,9 @@ function addNatureDecor(scene, w, pool, wallsOut) {
   // Wilds"). Explicit is better than ambient.
   const wallsTarget = wallsOut || walls;
   const onTerrain = (w === world2); // the Wilds rolls; the town stays flat
+  // The small harvestable decor is batched (client/decor-batch.js): gathered
+  // here, drawn as InstancedMeshes after the loop. ?batch=0 turns it off.
+  const toBatch = [];
   for (const d of (w.natureDecor || [])) {
     let group;
     if (d.type === 'tree') {
@@ -14363,7 +14368,8 @@ function addNatureDecor(scene, w, pool, wallsOut) {
       continue;
     }
     if (onTerrain && group) group.position.y += wildsHeightAt(d.x, d.y); // sit on the rolling moor
-    scene.add(group);
+    const batchIt = DECOR_BATCHING && HARVESTABLE_DECOR_TYPES.has(d.type) && decorBatchable(group);
+    if (!batchIt) scene.add(group);
     if (HARVESTABLE_DECOR_TYPES.has(d.type)) {
       const originalMaterials = [];
       group.traverse(child => { if (child.isMesh) originalMaterials.push({ mesh: child, material: child.material }); });
@@ -14374,10 +14380,17 @@ function addNatureDecor(scene, w, pool, wallsOut) {
       group.userData.decorId = d.id;
       group.userData.decorType = d.type;
       const v = pool[d.id] = { group, type: d.type, harvested: false, originalMaterials };
+      if (batchIt) { toBatch.push({ v, group, id: d.id }); continue; }
       if (decorAvailability[d.id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
     }
   }
+  if (toBatch.length) {
+    batchDecorGroups(scene, toBatch);
+    for (const { v, id } of toBatch) if (decorAvailability[id] === false) { v.harvested = true; applyDecorHarvestedLook(v, true); }
+  }
 }
+// Batch the small decor (client/decor-batch.js); ?batch=0 draws it one by one, to compare.
+const DECOR_BATCHING = !(typeof location !== 'undefined' && /[?&]batch=0\b/.test(location.search));
 
 // ── Creatures & animals — extracted to client/creatures.js (Phase C). Town
 // rabbits + Wilds critters + both server-driven visual pools. The pools stay
@@ -19982,6 +19995,36 @@ if (location.search.includes('testdrive=1')) {
     // What the frame costs, for the software-rendered playtests: meshes and
     // lights in the active scene, and the last frame's draw calls and triangles.
     sceneStats() { let meshes = 0, lights = 0; if (activeScene) activeScene.traverse((o) => { if (o.isMesh && o.visible) meshes++; if (o.isLight && o.visible) lights++; }); return { meshes, lights, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }; },
+    // What the draw calls go on: visible meshes grouped by shared geometry
+    // (a KayKit prop placed n times shares one geometry), most-repeated first.
+    // What the draw calls go on. Visible meshes grouped by what they'd share
+    // if batched: a loaded model's geometry, or a code-built shape's type,
+    // size and colour. `inView` counts those inside the camera's view now,
+    // which is roughly the frame's draw calls.
+    sceneBreakdown(top) {
+      const by = new Map(); let inst = 0, inView = 0, total = 0;
+      const cam = activeCamera; const fr = new THREE.Frustum();
+      if (cam) { cam.updateMatrixWorld(); fr.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); }
+      if (activeScene) activeScene.traverse((o) => {
+        if (!o.isMesh || !o.visible) return;
+        // A mesh whose material is invisible (a click box) is never drawn.
+        const m0 = Array.isArray(o.material) ? o.material[0] : o.material;
+        if (m0 && m0.visible === false) return;
+        let vis = true; for (let p = o.parent; p; p = p.parent) if (!p.visible) { vis = false; break; }
+        if (!vis) return;
+        total++;
+        if (cam && (o.frustumCulled === false || (o.geometry && (o.geometry.boundingSphere || o.geometry.computeBoundingSphere(), true) && fr.intersectsObject(o)))) inView++;
+        if (o.isInstancedMesh) { inst++; return; }
+        const g = o.geometry || {}; const m = Array.isArray(o.material) ? o.material[0] : o.material;
+        const col = m && m.color ? m.color.getHexString() : '';
+        const k = g.parameters ? g.type + JSON.stringify(g.parameters) + col + (m && m.map ? 'tex' : '') : (g.uuid || 'none');
+        const e = by.get(k) || { n: 0, geo: g.type || '', p: g.parameters ? JSON.stringify(g.parameters).slice(0, 60) : '', name: o.name || (o.parent && o.parent.name) || '', mat: (m && (m.name || m.type)) || '', col };
+        e.n++; by.set(k, e);
+      });
+      const rows = [...by.values()].sort((a, b) => b.n - a.n);
+      const coded = rows.filter((r) => r.p).reduce((a, r) => a + r.n, 0);
+      return { total, inView, distinct: rows.length, instanced: inst, codeBuilt: coded, top: rows.slice(0, top || 20) };
+    },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
