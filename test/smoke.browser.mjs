@@ -149,6 +149,41 @@ try {
       check(`[char 0] spellbook lists 12 spells`, rows === 12);
     }
 
+    // The back gesture closes the open menu, not the game (client/back-closes.js).
+    if (c.charId === 0) {
+      const url0 = page.url();
+      const back = () => page.evaluate(() => history.back());
+      const shown = (sel) => page.$eval(sel, (el) => !el.classList.contains('hidden'));
+      const guarded = () => page.evaluate(() => !!(history.state && history.state.thornreachMenu));
+      await page.evaluate(() => document.getElementById('journalBtn').click());
+      await page.waitForSelector('#journalModal:not(.hidden)', { timeout: 3000 });
+      await page.waitForFunction(() => !!(history.state && history.state.thornreachMenu), null, { timeout: 2000 }).catch(() => {});
+      await back();
+      await page.waitForSelector('#journalModal.hidden', { state: 'attached', timeout: 3000 }).catch(() => {});
+      check('[char 0] going back closes the open panel and stays in the game', !(await shown('#journalModal')) && page.url() === url0 && await shown('#hud'));
+      // A panel opened from the ☰ menu: back returns to the menu, back again closes it.
+      await page.evaluate(() => { document.getElementById('menuSheet').classList.remove('hidden'); });
+      await page.waitForFunction(() => !!(history.state && history.state.thornreachMenu), null, { timeout: 2000 }).catch(() => {});
+      await page.evaluate(() => document.getElementById('menuSettings').click());
+      await page.waitForSelector('#settingsModal:not(.hidden)', { timeout: 3000 });
+      await sleep(100);
+      await back();
+      await sleep(300);
+      check('[char 0] back from a panel opened from the menu goes back to the menu', !(await shown('#settingsModal')) && await shown('#menuSheet'));
+      await sleep(100);
+      await back();
+      await sleep(300);
+      check('[char 0] …and back again closes the menu, still in the game', !(await shown('#menuSheet')) && page.url() === url0 && await shown('#hud'));
+      // Closed with its own button: the extra history entry is taken back off.
+      await page.evaluate(() => document.getElementById('journalBtn').click());
+      await page.waitForSelector('#journalModal:not(.hidden)', { timeout: 3000 });
+      await sleep(100);
+      const wasGuarded = await guarded();
+      await page.evaluate(() => document.getElementById('journalCloseBtn').click());
+      await sleep(300);
+      check('[char 0] a menu closed by its own button leaves no extra back step behind', wasGuarded && !(await guarded()));
+    }
+
     const realErrors = errors.filter(e => !/THREE|WebGL|AudioContext/i.test(e));
     check(`[char ${c.charId}] no unexpected page errors (${realErrors.length})`, realErrors.length === 0);
     if (realErrors.length) console.log('   errors:', realErrors.slice(0, 3));
