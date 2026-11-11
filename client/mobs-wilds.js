@@ -6,7 +6,9 @@
 // injected via get/set; the Wilds scene + day/night flag are reassigned lets,
 // injected as getters.
 // ---------------------------------------------------------------------------
-export default function createMobsWilds({ MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, kkSetState, kkOneShot, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
+import { critterRigPose } from './critter-rig.js';
+
+export default function createMobsWilds({ hasKK, MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar, kkSetState, kkOneShot, getWildsScene, getLastWildlifeIsNight, getMobVisuals2, setMobVisuals2, getMobVisuals3, setMobVisuals3, getWildsHeightAt }) {
 // Ground height under a wilds mob so it rides the rolling terrain instead of a
 // flat y=0 plane (without this, hovering mobs sink beneath raised ground and
 // walkers float over valleys). v.x is world-x, v.y is world-z.
@@ -147,7 +149,7 @@ function getOrCreateMob3Visual(id, mobType) {
   if (!v) {
     const mesh = makeMob3(mobType);
     mesh.visible = false;
-    mesh.userData = { kind: 'mob3', targetId: id };
+    mesh.userData = { ...mesh.userData, kind: 'mob3', targetId: id };
     getWildsScene().add(mesh);
     v = getMobVisuals3()[id] = { mesh, mobType, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0, initialized: false, dead: false, provoked: false, attackAnimStartAt: null };
   }
@@ -174,11 +176,27 @@ function updateMob3Visuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const lungeFactor = mobAttackLungeAmount(v);
     const lungeDist = lungeFactor * MOB_ATTACK_LUNGE_DIST;
-    const hover = groundUnder(v.x, v.y) + (v.mobType === 'gravewing_crow' ? 4 : 0);
+    // A stand-in whose real model has since streamed in is swapped for it.
+    const standIn = v.mesh.userData.standInFor;
+    if (standIn && hasKK && hasKK('cr_' + standIn)) {
+      const real = makeMob3(v.mobType);
+      if (!real.userData.standInFor) {
+        real.userData = { ...v.mesh.userData, rig: real.userData.rig, standInFor: undefined };
+        getWildsScene().remove(v.mesh); getWildsScene().add(real); v.mesh = real;
+      }
+    }
+    const rig = v.mesh.userData.rig;
+    // The hand-built crow hovered a little; the real one stands on its feet.
+    const hover = groundUnder(v.x, v.y) + (v.mobType === 'gravewing_crow' && !rig ? 4 : 0);
     v.mesh.position.set(v.x + Math.sin(v.facing) * lungeDist, hover, v.y + Math.cos(v.facing) * lungeDist);
     v.mesh.rotation.y = v.facing;
     v.mesh.rotation.x = -0.5 * lungeFactor;
     v.mesh.visible = !v.dead;
+    if (rig) {
+      const speed = Math.hypot(v.targetX - v.x, v.targetY - v.y) / Math.max(dt, 1e-3);
+      v.gait = (v.gait || 0) + dt * Math.min(14, 2 + speed * 0.12);
+      critterRigPose(rig, v.gait, speed > 6 ? (v.provoked ? 2 : 1) : 0, performance.now() / 1000);
+    }
   }
 }
 

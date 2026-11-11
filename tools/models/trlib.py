@@ -7,7 +7,7 @@ through Blender's glTF exporter. Colours are given as sRGB hex and stored
 linear, so they come out of the game's linear pipeline the way a KayKit
 texture does.
 
-Run a model script with:  python3 tools/models/build_plants.py
+Build with:  sh tools/models/build.sh plants|critters [names...]
 """
 import math
 import numpy as np
@@ -55,7 +55,8 @@ def look_rot(direction, up=(0, 0, 1)):
 class Part:
     """A piece of mesh: verts (N,3), faces (list of tuples), t (N,) in 0..1 for the gradient."""
 
-    def __init__(self, v, f, t, colors, glow=False, smooth=True):
+    def __init__(self, v, f, t, colors, glow=False, smooth=True, node=None):
+        self.node = node
         self.v = np.asarray(v, float)
         self.f = [tuple(int(i) for i in face) for face in f]
         self.t = np.clip(np.asarray(t, float), 0, 1)
@@ -71,7 +72,7 @@ class Part:
         return self
 
     def copy(self):
-        return Part(self.v.copy(), list(self.f), self.t.copy(), self.colors, self.glow, self.smooth)
+        return Part(self.v.copy(), list(self.f), self.t.copy(), self.colors, self.glow, self.smooth, self.node)
 
     def vcolor(self):
         c = self.colors
@@ -258,15 +259,39 @@ def spoon(s):
 
 # ── a model: list of parts → Blender mesh → .glb ───────────────────────────
 class Model:
-    def __init__(self, name):
+    """Parts in model space. Parts added inside `with m.node(name, pivot):` become a
+    separate glTF node of that name, its origin at the pivot (a joint the game can
+    turn: a leg at the hip, a wing at the shoulder). forward_x: the model is
+    built facing +X and is turned on export to face the game's forward (+Z in
+    three.js, which is Blender's -Y)."""
+
+    def __init__(self, name, forward_x=False):
         self.name = name
         self.parts = []
+        self.pivots = {}
+        self._node = None
+        self.forward_x = forward_x
+
+    def node(self, name, pivot=(0, 0, 0)):
+        model = self
+
+        class _Ctx:
+            def __enter__(self):
+                model.pivots[name] = np.asarray(pivot, float)
+                model._node = name
+                return model
+
+            def __exit__(self, *a):
+                model._node = None
+        return _Ctx()
 
     def add(self, *parts):
         for p in parts:
             if isinstance(p, (list, tuple)):
                 self.add(*p)
             else:
+                if self._node is not None and p.node is None:
+                    p.node = self._node
                 self.parts.append(p)
         return self
 
@@ -276,32 +301,12 @@ class Model:
     def export(self, path, glow_color='#ffffff', glow_strength=0.55):
         import bpy
         bpy.ops.wm.read_factory_settings(use_empty=True)
-        objs = []
-        for glow in (False, True):
-            ps = [p for p in self.parts if p.glow == glow]
-            if not ps:
-                continue
-            V, F, C, S = [], [], [], []
-            off = 0
-            for p in ps:
-                V.append(p.v); C.append(p.vcolor())
-                F.extend(tuple(i + off for i in face) for face in p.f)
-                S.extend([p.smooth] * len(p.f))
-                off += len(p.v)
-            V = np.concatenate(V); C = np.concatenate(C)
-            me = bpy.data.meshes.new(self.name + ('_glow' if glow else ''))
-            me.from_pydata(V.tolist(), [], F)
-            me.update()
-            for poly, sm in zip(me.polygons, S):
-                poly.use_smooth = sm
-            ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
-            rgba = np.ones((len(V), 4)); rgba[:, :3] = C
-            ca.data.foreach_set('color', rgba.ravel())
-            me.color_attributes.active_color = ca
-            try:
-                me.set_sharp_from_angle(angle=math.radians(50))
-            except Exception:
-                pass
+        turn = rz(-math.pi / 2) if self.forward_x else np.eye(3)
+        mats = {}
+
+        def material(glow):
+            if glow in mats:
+                return mats[glow]
             mat = bpy.data.materials.new('Glow' if glow else 'Plant')
             mat.use_nodes = True
             mat.use_backface_culling = False
@@ -315,10 +320,50 @@ class Model:
                 gc = srgb_to_lin(hexrgb(glow_color)) * glow_strength
                 bsdf.inputs['Emission Color'].default_value = (gc[0], gc[1], gc[2], 1.0)
                 bsdf.inputs['Emission Strength'].default_value = 1.0
-            me.materials.append(mat)
-            ob = bpy.data.objects.new(me.name, me)
-            bpy.context.scene.collection.objects.link(ob)
-            objs.append(ob)
+            mats[glow] = mat
+            return mat
+
+        root = None
+        if self.pivots:
+            root = bpy.data.objects.new(self.name, None)
+            bpy.context.scene.collection.objects.link(root)
+        node_names = [None] + list(self.pivots)
+        objs = [root] if root else []
+        for nn in node_names:
+            pivot = self.pivots.get(nn, np.zeros(3))
+            for glow in (False, True):
+                ps = [p for p in self.parts if p.glow == glow and p.node == nn]
+                if not ps:
+                    continue
+                V, F, C, S = [], [], [], []
+                off = 0
+                for p in ps:
+                    V.append((p.v - pivot) @ turn.T); C.append(p.vcolor())
+                    F.extend(tuple(i + off for i in face) for face in p.f)
+                    S.extend([p.smooth] * len(p.f))
+                    off += len(p.v)
+                V = np.concatenate(V); C = np.concatenate(C)
+                oname = (nn or (self.name if not root else 'body')) + ('_glow' if glow else '')
+                me = bpy.data.meshes.new(oname)
+                me.from_pydata(V.tolist(), [], F)
+                me.update()
+                for poly, sm in zip(me.polygons, S):
+                    poly.use_smooth = sm
+                ca = me.color_attributes.new(name='Col', type='FLOAT_COLOR', domain='POINT')
+                rgba = np.ones((len(V), 4)); rgba[:, :3] = C
+                ca.data.foreach_set('color', rgba.ravel())
+                me.color_attributes.active_color = ca
+                try:
+                    me.set_sharp_from_angle(angle=math.radians(50))
+                except Exception:
+                    pass
+                me.materials.append(material(glow))
+                ob = bpy.data.objects.new(oname, me)
+                bpy.context.scene.collection.objects.link(ob)
+                if root:
+                    ob.parent = root
+                    ob.location = tuple(pivot @ turn.T)
+                objs.append(ob)
         bpy.ops.object.select_all(action='DESELECT')
         for o in objs:
             o.select_set(True)

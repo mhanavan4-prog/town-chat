@@ -6,7 +6,9 @@
 // pools live in main (shared with targeting / mob-pools / debug) and are injected
 // via get/set; the scenes are reassigned lets, injected as getters.
 // ---------------------------------------------------------------------------
-export default function createCreatures({ lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, getOutdoorScene, getWildsScene, getAnimalVisuals, setAnimalVisuals, getAnimalVisuals2, setAnimalVisuals2 }) {
+import { critterRigFind, critterRigPose } from './critter-rig.js';
+
+export default function createCreatures({ lerpAngle, makeHealthBarSprite, updateHealthBar, getFloorHeight, getOutdoorScene, getWildsScene, getAnimalVisuals, setAnimalVisuals, getAnimalVisuals2, setAnimalVisuals2, kkModel, hasKK }) {
   // Sample terrain height so animals ride the ground instead of sitting at a
   // flat Y (the rolling Wilds moor lifts the ground well above 0, so without
   // this the critters sink into the hillside). Mirrors how players/minions
@@ -150,7 +152,51 @@ function makeMirefowl() {
   g.add(makeHealthBarSprite(20));
   return g;
 }
+// The real animals (tools/models/build_critters.py), jointed so they walk:
+// a European rabbit, the garden tiger moth, a hedgehog, a roe fawn, a moorhen.
+// Each streams in behind the town; until it lands the hand-built one stands in,
+// and is swapped for the real one the moment it arrives (critterUpgrade).
+const CRITTER_MODELS = {
+  rabbit: [18, 'height', 22], embermoth: [28, 'fit', 16], thistlehog: [24, 'fit', 18], duskfawn: [31, 'height', 36], mirefowl: [21, 'height', 26],
+};
+// Town rabbits come in three coats, as the hand-built ones did.
+const RABBIT_COATS = [0xffffff, 0xd6cabd, 0xf2e6d2];
+function realCritter(type) {
+  const spec = CRITTER_MODELS[type];
+  const g = spec && kkModel ? kkModel('cr_' + type, spec[0], spec[1]) : null;
+  if (!g) return null;
+  if (type === 'rabbit') {
+    const coat = RABBIT_COATS[Math.floor(Math.random() * RABBIT_COATS.length)];
+    if (coat !== 0xffffff) g.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.setHex(coat); } });
+  }
+  g.userData.rig = critterRigFind(g, type);
+  g.add(makeHealthBarSprite(spec[2]));
+  return g;
+}
+function critterOrStandIn(type, standIn) {
+  const real = realCritter(type);
+  if (real) return real;
+  const g = standIn();
+  g.userData.standInFor = type; // swapped for the real one when its model lands
+  return g;
+}
+// A stand-in whose model has since streamed in: build the real one in its
+// place, keeping who it is.
+function critterUpgrade(v, scene) {
+  const type = v.mesh.userData.standInFor;
+  if (!type || !hasKK || !hasKK('cr_' + type) || !scene) return;
+  const real = realCritter(type);
+  if (!real) return;
+  real.userData = { ...v.mesh.userData, rig: real.userData.rig, standInFor: undefined };
+  scene.remove(v.mesh);
+  scene.add(real);
+  v.mesh = real;
+}
 function makeCritter2(type) {
+  if (CRITTER_MODELS[type]) return critterOrStandIn(type, () => makeCritter2StandIn(type));
+  return critterOrStandIn('rabbit', makeRabbit);
+}
+function makeCritter2StandIn(type) {
   switch (type) {
     case 'embermoth':  return makeEmbermoth();
     case 'thistlehog': return makeThistlehog();
@@ -169,8 +215,8 @@ function addAnimals(scene) {
 function getOrCreateAnimalVisual(id) {
   let v = getAnimalVisuals()[id];
   if (!v) {
-    const mesh = makeRabbit();
-    mesh.userData = { kind: 'animal', targetId: id };
+    const mesh = critterOrStandIn('rabbit', makeRabbit);
+    mesh.userData = { ...mesh.userData, kind: 'animal', targetId: id };
     getOutdoorScene().add(mesh);
     v = getAnimalVisuals()[id] = {
       mesh, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
@@ -205,9 +251,13 @@ function updateAnimalVisuals(dt) {
     v.hopPhase += dt * (v.fleeing ? 14 : 5);
     const hop = moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0;
 
-    v.mesh.position.set(v.x, floorAt('outside', v.x, v.y) + hop, v.y);
+    if (v.mesh.userData.standInFor) critterUpgrade(v, getOutdoorScene());
+    const rig = v.mesh.userData.rig;
+    // The real rabbit hops with its legs; the stand-in just bounces.
+    v.mesh.position.set(v.x, floorAt('outside', v.x, v.y) + (rig ? hop * 0.6 : hop), v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = !v.dead;
+    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000);
   }
 }
 
@@ -224,7 +274,7 @@ function getOrCreateAnimal2Visual(id, type) {
   let v = getAnimalVisuals2()[id];
   if (!v) {
     const mesh = makeCritter2(type);
-    mesh.userData = { kind: 'animal2', targetId: id };
+    mesh.userData = { ...mesh.userData, kind: 'animal2', targetId: id };
     getWildsScene().add(mesh);
     v = getAnimalVisuals2()[id] = {
       mesh, critterType: type || 'rabbit', fly: type === 'embermoth',
@@ -234,7 +284,7 @@ function getOrCreateAnimal2Visual(id, type) {
   } else if (type && v.critterType !== type) {
     // A recycled id changed species (rare — respawn reshuffles) — rebuild it.
     getWildsScene().remove(v.mesh);
-    v.mesh = makeCritter2(type); v.mesh.userData = { kind: 'animal2', targetId: id };
+    v.mesh = makeCritter2(type); v.mesh.userData = { ...v.mesh.userData, kind: 'animal2', targetId: id };
     v.critterType = type; v.fly = type === 'embermoth';
     getWildsScene().add(v.mesh);
   }
@@ -270,9 +320,14 @@ function updateAnimal2Visuals(dt) {
       ? 10 + Math.sin(v.hopPhase * 0.6) * 3
       : (moving ? Math.abs(Math.sin(v.hopPhase)) * (v.fleeing ? 6 : 2.5) : 0);
 
-    v.mesh.position.set(v.x, floorAt('wilds', v.x, v.y) + bob, v.y);
+    if (v.mesh.userData.standInFor) critterUpgrade(v, getWildsScene());
+    const rig = v.mesh.userData.rig;
+    // A real one walks on its legs, so only the moth and the hoppers leave the ground.
+    const lift = !rig || v.fly || v.critterType === 'rabbit' || (v.critterType === 'duskfawn' && v.fleeing) ? bob : 0;
+    v.mesh.position.set(v.x, floorAt('wilds', v.x, v.y) + lift, v.y);
     v.mesh.rotation.y = v.facing;
     v.mesh.visible = !v.dead;
+    if (rig) critterRigPose(rig, v.hopPhase, moving ? (v.fleeing ? 2 : 1) : 0, performance.now() / 1000);
   }
 }
 

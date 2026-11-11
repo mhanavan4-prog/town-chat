@@ -1,7 +1,7 @@
 """The sixteen Wilds plants and the cottage pots, each made to look like the
 real plant it stands for. Writes public/kk/flora/*.glb.
 
-    python3 tools/models/build_plants.py [name ...]
+    sh tools/models/build.sh plants [name ...]
 """
 import math, os, sys
 import numpy as np

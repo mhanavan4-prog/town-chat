@@ -413,6 +413,12 @@ const KK = (() => {
     furn_pot_herb: 'kk/flora/pot_herb.glb', furn_pot_chamomile: 'kk/flora/pot_chamomile.glb', furn_pot_lavender: 'kk/flora/pot_lavender.glb',
     furn_pot_calendula: 'kk/flora/pot_calendula.glb', furn_pot_mugwort: 'kk/flora/pot_mugwort.glb', furn_pot_yarrow: 'kk/flora/pot_yarrow.glb',
     furn_pot_belladonna: 'kk/flora/pot_belladonna.glb',
+    // The harmless creatures, as the real animals (tools/models/build_critters.py),
+    // with their joints as named nodes so they walk: rabbit, garden tiger moth,
+    // hedgehog, roe fawn, moorhen, wild boar, the mossback tortoise, carrion crow.
+    cr_rabbit: 'kk/critters/rabbit.glb', cr_embermoth: 'kk/critters/embermoth.glb', cr_thistlehog: 'kk/critters/thistlehog.glb',
+    cr_duskfawn: 'kk/critters/duskfawn.glb', cr_mirefowl: 'kk/critters/mirefowl.glb', cr_bramble_boar: 'kk/critters/bramble_boar.glb',
+    cr_mossback_tortoise: 'kk/critters/mossback_tortoise.glb', cr_gravewing_crow: 'kk/critters/gravewing_crow.glb',
     // Hex terrain tiles — the whole map floor is carpeted with instances of
     // hex_grass (see the hex-floor builder in initScene), with hex_road_* tiles
     // routed between the buildings. Each tile's top face sits at model y=0.
@@ -588,7 +594,7 @@ const KK = (() => {
     // scene rebuilds once KayKit finishes loading, so they appear then).
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
-    ...Object.keys(MANIFEST).filter((k) => /^pl_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr)_/.test(k))];
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -14011,7 +14017,7 @@ const DUNGEON_BOSS_NAMES = {
 // horrors + the mob3 critters — pure THREE/LEGEND_FX geometry; makeMob base +
 // MOB2_VISUALS + health-bar sprite injected. makeMob2/makeMob3 are called by the
 // mob2/mob3 visual pools (still in main). ──
-const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), kkStatic: (key, size) => KK.staticInstance(key, size, 'fit') });
+const { makeMob2, makeMob3 } = createMobMeshes({ makeMob, MOB2_VISUALS, makeHealthBarSprite, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), kkStatic: (key, size) => KK.staticInstance(key, size, 'fit'), kkModel: (key, size, mode) => KK.staticInstance(key, size, mode) });
 
 let mobVisuals2 = {};
 let mobVisuals3 = {};
@@ -14052,7 +14058,7 @@ const {
   addMobs2, addMobs3, applyMob2State, applyMob3State, updateMob2Visuals, updateMob3Visuals,
 } = createMobsWilds({
   MOB2_VISUALS, MOB_ATTACK_LUNGE_DIST, lerpAngle, makeMob2, makeMob3, mobAttackLungeAmount, updateHealthBar,
-  kkSetState, kkOneShot,
+  kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
   getWildsScene: () => wildsScene, getLastWildlifeIsNight: () => lastWildlifeIsNight,
   getMobVisuals2: () => mobVisuals2, setMobVisuals2: (v) => { mobVisuals2 = v; },
   getMobVisuals3: () => mobVisuals3, setMobVisuals3: (v) => { mobVisuals3 = v; },
@@ -14477,6 +14483,7 @@ const {
   getOutdoorScene: () => outdoorScene, getWildsScene: () => wildsScene,
   getAnimalVisuals: () => animalVisuals, setAnimalVisuals: (v) => { animalVisuals = v; },
   getAnimalVisuals2: () => animalVisuals2, setAnimalVisuals2: (v) => { animalVisuals2 = v; },
+  kkModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null), hasKK: (key) => KK.has(key),
 });
 
 // A glowing rectangular window for an OUTDOOR building wall. `onEastWest`

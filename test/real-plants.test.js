@@ -50,7 +50,7 @@ for (const [key, file] of models) {
 check('every plant and pot is in the manifest, on disk, and a sound glTF: vertex colours and normals, no textures, float positions', allSound, bad);
 check('each is small enough to stream (under 120 KB)', maxBytes > 0 && maxBytes < 120 * 1024, maxBytes);
 check('every plant has a size to stand at', plantTypes.every((t) => new RegExp('\\b' + t + ": \\[\\d+, '(height|fit)'\\]").test(sizeBlock)));
-check('the plants stream in behind the town, so the first load is no heavier', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^pl_\/\.test\(k\)\)/.test(main));
+check('the plants stream in behind the town, so the first load is no heavier', /\.\.\.Object\.keys\(MANIFEST\)\.filter\(\(k\) => \/\^\(pl\|cr\)_\/\.test\(k\)\)/.test(main));
 check('makePlant draws the model when it has landed, and the hand-built shape till then', /const real = size && KK\.staticInstance \? KK\.staticInstance\('pl_' \+ type, size\[0\], size\[1\]\) : null;/.test(main) && /if \(v\.shape === 'bloom'\) return makePlantBloom/.test(main));
 
 // The pots: every grown decor has its own, and the plain pot is rosemary.
