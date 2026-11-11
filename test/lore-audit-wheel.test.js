@@ -36,5 +36,14 @@ check('guising is dated, and the fooling-the-dead reason called a later explanat
 // ── The book ──
 check('the reference book is a Commonplace Book, not a "Book of Shadows" (Gardner\'s 1950s term)', /📖 Commonplace Book/.test(INDEX) && !/>📖 Book of Shadows</.test(INDEX));
 
+// ── The landing page ──
+// "Callers at the Door" names how many there are; keep it true as callers are added.
+{
+  const { CALLERS } = require('../data/callers.js');
+  const m = LANDING.match(/<h3>Callers at the Door<\/h3><p>[^<]*Each of the (\d+)/);
+  check('the landing page\'s count of callers matches the game', m && Number(m[1]) === CALLERS.length, { page: m && m[1], game: CALLERS.length });
+  check('…and its examples are real callers (the churn, the lost ring, the wakeful child)', ['butter_wont_come', 'stolen_ring', 'sleepless_child'].every((id) => CALLERS.some((c) => c.id === id)) && /butter that won't come, a ring gone missing, a child who won't settle/.test(LANDING));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
