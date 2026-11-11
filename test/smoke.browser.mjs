@@ -151,6 +151,11 @@ try {
 
     // The back gesture closes the open menu, not the game (client/back-closes.js).
     if (c.charId === 0) {
+      // Start from the game with nothing open (the first-visit welcome can pop up
+      // late on a slow runner and would add a level of its own).
+      await page.evaluate(() => { for (const id of ['welcomeModal', 'controlsModal']) { const m = document.getElementById(id); if (m) m.classList.add('hidden'); } });
+      await page.waitForFunction(() => !(history.state && history.state.thornreachMenu), null, { timeout: 3000 }).catch(() => {});
+      await sleep(300);
       const url0 = page.url();
       const back = () => page.evaluate(() => history.back());
       const shown = (sel) => page.$eval(sel, (el) => !el.classList.contains('hidden'));
