@@ -3810,6 +3810,7 @@ function pvpAllowed(attacker, target) {
 }
 
 function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
+  if (player && player.toadCalmUntil) player.toadCalmUntil = 0; // strike, and the toad-bone's quiet is over
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
   // A pact damage-over-time tick re-enters applyDamage with its already-final
   // damage (see tickPactDots): it reuses the whole target-resolution + kill +
@@ -6042,7 +6043,7 @@ function ancestorBuffContrib(player, statKey) { return timedBuffContrib(player, 
 // buffs (ritual/familiar/tea/path/ancestor) stay in band by construction: each is
 // a single small per-source amount, not a ladder, so they add texture without a
 // stacking spiral. test/buff-stack.test.js locks this additivity + the use-caps.
-function statContrib(player, statKey) { return skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey) + timedBuffContrib(player, 'moonBuff', statKey) + timedBuffContrib(player, 'hearthBuff', statKey); }
+function statContrib(player, statKey) { return oldWays.statContrib(player, statKey) + skillStatContrib(player, statKey) + gearStatContrib(player, statKey) + delveBoonContrib(player, statKey) + ritualBuffContrib(player, statKey) + familiarBuffContrib(player, statKey) + teaBuffContrib(player, statKey) + pathBuffContrib(player, statKey) + ancestorBuffContrib(player, statKey) + wardContrib(player, statKey) + timedBuffContrib(player, 'cordBuff', statKey) + timedBuffContrib(player, 'moonBuff', statKey) + timedBuffContrib(player, 'hearthBuff', statKey); }
 
 function outgoingDamageMult(player) { return 1 + statContrib(player, 'power'); }
 function incomingDamageMult(player) { return Math.max(0.25, 1 - statContrib(player, 'guard')) * delveTakenMult(player); } // floor: 75% max reduction (Glass Souls can push past it)
@@ -8199,7 +8200,7 @@ function tickWilds(dt) {
     // Barrow Maw lurks buried until a player strays into ambush range; while
     // buried it doesn't move, strike, or turn.
     if (preset.buried && !m.emerged) {
-      if (nearestP && dist < preset.ambushRange && !isEvading(nearestP)) m.emerged = true;
+      if (nearestP && dist < preset.ambushRange && !isEvading(nearestP) && !oldWays.isCalmed(nearestP)) m.emerged = true;
       else continue;
     }
     let vx = 0, vy = 0;
@@ -8209,7 +8210,7 @@ function tickWilds(dt) {
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
-    } else if (nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP)) {
+    } else if (nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT && !isEvading(nearestP) && !oldWays.isCalmed(nearestP)) {
       // Ranged casters (Fen Hexer) kite: back off if the player closes inside
       // kiteRange, hold position in the mid-band, and strike from anywhere
       // within their long strikeRange. Everyone else just charges in.
@@ -8997,6 +8998,10 @@ const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
 const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth,
   noteDelveFloor: (run, fresh) => { for (const pid of run.members.keys()) { const p = players.get(pid); if (p) dungeonFinds.onEnter(p, { fresh }); } } });
+// The Old Ways (data/oldWays.js, lib/oldWays.js): the besom, the poppet,
+// lead-pouring, the bees, the brownie, sin-eating, the toad-bone.
+const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, countItemQty, removeItemFromAccount, addItemToAccount, ensureBankAccount, grantXP, isNightNow, playerParty, parties, playerMaxHealth, WORLD2,
+  itemName: (id) => (ITEM_CATALOG[id] ? ITEM_CATALOG[id].name : id) });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
 // the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
 const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,
@@ -16474,6 +16479,23 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
+    // ── The Old Ways ───────────────────────────────────────────────────────
+    if (msg.type === 'oldways_state') { send(ws, { type: 'oldways_state', ...oldWays.body(player) }); return; }
+    if (msg.type === 'oldways_do') {
+      const out = oldWays.act(player, String(msg.way || ''), String(msg.action || ''), msg.choice);
+      if (out.error) { send(ws, { type: 'toast', level: 'important', message: out.error }); send(ws, { type: 'oldways_state', ...oldWays.body(player) }); return; }
+      saveAccounts(); saveInventories(); saveBankAccounts();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'toast', level: 'important', always: true, message: out.toast });
+      if (out.touched && out.touched.ws) send(out.touched.ws, { type: 'toast', level: 'important', always: true, message: out.touchedToast });
+      if (out.flight) {
+        // The broom carries her: the server moves her and tells her client where it set her down.
+        player.room = out.flight.room; player.x = out.flight.x; player.y = out.flight.y; player.roomLockUntil = Date.now() + 1500;
+        send(ws, { type: 'broom_flight', ...out.flight });
+      }
+      send(ws, { type: 'oldways_state', ...oldWays.body(player) });
+      return;
+    }
     // ── The Witch Paths' practices ─────────────────────────────────────────
     if (msg.type === 'practice_state') { send(ws, { type: 'practice_state', ...practiceStateBody(player) }); return; }
     if (msg.type === 'practice_do') {
