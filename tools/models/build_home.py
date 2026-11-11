@@ -1463,6 +1463,34 @@ def altar_slab():
     return m, '#a060ff'
 
 
+def pyre():
+    """The town's bonfire, laid: a ring of scorched field stones, split logs stood in a cone over a criss-cross of kindling, a bed of embers under it."""
+    m = Model('pyre')
+    r = np.random.default_rng(55)
+    n = 11
+    for k in range(n):
+        a = TAU * k / n + r.uniform(-0.08, 0.08)
+        rr = r.uniform(0.075, 0.105)
+        st = blob(rr, rr * r.uniform(0.75, 0.95), rr * r.uniform(0.6, 0.8), seg=6, rings=4, colors=('#2e2a28', '#8a8278'), jitter=0.22, seed=k)
+        m.add(trim(st).xf(rz(a), (0.4 * math.cos(a), 0.4 * math.sin(a), rr * 0.45)))
+    emb = lathe([(0.0, 0.03), (0.2, 0.035), (0.3, 0.02), (0.33, 0.0)], sides=12, colors=('#ff7a1a', '#3a1408'), close_top=False)
+    m.add(glowing(emb))
+    for k in range(6):  # kindling, laid log-cabin
+        a = k * 1.05
+        m.add(tube([(-0.22 * math.cos(a), -0.22 * math.sin(a), 0.05 + 0.02 * (k % 3)), (0.22 * math.cos(a), 0.22 * math.sin(a), 0.06 + 0.02 * (k % 3))], 0.022, sides=5, colors=('#2a1a0e', '#6a4a2a')))
+    for k in range(9):  # the cone of split logs
+        a = TAU * k / 9 + r.uniform(-0.1, 0.1)
+        base = (0.27 * math.cos(a), 0.27 * math.sin(a), 0.02)
+        top = (0.035 * math.cos(a + 0.6), 0.035 * math.sin(a + 0.6), r.uniform(0.66, 0.78))
+        lg = tube([base, top], lambda u: 0.055 - 0.012 * u, sides=6, colors=('#24160c', '#7a5230'))
+        m.add(lg)
+        m.add(trim(lathe([(0.0, 0.0), (0.042, 0.0)], sides=6, colors=('#b08a54', '#d8b888'), close_top=False)).xf(look_rot(np.asarray(top) - np.asarray(base)) @ ry(math.pi / 2), top))
+        if k % 3 == 0:  # charred where the last fire caught it
+            mid = tuple((np.asarray(base) + np.asarray(top)) / 2)
+            m.add(trim(blob(0.06, 0.06, 0.1, seg=6, rings=4, colors=('#0a0808', '#241c18'))).xf(None, mid))
+    return m, '#ff8a2a'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1477,7 +1505,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'relic_planchette': relic_planchette, 'herb_bundle': herb_bundle, 'pumpkin': pumpkin, 'lectern': lectern, 'vigil_candle': vigil_candle,
         'marble_perch': marble_perch,
         'camp_tent': camp_tent, 'palisade_stake': palisade_stake, 'watchtower': watchtower, 'weapon_rack': weapon_rack, 'pennant_pole': pennant_pole,
-        'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab}
+        'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
