@@ -20,12 +20,18 @@
 // ---------------------------------------------------------------------------
 // Every panel: the overlays and float panels, the ☰ menu, anything named
 // …Modal, and the inventory and shop panels, which are none of those.
-export const BACK_MENU_SELECTOR = '.overlay, .floatPanel, #menuSheet, [id$="Modal"], #inventoryPanel, #invActionPanel, #witchShopPanel, #witchCraftPanel, #bankDepositPanel, #pickpocketPanel';
+export const BACK_MENU_SELECTOR = '.overlay, .floatPanel, #menuSheet, [id$="Modal"], #inventoryPanel, #invActionPanel, #witchShopPanel, #witchCraftPanel, #bankDepositPanel, #pickpocketPanel, #chatPanel, #playerContextMenu, #spyGlassPanel';
 export const BACK_KEEP_IDS = new Set(['joinScreen', 'boonDraft']);
 const BACK_GUARD = 'thornreachMenu';
+// On a phone the chat (and the Log in it) is a sheet opened from 💬, so it is
+// one of the panels; on a desktop it sits in its corner all the time and is not.
+const BACK_TOUCH_ONLY = new Set(['chatPanel']);
+// Panels that are closed their own way (handed in by the game), not by a button of theirs.
+const backClosers = {};
 
 function backShown(el) {
   if (!el || el.classList.contains('hidden') || BACK_KEEP_IDS.has(el.id)) return false;
+  if (BACK_TOUCH_ONLY.has(el.id) && !document.body.classList.contains('touchMode')) return false;
   if (typeof el.checkVisibility === 'function') return el.checkVisibility();
   const cs = getComputedStyle(el);
   return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getClientRects().length > 0;
@@ -49,6 +55,7 @@ function backCloseButton(top) {
     || [...top.querySelectorAll('button')].find((b) => vis(b) && /^\s*(✕|×|✖|Close)\b/.test(b.textContent));
 }
 function backCloseTop(top) {
+  if (backClosers[top.id]) { backClosers[top.id](); return; }
   const btn = backCloseButton(top);
   if (btn) btn.click();
   else window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -67,8 +74,9 @@ export function backCloseInReach(top) {
   });
 }
 
-export default function installBackCloses() {
+export default function installBackCloses(closers) {
   if (typeof window === 'undefined' || !window.history || !window.history.pushState) return null;
+  Object.assign(backClosers, closers || {});
   // How many of our history entries sit on top of the page: one for every
   // level a back gesture should close. A panel opened from the ☰ menu is two
   // levels (back closes it to the menu, back again closes the menu). They are
