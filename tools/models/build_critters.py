@@ -557,9 +557,42 @@ def dragon():
     return m, '#ff8a10'
 
 
+def black_dog():
+    """The black dog of the lanes at night (Black Shuck, the Barguest, the Padfoot): big as a calf, shaggy, with eyes like coals."""
+    m = Model('black_dog', forward_x=True)
+    COAT = ('#0c0b10', '#3a3442')
+    m.add(blob(0.4, 0.2, 0.24, seg=11, rings=7, colors=COAT, jitter=0.06, seed=1).xf(ry(0.08), (0, 0, 0.62)))      # barrel
+    m.add(blob(0.24, 0.22, 0.28, seg=9, rings=6, colors=COAT, jitter=0.08, seed=2).xf(None, (0.24, 0, 0.68)))       # deep chest and withers
+    m.add(blob(0.2, 0.18, 0.2, seg=8, rings=6, colors=COAT, jitter=0.06, seed=3).xf(None, (-0.3, 0, 0.6)))          # haunch
+    r = np.random.default_rng(91)
+    for k in range(16):  # the shag along the neck and back
+        x = 0.4 - 0.7 * k / 15
+        m.add(blade(0.12 + r.uniform(0, 0.05), 0.07, linear, segs=2, cols=3, fold=0.2, rise=0.9, droop=0.9, colors=('#0c0b10', '#4a4454')).xf(rz(math.pi + r.uniform(-0.5, 0.5)), (x, r.uniform(-0.05, 0.05), 0.86 - 0.08 * (k / 15))))
+    with m.node('head', (0.4, 0, 0.82)):
+        m.add(tube([(0.36, 0, 0.76), (0.46, 0, 0.88), (0.52, 0, 0.94)], lambda s: 0.14 - 0.03 * s, sides=8, colors=COAT))   # thick neck
+        m.add(blob(0.16, 0.14, 0.14, seg=9, rings=6, colors=COAT).xf(ry(0.15), (0.58, 0, 0.98)))
+        m.add(lathe([(0.1, 0), (0.075, 0.12), (0.055, 0.22)], sides=8, colors=('#14121a', '#2e2a36'), close_top=True).xf(ry(math.pi / 2 + 0.2), (0.64, 0, 0.95)))  # the long muzzle
+        m.add(blob(0.035, 0.04, 0.03, seg=6, rings=4, colors=('#000000', '#1a1a1a')).xf(None, (0.86, 0, 0.92)))
+        m.add(lathe([(0.07, 0), (0.05, 0.1), (0.035, 0.18)], sides=6, colors=('#2a0a0a', '#5a1a1a'), close_top=True).xf(ry(math.pi / 2 + 0.45), (0.66, 0, 0.9)))  # the lower jaw, a little open
+        for sgn in (-1, 1):
+            m.add(glowing(blob(0.03, 0.03, 0.03, seg=6, rings=4, colors=('#ff2a0a', '#ffb060'))).xf(None, (0.69, sgn * 0.085, 1.03)))  # eyes like coals
+            m.add(blob(0.05, 0.02, 0.1, seg=6, rings=4, colors=COAT).xf(rx(sgn * -0.35) @ ry(-0.3), (0.52, sgn * 0.1, 1.14)))            # pricked ears
+            for k in range(2):
+                m.add(lathe([(0.012, 0), (0.0, 0.05)], sides=4, colors=('#d8d0b8', '#ffffff'), close_top=False).xf(rx(math.pi), (0.8 - 0.06 * k, sgn * 0.035, 0.9)))  # teeth
+    for sgn, side in ((1, 'L'), (-1, 'R')):
+        for fb, x in (('F', 0.26), ('B', -0.3)):
+            with m.node('leg_' + fb + side, (x, sgn * 0.12, 0.54)):
+                knee = (x + (-0.06 if fb == 'B' else 0.02), sgn * 0.12, 0.28)
+                m.add(leg([(x, sgn * 0.12, 0.56), knee, (x + 0.02, sgn * 0.12, 0.04)], 0.085 if fb == 'B' else 0.07, 0.04, ('#08070a', '#2a2630')))
+                m.add(blob(0.07, 0.055, 0.035, seg=7, rings=4, colors=('#08070a', '#1e1c24')).xf(None, (x + 0.05, sgn * 0.12, 0.03)))  # great paws
+    with m.node('tail', (-0.46, 0, 0.66)):
+        m.add(tube([(-0.44, 0, 0.66), (-0.6, 0, 0.6), (-0.74, 0, 0.44), (-0.8, 0, 0.3)], lambda s: 0.05 * (1 - 0.5 * s), sides=6, colors=COAT))
+    return m, '#ff3a10'
+
+
 CRITTERS = {'rabbit': rabbit, 'embermoth': embermoth, 'thistlehog': hedgehog, 'duskfawn': fawn, 'mirefowl': moorhen,
             'bramble_boar': boar, 'mossback_tortoise': tortoise, 'gravewing_crow': crow,
-            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon}
+            'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon, 'black_dog': black_dog}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
