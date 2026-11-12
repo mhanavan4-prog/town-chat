@@ -3099,7 +3099,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
-  if (msg.type === 'dungeon_finds') { lastRareRoom = msg.rare || null; applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
+  if (msg.type === 'dungeon_finds') { lastDungeonFinds = msg; lastRareRoom = msg.rare || null; applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
@@ -10413,21 +10413,26 @@ function showDungeonFindsHud(msg) {
   const g = msg.goals || {}, part = (icon, name, x) => (x && x.total ? `<span class="${x.complete ? 'dfDone' : ''}">${icon} ${name} ${x.complete ? '✓' : `${x.done}/${x.total}`}</span>` : '');
   const rr = msg.rare && rareRoomCatalog[msg.rare.kind];
   el.innerHTML = `<span>🗝️ ${msg.keys || 0}</span>${part('🔥', 'Braziers', g.braziers)}${part('💥', 'Seals', g.seals)}${rr ? `<span class="${msg.rare.used ? 'dfDone' : ''}">${rr.icon} ${rr.name}</span>` : ''}`;
+  el.dataset.of = 'dungeon';
   el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
 }
 // Out in the Wilds the same line counts the day's balefires.
+let lastDungeonFinds = null; // the server's last word on the dungeon you are in
 let wildsFindsAskedAt = 0;
 let wildsFindsState = null; // the day's balefires and searched cairns, as the server last told it (the map marks them)
 function showWildsFindsHud(msg) {
   const el = document.getElementById('dungeonFindsHud');
   if (!el || !(me && me.room === 'wilds')) return;
   el.innerHTML = `<span class="${msg.complete ? 'dfDone' : ''}">🔥 Balefires ${msg.complete ? '✓' : `${(msg.lit || []).length}/${msg.total}`}</span>`;
+  el.dataset.of = 'wilds';
   el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
 }
 setInterval(() => {
   const el = document.getElementById('dungeonFindsHud');
   const room = me ? String(me.room || '') : '';
   if (el && !el.classList.contains('hidden') && !room.startsWith('dungeon_') && room !== 'wilds') showDungeonFindsHud(null);
+  // the line is still saying what it said in the place you have just left (keys and seals, out in the Wilds): take it down
+  if (el && !el.classList.contains('hidden') && ((room === 'wilds' && el.dataset.of !== 'wilds') || (room.startsWith('dungeon_') && el.dataset.of !== 'dungeon'))) { el.classList.add('hidden'); document.body.classList.remove('findsHudUp'); if (room.startsWith('dungeon_') && lastDungeonFinds) showDungeonFindsHud(lastDungeonFinds); }
   // in the Wilds with nothing shown yet: ask how the day's finds stand (once a while, in case the first asking was lost)
   if (room === 'wilds' && el && el.classList.contains('hidden') && Date.now() - wildsFindsAskedAt > 4000 && ws && ws.readyState === WebSocket.OPEN) { wildsFindsAskedAt = Date.now(); ws.send(JSON.stringify({ type: 'wilds_finds_state' })); }
 }, 1000);

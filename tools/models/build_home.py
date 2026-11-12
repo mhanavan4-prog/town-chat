@@ -1528,9 +1528,13 @@ def crag(w, d, h, seed, colors=ROCKP, nx=7, nz=5, lean=0.0):
 def cave_wall():
     """A length of cave wall: a broken rock face with ledges, scree at its foot, a seam of crystal in it."""
     m = Model('cave_wall')
-    m.add(crag(2.0, 0.34, 1.5, 11))
-    m.add(crag(0.9, 0.3, 1.05, 12, nx=5, nz=4).xf(None, (-0.5, -0.1, 0)))
-    m.add(crag(0.7, 0.28, 0.8, 13, nx=5, nz=3).xf(None, (0.55, 0.1, 0)))
+    # The main slab, and a buttress standing proud of each face. The buttresses
+    # used to lie almost in the slab's own face, and two rough faces that nearly
+    # coincide cut each other in a saw-toothed line all down the wall; now each
+    # stands clear in front, so it meets the slab only along its two sides.
+    m.add(crag(2.0, 0.26, 1.5, 11))
+    m.add(crag(0.9, 0.16, 1.05, 12, nx=5, nz=4).xf(None, (-0.5, -0.28, 0)))
+    m.add(crag(0.7, 0.16, 0.8, 13, nx=5, nz=3).xf(None, (0.55, 0.28, 0)))
     r = np.random.default_rng(14)
     for k in range(7):
         rr = r.uniform(0.05, 0.11)

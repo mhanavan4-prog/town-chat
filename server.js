@@ -10839,7 +10839,8 @@ function tickMinions(dt) {
       m.dead = true; m.crumbleAt = now + MINION_CRUMBLE_MS; continue;
     }
     if (now < m.risenAt) continue; // still clawing out of the ground
-    const found = findMinionTarget(m);
+    // a quarry it could not reach for the rock is let alone a while, and it comes back to heel
+    const found = now < (m.shunUntil || 0) ? null : findMinionTarget(m);
     let vx = 0, vy = 0;
     if (found) {
       const t = found.target;
@@ -10860,9 +10861,26 @@ function tickMinions(dt) {
       const dx = owner.x - m.x, dy = owner.y - m.y, dist = Math.hypot(dx, dy) || 1;
       if (dist > MINION_LEASH * 0.4) { vx = dx / dist * m.speed * 0.7; vy = dy / dist * m.speed * 0.7; }
     }
-    if (vx || vy) { m.x += vx * dt; m.y += vy * dt; m.facing = Math.atan2(vx, vy); }
+    if (vx || vy) {
+      // Underground the rock is solid to a minion as it is to its mistress (lib/minionStep.js).
+      const moved = minionStep.step(m, vx, vy, dt, minionStep.wallsFor(m.room));
+      if (moved) m.stuckSince = 0;
+      else if (!m.stuckSince) m.stuckSince = now;
+      else if (now - m.stuckSince > minionStep.STUCK_MS) {
+        m.stuckSince = 0;
+        // a quarry it cannot reach for the rock is let alone a while; and held
+        // fast with its mistress gone on, it goes to ground and comes up beside her
+        if (found) m.shunUntil = now + 4000;
+        else if (Math.hypot(owner.x - m.x, owner.y - m.y) > minionStep.REJOIN_DIST) {
+          m.x = owner.x + (Math.random() - 0.5) * 50; m.y = owner.y + (Math.random() - 0.5) * 50;
+          m.risenAt = now + 500;
+        }
+      }
+      m.facing = Math.atan2(vx, vy);
+    }
   }
 }
+const minionStep = require('./lib/minionStep');
 function minionPublic(m) {
   return { id: m.id, ownerId: m.ownerId, type: m.type, x: Math.round(m.x), y: Math.round(m.y), facing: m.facing,
     health: m.health, maxHealth: m.maxHealth, dead: m.dead, risenAt: m.risenAt, lastHit: m.lastHit || 0 };
