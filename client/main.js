@@ -3141,7 +3141,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
-  if (msg.type === 'ward_state') { wardState = msg; applyVillageWard(msg); return; }
+  if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
@@ -19130,6 +19130,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
+  if (kiosk && kiosk.npc === 'packman') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'npc_shop_open', npcId: 'npc_packman' })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -19450,6 +19451,12 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'packman') {
+    // the packman's stall (data/packman.js): he is there only while the round of bound fires is closed
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${wardState.warded ? 'see what the packman has' : 'look at the shuttered stall'}`;
     return;
   }
   if (kiosk && kiosk.npc === 'wardstone') {

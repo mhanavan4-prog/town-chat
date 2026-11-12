@@ -1569,6 +1569,7 @@ WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
 const COUNT = require('./data/countlessStones');
 WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns and six balefires, between the landmarks
 // The bound fires round the Wildlands Village (data/villageWard.js), where the client draws them.
+{ const { PACKMAN: PK } = require('./data/packman'); WORLD2.packman = { x: PK.x, y: PK.y, name: PK.name }; }
 { const { WARD } = require('./data/villageWard'); WORLD2.ward = { centre: WARD.centre, radius: WARD.radius, model: WARD.model, size: WARD.size, stones: WARD.stones.map((s) => ({ id: s.id, x: s.x, y: s.y, name: s.name })) }; }
 // The road north (data/wayside.js): the gibbet, the coin tree and the coffin stone, where the client draws them.
 WORLD2.wayside = require('./data/wayside').WAYSIDE.map((w) => ({ id: w.id, x: w.x, y: w.y, model: w.model, size: w.size, name: w.name, icon: w.icon, hint: w.hint }));
@@ -9119,6 +9120,18 @@ const villageWard = require('./lib/villageWard')({ send, grantXP, isNight: () =>
   noteWard: (p) => { if (daybook.note(p, 'ward')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the bound fires, carried round.' }); },
   // whatever was inside when the round closed is put out to its edge
   onClosed: () => { for (const m of mobs2) { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } } saveAccounts(); } });
+// The packman (data/packman.js) is at the village stall only while the round of bound fires is closed, and only to someone standing at it.
+const { PACKMAN } = require('./data/packman');
+function packmanShut(player, npcId, tell) {
+  if (npcId !== PACKMAN.npcId) return false;
+  const here = player.room === 'wilds' && Math.hypot(player.x - PACKMAN.x, player.y - PACKMAN.y) <= PACKMAN.range;
+  if (here && villageWard.isWarded()) return false;
+  if (tell && here) {
+    send(player.ws, { type: 'toast', level: 'important', always: true, message: PACKMAN.shut });
+    send(player.ws, { type: 'vh_board', title: '🎒 The packman', epithet: 'In the record', lines: [...PACKMAN.lore, `Source: ${PACKMAN.source}`, PACKMAN.note] });
+  } else send(player.ws, { type: 'shop_error', message: 'The packman is not here.' });
+  return true;
+}
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -9652,6 +9665,8 @@ const NPC_SHOPS = {
     { id: 'steel_shield', price: 40 }, { id: 'healing_potion', price: 15 }
   ]},
   // The wise-woman of the Wildlands Village (data/villageHouses.js): remedies, and somewhere to sell out in the Wilds.
+  // the packman at the Wildlands Village's stall (data/packman.js): there only while the bound fires are closed, with four things from his pack each night
+  npc_packman: { name: require('./data/packman').PACKMAN.name, items: require('./data/packman').PACKMAN.pool, stock: () => require('./data/packman').stockFor(Math.floor(Date.now() / CYCLE_MS)) },
   npc_averil: { name: 'Dame Averil, the wise-woman', items: [
     { id: 'healing_potion', price: 14 }, { id: 'cleansing_clover', price: 16 },
     { id: 'regen_root', price: 18 }, { id: 'healing_herb', price: 10 }, { id: 'glass_vial', price: 6 }
@@ -15379,6 +15394,8 @@ wss.on('connection', (ws, req) => {
       const npcId = String(msg.npcId || '');
       const shop = NPC_SHOPS[npcId];
       if (!shop) return;
+      if (packmanShut(player, npcId, true)) return;
+      if (npcId === PACKMAN.npcId && daybook.note(player, 'packman')) send(ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the packman, met.' });
       // Browsing a shopkeeper is talking to them, as far as the story cares
       // — Scholar Elior (the Mystic's chapter-1 contact) is a shop NPC.
       storyEvent(player, 'talk_npc', { npcId });
@@ -15388,7 +15405,7 @@ wss.on('connection', (ws, req) => {
       // shopkeeper's quest. Faces are how the town knows people.
       const seenAs = player.disguise ? player.disguise.name : player.name;
       const discount = shopDiscountFor(player, npcId);
-      const priced = shop.items.map(s => ({
+      const priced = (shop.stock ? shop.stock() : shop.items).map(s => ({
         id: s.id,
         price: discountedPrice(s.price, discount),
         basePrice: s.price,
@@ -15413,7 +15430,8 @@ wss.on('connection', (ws, req) => {
       const itemId = String(msg.itemId || '');
       const shop = NPC_SHOPS[npcId];
       if (!shop) return;
-      const shopItem = shop.items.find(s => s.id === itemId);
+      if (packmanShut(player, npcId)) return;
+      const shopItem = (shop.stock ? shop.stock() : shop.items).find(s => s.id === itemId);
       if (!shopItem) { send(ws, { type: 'shop_error', message: "That item isn't sold here." }); return; }
       // Same discount logic the shop window showed — the till agrees with
       // the shelf tag, disguised or not.
@@ -15449,6 +15467,7 @@ wss.on('connection', (ws, req) => {
       if (!player.accountKey) { send(ws, { type: 'shop_error', message: 'Log in to sell items.' }); return; }
       const npcId = String(msg.npcId || '');
       if (!NPC_SHOPS[npcId]) return; // must actually be at a shopkeeper
+      if (packmanShut(player, npcId)) return;
       const itemId = String(msg.itemId || '');
       const meta = ITEM_CATALOG[itemId];
       const unit = shopTrade.unitFor(npcId, itemId); // the till agrees with the Sell tab: over the odds for goods from the other side
@@ -18543,7 +18562,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
