@@ -3839,6 +3839,7 @@ function emberSafeZone(p) {
 function pvpAllowed(attacker, target) {
   if (attacker.room === 'ember_wastes') {
     if (emberSafeZone(attacker) || emberSafeZone(target)) return false; // spawn haven — safe for either party
+    if (ashminster.holds(attacker) || ashminster.holds(target)) return false; // sanctuary at Ashminster: no blade either way
     return true; // open free-for-all
   }
   return hasActiveDuel(attacker, target); // consensual everywhere else (the Wilds, town, …)
@@ -8553,6 +8554,7 @@ setInterval(() => {
   tickDelves(dt);
   dungeonFinds.tick();
   villageWard.tick(); // at dawn the bound fires are out
+  ashminster.tick(players.values()); // sanctuary runs out, or is walked out of
   { const lit = corpseCandle.tick(players.values()); if (lit.length) saveAccounts(); } // the corpse candle on the road north
   { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
@@ -9162,6 +9164,10 @@ function packmanShut(player, npcId, tell) {
   } else send(player.ws, { type: 'shop_error', message: 'The packman is not here.' });
   return true;
 }
+// Ashminster in the Ember Wastes (lib/ashminster.js): the frith no creature enters, sanctuary at the knocker, the anchoress.
+const ashminster = require('./lib/ashminster')({ send,
+  onArrive: (p) => storyEvent(p, 'visit_room', { room: 'ashminster' }),
+  onSpoke: (p) => storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }) });
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -10591,9 +10597,9 @@ const EMBER_MOB_SPAWNS = (() => {
     for (let i = clustered; i < n; i++) scatter(type);
   }
   // Nothing rises inside Ashminster: a spawn that fell there is put out to its edge, on its own bearing.
-  for (const sp of out) {
-    const dx = sp.x - EMBER_TOWN.x, dy = sp.y - EMBER_TOWN.y, d = Math.hypot(dx, dy);
-    if (d < EMBER_TOWN.clear) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = EMBER_TOWN.x + u[0] * EMBER_TOWN.clear; sp.y = EMBER_TOWN.y + u[1] * EMBER_TOWN.clear; }
+  for (let pass = 0; pass < 3; pass++) for (const sp of out) for (const g of EMBER_TOWN.ground) {
+    const dx = sp.x - g.x, dy = sp.y - g.y, d = Math.hypot(dx, dy);
+    if (d < g.r) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = g.x + u[0] * (g.r + 1); sp.y = g.y + u[1] * (g.r + 1); }
   }
   return out;
 })();
@@ -10831,6 +10837,8 @@ function tickEmberWastes(dt) {
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
     if (vx !== 0 && nx > margin && nx < EMBER_WORLD_DIMS.width - margin) m.x = nx;
     if (vy !== 0 && ny > margin && ny < EMBER_WORLD_DIMS.height - margin) m.y = ny;
+    // the minster's peace at Ashminster: nothing of the Wastes comes inside the frith crosses (lib/ashminster.js)
+    { const out = ashminster.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } }
     if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
   }
 }
@@ -15151,6 +15159,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wayside_use') { if (wayside.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead
@@ -18600,7 +18609,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

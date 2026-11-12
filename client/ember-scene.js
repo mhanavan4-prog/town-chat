@@ -60,6 +60,31 @@ function addScorchedInstances(scene, key, mode, items) {
 // Ashminster (data/emberTown.js on the server; test/ember-town.test.js keeps
 // these in step): where the minster stands, how big, and which way it faces.
 const EMBER_TOWN = { x: 10000, y: 11000, unit: 250, height: 7.5, turn: Math.PI, name: 'Ashminster' };
+// The town's ground (nothing of the Wastes is scattered inside it), what stands
+// in it, and what can be stood at and used: copies of data/emberTown.js.
+const TX = EMBER_TOWN.x, TY = EMBER_TOWN.y;
+const ASH_GROUND = [{ x: TX, y: TY, r: 1700 }, { x: TX, y: TY + 1900, r: 1450 }, { x: TX, y: TY + 2950, r: 750 }];
+const ASH_PIECES = [
+  ['em_ash_cross', TX, TY + 1950, 0, 260, 'fit'],
+  ['em_house_a', TX - 650, TY + 1700, 1.57, 440, 'fit'], ['em_house_b', TX - 700, TY + 2250, 1.4, 400, 'fit'],
+  ['em_house_c', TX + 650, TY + 1700, -1.57, 470, 'fit'], ['em_house_a', TX + 700, TY + 2250, -1.5, 440, 'fit'],
+  ['em_house_b', TX - 450, TY + 2700, 0.1, 400, 'fit'], ['em_house_c', TX + 470, TY + 2700, -0.1, 470, 'fit'],
+  ['em_house_a', TX - 420, TY + 3200, 1.57, 440, 'fit'], ['em_house_b', TX + 420, TY + 3200, -1.57, 400, 'fit'],
+  ['em_house_c', TX - 1000, TY + 1350, 0.4, 470, 'fit'], ['em_house_b', TX + 1000, TY + 1350, -0.3, 400, 'fit'],
+  ['em_house_a', TX - 1350, TY + 1750, 0.8, 440, 'fit'], ['em_house_c', TX + 1350, TY + 1800, -0.6, 470, 'fit'],
+  ['prop_well', TX + 300, TY + 2150, 0.3, 110, 'fit'],
+  ['em_barricade', TX, TY + 3550, 0, 420, 'fit'], ['em_barricade', TX - 1050, TY + 2000, -1.57, 420, 'fit'], ['em_barricade', TX + 1050, TY + 2000, 1.57, 420, 'fit'],
+  ['em_frith_cross', TX, TY + 1650, 0, 170, 'height'], ['em_frith_cross', TX + 1650, TY, 1.57, 170, 'height'],
+  ['em_frith_cross', TX - 1650, TY, -1.57, 170, 'height'], ['em_frith_cross', TX, TY - 1650, 3.14, 170, 'height'],
+];
+const ASH_SPOTS = {
+  knocker:   { x: TX + 1500, y: TY + 60, name: 'the sanctuary knocker', icon: '🚪', hint: 'take hold of the sanctuary knocker' },
+  anchoress: { x: TX - 225, y: TY - 235, name: 'the anchoress\'s squint', icon: '🕯️', hint: 'speak at the anchoress\'s squint' },
+  marks:     { x: TX - 525, y: TY + 440, name: 'marks cut in the stone', icon: '✴️', hint: 'look at the marks cut by the breach' },
+  frith:     { x: TX + 70, y: TY + 1710, name: 'the south frith cross', icon: '✝️', hint: 'read the frith cross' },
+};
+// How much of each piece is solid: a square about its middle, as a share of its size (a house is walked round, not into).
+const ASH_SOLID = { em_house_a: 0.4, em_house_b: 0.42, em_house_c: 0.36, em_ash_cross: 0.36, prop_well: 0.42, em_frith_cross: 0.18, em_barricade: 0 };
 // What of the minster is solid, in the model's own plan (x along the nave,
 // tower at -x; y across, north at +y), as [x0, y0, x1, y1]. The nave is left
 // open at the breach in its north wall, so it can be walked into.
@@ -202,8 +227,8 @@ function buildEmberScene() {
     ['rock1', 90, 'fit'], ['rock2', 110, 'fit'], ['rock3', 100, 'fit']
   ];
   // nothing scattered stands in the minster or its yard
-  const inTown = (x, z) => Math.hypot(x - EMBER_TOWN.x, z - EMBER_TOWN.y) < 1700;
-  for (let i = spots.length - 1; i >= 0; i--) if (Math.hypot(spots[i][0] - EMBER_TOWN.x, spots[i][1] - EMBER_TOWN.y) < 1500) spots.splice(i, 1);
+  const inTown = (x, z) => ASH_GROUND.some((g) => Math.hypot(x - g.x, z - g.y) < g.r);
+  for (let i = spots.length - 1; i >= 0; i--) if (inTown(spots[i][0], spots[i][1])) spots.splice(i, 1);
   const canKK = KK && KK.staticInstance;
   if (canKK) {
     // Bucket the ~700 scorched props by model, then emit one InstancedMesh each
@@ -444,6 +469,47 @@ function buildEmberScene() {
     if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildMinster).catch(() => {});
     if (KK.onAssetLoad) KK.onAssetLoad(buildMinster);
   }
+  // ── the town south of it: a market square with its cross broken, roofless
+  // houses round it and down the one street, a well, barricades across the
+  // ways in, shell-holes, and the four frith crosses at the edge of the
+  // minster's peace. Each piece is set down as its model arrives.
+  for (const [key, x, y, , size] of ASH_PIECES) {
+    const half = size * (ASH_SOLID[key] || 0);
+    if (half) scene.userData.walls.push({ x: x - half, y: y - half, w: half * 2, h: half * 2 });
+    else if (key === 'em_barricade') { const along = Math.abs(Math.cos(ASH_PIECES.find((p) => p[1] === x && p[2] === y)[3])) > 0.5; scene.userData.walls.push(along ? { x: x - size * 0.45, y: y - 40, w: size * 0.9, h: 80 } : { x: x - 40, y: y - size * 0.45, w: 80, h: size * 0.9 }); }
+  }
+  const placed = new Set();
+  const buildTown = () => {
+    if (!(KK && KK.has && KK.staticInstance)) return;
+    ASH_PIECES.forEach(([key, x, y, turn, size, mode], i) => {
+      if (placed.has(i) || !KK.has(key)) return;
+      const g = KK.staticInstance(key, size, mode);
+      if (!g) return;
+      placed.add(i);
+      if (key === 'prop_well') scorch(g, 0.2);
+      g.rotation.y = turn; g.position.set(x, 0, y);
+      scene.add(g);
+    });
+  };
+  buildTown();
+  if (KK && placed.size < ASH_PIECES.length) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildTown).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildTown);
+  }
+  // shell-holes in the square and the street: a scorched ring and a dark middle, laid just over the floor
+  for (const [dx, dy, r] of [[-260, 1850, 90], [330, 2450, 120], [-120, 2950, 70], [180, 3350, 100], [-820, 2050, 80], [860, 1650, 110], [40, 1300, 130], [-560, 1150, 75]]) {
+    const rim = new THREE.Mesh(new THREE.RingGeometry(r * 0.7, r, 18), new THREE.MeshBasicMaterial({ color: 0x1c0d09, side: THREE.DoubleSide }));
+    rim.rotation.x = -Math.PI / 2; rim.position.set(TX + dx, 2.4, TY + dy); scene.add(rim);
+    const pit = new THREE.Mesh(new THREE.CircleGeometry(r * 0.7, 16), new THREE.MeshBasicMaterial({ color: 0x0a0504 }));
+    pit.rotation.x = -Math.PI / 2; pit.position.set(TX + dx, 2.6, TY + dy); scene.add(pit);
+  }
+  // what can be stood at and used, each with its name over it
+  const ashKiosks = [];
+  for (const id in ASH_SPOTS) {
+    const sp = ASH_SPOTS[id];
+    ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });
+    if (typeof makeNpcNameSprite === 'function') { const lbl = makeNpcNameSprite(`${sp.icon} ${sp.name[0].toUpperCase() + sp.name.slice(1)}`); lbl.position.set(sp.x, 150, sp.y); scene.add(lbl); }
+  }
 
   // Return portal near spawn (in the flattened arrival haven, so y≈0).
   const exitX = EMBER_WORLD.spawn.x, exitY = EMBER_WORLD.spawn.y - 120;
@@ -540,7 +606,7 @@ function buildEmberScene() {
   }
   const wardenKiosk = { x: WARDEN_X, z: WARDEN_Z, npc: 'quest', npcId: 'npc_warden', npcName: '🔥 Warden Kol' };
 
-  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk, wardenKiosk]);
+  setEmberStaticKiosks([{ x: exitX, z: exitY, portal: 'ember_exit' }, refugeKiosk, wardenKiosk, ...ashKiosks]);
   setEmberKiosks(getEmberStaticKiosks().slice());
 
   const _mv = getEmberMobVisuals(); for (const id in _mv) scene.remove(_mv[id].group);
