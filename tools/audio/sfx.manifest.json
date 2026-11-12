@@ -199,8 +199,216 @@
     {"id": "wander_black_annis", "category": "wanderer", "existing": false, "new": true, "duration_seconds": 2.2, "prompt": "Iron claws dragged slowly down a sandstone wall inside a cave: a long gritty metallic scrape, ending in a low, pleased, breathy croon from an old woman's throat. Wordless. No music."},
     {"id": "rare_marked", "category": "dungeon", "existing": false, "new": true, "duration_seconds": 1.4, "prompt": "A calm settling in a stone chamber: a soft warm low tone swelling gently, with the faint dry scratch of a knife point marking stone. Safe, hushed, old. No music, no voice."},
     {"id": "rare_hoard", "category": "dungeon", "existing": false, "new": true, "duration_seconds": 1.5, "prompt": "A dry-stone wall giving way: heavy stones tumbling and knocking down onto a stone floor, a puff of grit, and a few old coins spilling and ringing as they settle. No music, no voice."},
-    {"id": "rare_well", "category": "dungeon", "existing": false, "new": true, "duration_seconds": 1.1, "prompt": "One small pin dropped into a still spring in a stone basin underground: a tiny bright plink, one clear drip-echo, and the faint ring of the water settling. Small, cold, clean. No music, no voice."}
-  ],
+    {"id": "rare_well", "category": "dungeon", "existing": false, "new": true, "duration_seconds": 1.1, "prompt": "One small pin dropped into a still spring in a stone basin underground: a tiny bright plink, one clear drip-echo, and the faint ring of the water settling. Small, cold, clean. No music, no voice."},
+{
+ "id": "gibbet_splinter",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.6,
+ "prompt": "An iron gibbet cage turning slowly on its chain: one long dry rusty creak, then a knife cutting a small splinter from an old oak post, a short crisp crack of dry wood. Outdoors, open moor, a little wind. Bleak and close. No music, no voice."
+},
+{
+ "id": "coffin_rest",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.4,
+ "prompt": "A heavy pack set down on a flat stone slab outdoors: a soft dull thump of weight on rock, a strap creaking loose, then one slow breath out of relief. Quiet open country, faint wind. No music, no voice."
+},
+{
+ "id": "candle_rise",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.2,
+ "prompt": "A small ghostly flame appearing by itself at night: a faint cold airy shimmer swelling from silence, a single very soft high glassy tone like a fingertip on a wine glass, and the tiny flutter of a candle flame with no wind. Eerie, hushed, lonely. No music, no voice, no bells."
+},
+{
+ "id": "candle_struck",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.3,
+ "prompt": "Being knocked down by something unseen on a road at night: a sudden heavy muffled body blow like a shoulder into the chest, a rush of cold air past, then a fall onto wet grass and a candle flame snuffing out. No music, no voice."
+},
+{
+ "id": "candle_out",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.0,
+ "prompt": "A candle flame standing still a moment and then going out by itself outdoors at night: a faint held glassy shimmer, a soft puff as the flame dies, a thin hiss of wick smoke, then one distant low church bell stroke very far off. Solemn, quiet. No music, no voice."
+},
+{
+ "id": "unwitch",
+ "category": "village",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.0,
+ "prompt": "A wise-woman taking a curse off: a hot pin hissing as it is dropped into a small glass bottle, a cork pushed in hard with a squeak and a thump, then a quick cold draught leaving the room and a door-latch rattling once. Close, indoors, by a fire. No music, no voice."
+},
+{
+ "id": "lyke_bed",
+ "category": "village",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.6,
+ "prompt": "Paying for a bed in an old lodging house: a few coins counted down onto a wooden table, a straw mattress rustling as a blanket is turned back, and a low fire ticking in the hearth. Warm, plain, indoors. No music, no voice."
+},
+{
+ "id": "lyke_wake",
+ "category": "village",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.2,
+ "prompt": "Waking in a quiet room after a night watched over: a slow deep breath in, a wooden chair creaking as someone gets up from beside the bed, a candle guttering out with a tiny hiss, and a cock crowing once far away outside. Gentle, early morning. No music, no words."
+},
+{
+ "id": "balefire_light",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.8,
+ "prompt": "Lighting a big beacon fire on a hilltop: flint struck twice, dry gorse and furze catching with a fast crackle, then a sudden deep whoomph as the whole pile takes and roars up. Outdoors, windy. No music, no voice."
+},
+{
+ "id": "balefire_round",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.6,
+ "prompt": "A large beacon fire roaring up on a hill and other beacons answering far away: a deep whoomph and heavy crackle close by, then a hunting horn blown once in the distance and a second, fainter horn answering further off across open country. Triumphant but wild. No music, no voice."
+},
+{
+ "id": "cairn_open",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.5,
+ "prompt": "Searching a cairn of stones: two or three heavy stones lifted and set aside with a gritty knock, then a stiff oilcloth bundle pulled out and unwrapped with a dry crackle, and a small clink of something inside. Outdoors. No music, no voice."
+},
+{
+ "id": "troy_done",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.5,
+ "prompt": "Running out of a turf maze without a false step: quick light footsteps on short grass coming to a stop, a breathless laugh of air through the nose, and one low warm hollow note like wind across the mouth of a stone jar. Glad, simple, outdoors. No music, no words."
+},
+{
+ "id": "crick_done",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.6,
+ "prompt": "Crawling through a holed standing stone for the last time: cloth scraping on rough granite, hands and knees on gravel, then standing up and a single deep resonant hum as if the stone itself rang once, fading. Open moorland. No music, no voice."
+},
+{
+ "id": "stones_counted",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.5,
+ "prompt": "Counting a stone circle and getting it right: a stick tapped lightly on three stones one after another, each a slightly different dry knock, then a held hush and one soft low drone as the count comes out the same. Still evening air. No music, no voice."
+},
+{
+ "id": "cloot_tie",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.6,
+ "prompt": "Tying a rag at a holy well: a strip of cloth dipped in spring water with a small splash and drips, wrung once, then pulled tight in a knot on a thorn twig with a wet creak. A spring trickling close by. No music, no voice."
+},
+{
+ "id": "besom_bind",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.4,
+ "prompt": "Binding a birch broom: a bundle of dry birch twigs gathered with a brittle rustle and bound round and round with a withy pulled very tight, creaking, then the staff knocked once on the ground to seat it. Close, dry, indoors at night. No music, no voice."
+},
+{
+ "id": "poppet_bind",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.3,
+ "prompt": "Stitching and binding a small cloth doll: a needle pushed through coarse linen twice, thread drawn tight with a soft zip, then thread wound round and round quickly and snapped off between the teeth. Very close and quiet. No music, no voice."
+},
+{
+ "id": "lead_pour",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.4,
+ "prompt": "Molten lead poured through the ring of an iron key into a bowl of cold water: a short bright liquid pour, then a loud sharp hiss and spit of steam, and a small solid clink as the cooled lead drops to the bottom. No music, no voice."
+},
+{
+ "id": "bees_tell",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.8,
+ "prompt": "Telling the bees: three soft knocks of an iron door key on a straw beehive, then the hum of the bees inside rising for a moment and settling again. A still garden, close to the hive. No music, no voice."
+},
+{
+ "id": "brownie_cream",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.4,
+ "prompt": "A bowl of cream set down on a stone hearth at night: a small earthenware bowl placed on stone with a soft knock, cream poured thick and slow, then the low tick of embers and one tiny quick scurry of small feet across the floor. No music, no voice."
+},
+{
+ "id": "sin_eat",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.8,
+ "prompt": "A sin-eater taking bread and ale over a coffin: a crust of bread broken, a wooden bowl lifted and one swallow of ale, the bowl set down on wood, and a single coin dropped onto the coffin lid. A hushed room, nobody speaking. No music, no voice."
+},
+{
+ "id": "toad_bone",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.9,
+ "prompt": "Casting small bones onto a stream at night: a handful of tiny dry bones scattered onto running water with light plinks, the stream running on, then one small bone turning and a strange thin rising whistle of wind as it goes against the current. Dark, cold, uncanny. No music, no voice."
+},
+{
+ "id": "hare_back",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.2,
+ "prompt": "Changing back from a hare into a woman: quick light pattering paws on turf stopping short, a sudden rush of air and cloth, then two human feet landing and one hard out-of-breath gasp. Outdoors. No music, no words."
+},
+{
+ "id": "reel_done",
+ "category": "oldways",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.0,
+ "prompt": "The end of a ring dance outdoors at night: a jaw harp twanging a last quick flourish and stopping dead, several pairs of feet stamping to a halt on turf together, and breathless laughter of three or four people letting go hands. No other instruments, no words."
+},
+{
+ "id": "wanderer_laid",
+ "category": "dungeon",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.4,
+ "prompt": "A haunting laid to rest in a stone vault: a long low groan sinking away into the floor, a cold wind drawn out of the room, loose grit settling, and then one small hard object dropping and rolling on flagstones. Heavy, final, a relief. No music, no words."
+},
+{
+ "id": "page_turn",
+ "category": "ui",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 0.7,
+ "prompt": "One thick page of an old handmade paper book turned over: a single soft dry rustle and the page settling flat. Very close and quiet. No music, no voice."
+}
+ ],
   "_optional_candidates": [
     "ui_click — a soft muffled UI tap/click for menu buttons (new trigger)",
     "portal — a whooshing arcane portal traversal (town<->wilds) (new trigger)",
