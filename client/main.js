@@ -467,6 +467,7 @@ const KK = (() => {
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
+    em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
     wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
@@ -14048,7 +14049,7 @@ function checkEmberLandmarkDiscovery() {
     if (emberDiscovered[lm.id]) continue;
     if (Math.hypot(me.x - lm.x, me.y - lm.y) > lm.radius) continue;
     emberDiscovered[lm.id] = true;
-    const icon = lm.warlord ? '⚔️' : '📍';
+    const icon = lm.warlord ? '⚔️' : lm.town ? '⛪' : '📍';
     // Center popup only — no top banner (matches the entry greeting).
     showChapterCeremony(`${icon} ${lm.name}`, lm.blurb || (lm.warlord ? 'The warlord of the wastes holds this place.' : ''));
   }
@@ -14096,7 +14097,7 @@ function swapToEmberMap() {
   if (!emberScene) { try { buildEmberScene(); } catch (e) { console.error('buildEmberScene failed:', e); } } // lazy: built on first entry, not at boot
   if (!emberScene || activeScene === emberScene) return;
   world = EMBER_WORLD;
-  walls = [];
+  walls = (emberScene.userData && emberScene.userData.walls) || []; // the minster at Ashminster is solid
   cameraYawOffset = 0;
   cameraPitchOffset = 0;
   setActiveContext(emberScene, emberCamera, null);
@@ -20583,9 +20584,11 @@ function applyFov(cam) {
   if (Math.abs(cam.fov - want) > 0.01) { cam.fov = want; cam.updateProjectionMatrix(); }
 }
 
+let qaView = null;
 function render() {
   if (!me || !world || !renderer || !activeScene || !activeCamera) return;
   applyFov(activeCamera);
+  if (qaView) { activeCamera.position.set(qaView[0], qaView[1], qaView[2]); activeCamera.lookAt(qaView[3], qaView[4], qaView[5]); } // QA: a fixed camera for looking at a place (window.__testDrive.view)
   GFX.beforeRender();
   if (GFX.composerActive()) {
     GFX.renderPass.scene = activeScene;
@@ -21156,6 +21159,9 @@ if (location.search.includes('testdrive=1')) {
     mobs() { return Object.entries(mobVisuals).map(([id, m]) => ({ id, x: m.x, y: m.y, dead: !!m.dead })); },
     animals() { return Object.entries(animalVisuals).map(([id, a]) => ({ id, x: a.x, y: a.y, dead: !!a.dead })); },
     interact() { tryInteract(); },
+    // QA: hold the camera at (x, height, y) looking at (tx, theight, ty), in world coordinates; view() lets it go.
+    view(x, h, y, tx, th, ty) { qaView = x == null ? null : [x, h, y, tx, th, ty]; return true; },
+    ember() { enterEmberWastes(); }, // QA: through the temple portal (the server still decides whether it is open)
     walls() { return walls.map((w) => [Math.round(w.x), Math.round(w.y), Math.round(w.w), Math.round(w.h)]); }, // what is solid where she stands (for tools/wilds-solids)
     clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },
     face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },

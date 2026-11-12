@@ -57,6 +57,31 @@ function addScorchedInstances(scene, key, mode, items) {
     scene.add(im);
   });
 }
+// Ashminster (data/emberTown.js on the server; test/ember-town.test.js keeps
+// these in step): where the minster stands, how big, and which way it faces.
+const EMBER_TOWN = { x: 10000, y: 11000, unit: 250, height: 7.5, turn: Math.PI, name: 'Ashminster' };
+// What of the minster is solid, in the model's own plan (x along the nave,
+// tower at -x; y across, north at +y), as [x0, y0, x1, y1]. The nave is left
+// open at the breach in its north wall, so it can be walked into.
+const MINSTER_SOLID = [
+  [-3.0, -1.62, 3.0, -1.38],            // nave, south wall
+  [-3.0, 1.38, 0.1, 1.62], [2.1, 1.38, 3.0, 1.62],   // nave, north wall either side of the breach
+  [2.88, -1.5, 4.85, 1.5],              // the crossing gable and the chancel behind it
+  [1.79, -2.85, 3.41, -1.5],            // south transept
+  [1.79, 1.5, 2.01, 2.75], [3.19, 1.5, 3.41, 2.75], [1.79, 2.59, 3.41, 2.81],   // what is left of the north one
+  [-5.5, -1.35, -3.0, 1.35],            // the tower
+  [-5.5, 2.0, -4.3, 3.0], [-4.5, 2.5, -3.6, 3.4], [-3.8, 2.9, -3.0, 3.8], [-2.8, 3.5, -1.3, 4.5],   // the spire where it lies
+  [-3.95, -2.35, -3.25, -1.65],         // the bell
+];
+function minsterWalls() {
+  const { x: cx, y: cy, unit: u, turn } = EMBER_TOWN, c = Math.cos(turn), s = Math.sin(turn);
+  return MINSTER_SOLID.map(([x0, y0, x1, y1]) => {
+    // model (x, y) -> three (x, -y); turned about the vertical; three z is the world's y
+    const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([mx, my]) => { const X = mx * u, Z = -my * u; return [cx + X * c + Z * s, cy - X * s + Z * c]; });
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  });
+}
 function buildEmberScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a0f0a);
@@ -165,6 +190,7 @@ function buildEmberScene() {
     ? getEmberLandmarks()
     : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
   for (const lm of landmarks) {
+    if (lm.town) continue;   // Ashminster is dressed below, as a town
     for (let i = 0; i < 44; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   // Pool of scorched KayKit keys (all in the gating set, already loaded) with a
@@ -175,6 +201,9 @@ function buildEmberScene() {
     ['fl_deadwood', 150, 'height'], ['fl_thornsnarl', 70, 'height'],
     ['rock1', 90, 'fit'], ['rock2', 110, 'fit'], ['rock3', 100, 'fit']
   ];
+  // nothing scattered stands in the minster or its yard
+  const inTown = (x, z) => Math.hypot(x - EMBER_TOWN.x, z - EMBER_TOWN.y) < 1700;
+  for (let i = spots.length - 1; i >= 0; i--) if (Math.hypot(spots[i][0] - EMBER_TOWN.x, spots[i][1] - EMBER_TOWN.y) < 1500) spots.splice(i, 1);
   const canKK = KK && KK.staticInstance;
   if (canKK) {
     // Bucket the ~700 scorched props by model, then emit one InstancedMesh each
@@ -203,7 +232,7 @@ function buildEmberScene() {
   // look of a long-dead necropolis on the ember flat.
   if (canKK) {
     for (const lm of landmarks) {
-      if (lm.x === undefined) continue;
+      if (lm.x === undefined || lm.town) continue;
       const tombs = [['prop_crypt', 110, 'fit'], ['prop_grave_a', 30, 'height'], ['prop_grave_b', 30, 'height'], ['prop_arch', 150, 'fit']];
       for (let i = 0; i < 8; i++) {
         const [key, size, mode] = tombs[i % tombs.length];
@@ -248,14 +277,14 @@ function buildEmberScene() {
     for (let i = 0; i < n; i++) {
       const ang = rnd() * Math.PI * 2, r = rnd() * baseSize * 1.5;
       const g = rubyGem(cx + Math.cos(ang) * r, cz + Math.sin(ang) * r, baseSize * (0.5 + rnd() * 1.2));
-      if (g) scene.add(g);
+      if (g && !inTown(cx, cz)) scene.add(g);   // no crystals in the minster's yard
     }
   }
   if (canKK) {
     // Crystal fields scattered the whole zone over, so bare floor is rare.
     for (let i = 0; i < 80; i++) gemCluster(m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2), 3 + Math.floor(rnd() * 4), 90 + rnd() * 130);
     // A dense ruby reef beside each non-warlord POI.
-    for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
+    for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord && !lm.town) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
   }
 
   // ── The Ashlord's Citadel ────────────────────────────────────────────────
@@ -303,13 +332,15 @@ function buildEmberScene() {
   // light cost, laid just above the hex floor to avoid z-fighting.
   for (let i = 0; i < 42; i++) {
     const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), rad = 90 + rnd() * 170;
+    const ox = (rnd() - 0.5) * rad * 0.3, oz = (rnd() - 0.5) * rad * 0.3;
+    if (inTown(x, z)) continue;   // the town stands on cold ground
     const crust = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 36, 26), new THREE.MeshBasicMaterial({ color: 0x2e0c06, side: THREE.DoubleSide }));
     crust.rotation.x = -Math.PI / 2; crust.position.set(x, 1.4, z); scene.add(crust);
     const pool = new THREE.Mesh(new THREE.CircleGeometry(rad, 24), new THREE.MeshBasicMaterial({ color: 0xff5a1e }));
     pool.rotation.x = -Math.PI / 2; pool.position.set(x, 1.8, z); scene.add(pool);
     // a darker molten swirl inset for a bit of depth
     const core = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.5, 20), new THREE.MeshBasicMaterial({ color: 0xffb347 }));
-    core.rotation.x = -Math.PI / 2; core.position.set(x + (rnd() - 0.5) * rad * 0.3, 2.0, z + (rnd() - 0.5) * rad * 0.3); scene.add(core);
+    core.rotation.x = -Math.PI / 2; core.position.set(x + ox, 2.0, z + oz); scene.add(core);
   }
 
   // ── Ember geysers ────────────────────────────────────────────────────────
@@ -317,6 +348,7 @@ function buildEmberScene() {
   // silhouettes. Additive, so they read as hot gas rather than solid pillars.
   for (let i = 0; i < 30; i++) {
     const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), gh = 200 + rnd() * 320;
+    if (inTown(x, z)) continue;
     const col = new THREE.Mesh(
       new THREE.CylinderGeometry(6, 26, gh, 7, 1, true),
       new THREE.MeshBasicMaterial({ color: 0xff7a1e, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
@@ -353,7 +385,7 @@ function buildEmberScene() {
   // by across the vast zone, and the name once you draw near. The warlord's
   // throne gets a taller, redder spire.
   for (const lm of landmarks) {
-    if (lm.x === undefined) continue;
+    if (lm.x === undefined || lm.town) continue;   // the minster is its own beacon
     const warlord = !!lm.warlord;
     const beacon = new THREE.Group();
     const h = warlord ? 420 : 300;
@@ -376,6 +408,41 @@ function buildEmberScene() {
     }
     beacon.position.set(lm.x, H(lm.x, lm.y), lm.y);
     scene.add(beacon);
+  }
+
+  // ── Ashminster: the minster that stood through the war ───────────────────
+  // One great model (tools/models/build_home.py minster), set down at the
+  // middle of the Wastes with its breached side to the south, where people
+  // come from. Solid where its walls are (scene.userData.walls, which the
+  // game takes as this map's walls); the nave is open at the breach. Its
+  // model streams in after the scene is first built, so it is set down when
+  // it arrives.
+  scene.userData.walls = minsterWalls();
+  let minsterBuilt = false;
+  const buildMinster = () => {
+    if (minsterBuilt || !(KK && KK.has && KK.has('em_minster') && KK.staticInstance)) return;
+    const g = KK.staticInstance('em_minster', EMBER_TOWN.height * EMBER_TOWN.unit, 'height');
+    if (!g) return;
+    minsterBuilt = true;
+    g.rotation.y = EMBER_TOWN.turn;
+    g.position.set(EMBER_TOWN.x, 0, EMBER_TOWN.y);
+    scene.add(g);
+    // the east window is the one warm thing in the place
+    const lamp = new THREE.PointLight(0xffb060, 0.9, 1400);
+    const c = Math.cos(EMBER_TOWN.turn), s = Math.sin(EMBER_TOWN.turn), ex = 5.3 * EMBER_TOWN.unit;
+    lamp.position.set(EMBER_TOWN.x + ex * c, 300, EMBER_TOWN.y - ex * s);
+    scene.add(lamp);
+    if (typeof makeNpcNameSprite === 'function') {
+      const label = makeNpcNameSprite('⛪ ' + EMBER_TOWN.name);
+      label.scale.multiplyScalar(4);
+      label.position.set(EMBER_TOWN.x, EMBER_TOWN.height * EMBER_TOWN.unit + 220, EMBER_TOWN.y);
+      scene.add(label);
+    }
+  };
+  buildMinster();
+  if (!minsterBuilt && KK) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildMinster).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildMinster);
   }
 
   // Return portal near spawn (in the flattened arrival haven, so y≈0).
