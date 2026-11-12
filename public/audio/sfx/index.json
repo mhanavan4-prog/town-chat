@@ -113,6 +113,12 @@
       "v": "6ae8655e"
     }
   ],
+  "candle_follow": [
+    {
+      "f": "candle_follow.mp3",
+      "v": "876fd325"
+    }
+  ],
   "candle_out": [
     {
       "f": "candle_out.mp3",
@@ -319,6 +325,12 @@
     {
       "f": "glory_light.mp3",
       "v": "b8850721"
+    }
+  ],
+  "glory_out": [
+    {
+      "f": "glory_out.mp3",
+      "v": "abbcab36"
     }
   ],
   "gourd_ward": [
