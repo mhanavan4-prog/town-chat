@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The Old Ways — seven things a witch (or a cunning man, or a horseman) was
+// The Old Ways — ten things a witch (or a cunning man, or a horseman) was
 // said to do, each with a verb in the game and its tier and source named, as
 // with the practices (data/practices.js):
 //
@@ -10,6 +10,9 @@
 //   🥛 the brownie    — set out cream for whatever keeps the house
 //   🍞 sin-eating     — take the bread and ale, and what comes with them
 //   🐸 the toad-bone  — win the bone at running water
+//   🐇 the hare       — go into a hare, and come out again
+//   🕯️ the Hand of Glory — light it, and the sleepers do not stir
+//   🌒 the new moon   — turn your silver when you first see her
 //
 // Tiers: 'record' is in documents of the time; 'folk' was collected from
 // people who did it or remembered it done; 'revival' is modern practice.
@@ -67,6 +70,27 @@ const OLD_WAYS = [
     lore: 'Horsemen in Norfolk, Suffolk and Cambridgeshire told George Ewart Evans in the 1950s how a man became a "toadman" with power over horses. A toad, a natterjack by choice, was killed and left on an ant-hill or a thorn till only bones were left; at midnight, often at the full moon, the bones were thrown into a stream, and one of them, a forked bone, would float up against the current, sometimes with a scream. Whoever kept hold of it through what came next could stop a horse dead ("jading") or draw it after him. Many said the bone was got from the Devil and that it sent men mad. The game gives it power over the creatures of the Wilds, not over horses.',
     source: 'G. E. Evans, The Horse in the Furrow (1960) and The Pattern Under the Plough (1966); E. Porter, Cambridgeshire Customs and Folklore (1969).',
   },
+  {
+    id: 'hare', icon: '🐇', name: 'Going into a hare',
+    how: 'Out of doors, say the charm and go into a hare. For a minute and a half you run nearly twice as fast. Strike a blow, or take one, and you are yourself again on the spot; or say the other charm to come out when you choose.',
+    tier: 'record',
+    lore: 'Isobel Gowdie of Auldearn gave the words in her confession of 1662: "I sall goe intill ane haire, / With sorrow, and sych, and meikle caire", and another verse to come out again, wishing the hare care and saying she would be in a woman\'s likeness "even now". She said the dogs would sometimes get a bite of them while they were hares, and that the marks were on them still when they were women again. That last is the oldest part of the story. Gerald of Wales wrote about 1188 that it was an old complaint, in Wales, Ireland and Scotland alike, that certain hags changed themselves into hares to suck the cows of their neighbours, and the tale of a hare shot or bitten, and an old woman found next morning with the same wound, was told in most English counties into the last century. In the game a blow turns you back at once, which is how the stories end; that the hare is only fast, and steals no milk, is the game\'s own.',
+    source: 'R. Pitcairn, Ancient Criminal Trials in Scotland, vol. 3 (1833), for Gowdie; Giraldus Cambrensis, Topographia Hibernica (c.1188); K. Briggs, A Dictionary of Fairies (1976).',
+  },
+  {
+    id: 'glory', icon: '🕯️', name: 'The Hand of Glory',
+    how: 'Buy the hand in the town, from a man who does not say where he had it. Light it underground, in a dungeon or the Delve, and the creatures near you stand where they are and do not stir while it burns. The keepers of each deep are not held by it.',
+    tier: 'record',
+    lore: 'A thieves\' charm. Francis Grose put the recipe into English in 1787 from the French Petit Albert, printed from 1722: the hand of a man hanged by the highway, wrapped in a piece of winding-sheet, pickled a fortnight with salt, saltpetre and long pepper and dried in the sun of the dog-days, to hold a candle made of a hanged man\'s fat, virgin wax and sesame. Lit in a house, it left everyone in it unable to stir. William Henderson printed a tale of the Spital Inn on Stainmore in 1797, told by the daughter of the maid who was there: a traveller dressed as a woman lit the hand by the kitchen fire, the household could not be woken, and the maid found that water would not put it out, and skimmed milk did. Whitby Museum has a dried hand found hidden in the wall of a cottage at Castleton and given to it in 1935. The name is the French main de gloire, which Skeat showed in 1904 to be a wearing-down of mandragore, the mandrake. In the game the hand is bought, not made, it is turned on what lives underground and not on a sleeping household, and it burns only a short while.',
+    source: 'F. Grose, A Provincial Glossary (1787); Les secrets merveilleux du Petit Albert (1722); W. Henderson, Notes on the Folk-Lore of the Northern Counties (1866); W. W. Skeat, Notes on English Etymology (1904); Whitby Museum.',
+  },
+  {
+    id: 'moon', icon: '🌒', name: 'Turning your silver',
+    how: 'On the nights when the new moon is first seen, go out of doors after dark (never look at her first through glass), bow to her, and turn over the silver in your pocket. Once each moon.',
+    tier: 'folk',
+    lore: 'Robert Hunt wrote in 1865 that in Cornwall people turned their money on first seeing the new moon, or showed her a piece of gold. In Shropshire a girl curtseyed to her three times, turning round between, and looked for a present before the next moon; in West Sussex in 1868 people still bowed or curtseyed to her. Camden wrote of the Irish in 1586 that when they first saw her after the change they "commonly bow the knee and say the Lord\'s Prayer", and Aubrey, a century on, of country women who knelt to her. The thought behind it is that what is in your pocket when she is new will grow as she grows, so it was unlucky to be caught with a pocket empty; and almost everywhere it was unlucky to see her first through a window. In the game the silver does grow by a little, which is more than the custom ever promised.',
+    source: 'R. Hunt, Popular Romances of the West of England (1865); C. S. Burne, Shropshire Folk-Lore (1883); C. Latham, "Some West Sussex Superstitions Lingering in 1868", Folk-Lore Record 1 (1878); W. Camden, Britannia (1586); J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87); S. Roud (2003).',
+  },
 ];
 
 // ── The besom ────────────────────────────────────────────────────────────────
@@ -78,6 +102,8 @@ const BESOM_STEPS = [
   { id: 'bind', label: 'Bind it with willow', where: 'outside', night: true, done: 'By night you bind the birch to the stave with split willow, tight, and knock the stave home.' },
 ];
 const BESOM_REST_MS = 3 * MIN;
+// how long the ride in lasts on her screen; nothing in the Wilds can reach her while she is up
+const BESOM_RIDE_MS = 7000;
 // Where it will carry you. Each is open ground a few strides from the place named.
 const BESOM_LANDINGS = [
   { id: 'square', room: 'outside', name: 'The town square', x: 1600, y: 1180 },
@@ -154,4 +180,18 @@ const SIN = { gold: 30, xp: 25, guard: -0.1, restMs: 20 * HOUR, stone: { room: '
 // ── The toad-bone ────────────────────────────────────────────────────────────
 const TOAD = { cleanMs: 10 * MIN, calmMs: 5 * MIN, restMs: 30 * MIN };
 
-module.exports = { OLD_WAYS, BESOM_STEPS, BESOM_REST_MS, BESOM_LANDINGS, BESOM_SIGHTS, POPPET, LEAD_SHAPES, LEAD_XP, BEES, BEE_NEWS, BROWNIE, BROWNIE_WORK, BROWNIE_GONE, SIN, TOAD };
+// ── Going into a hare ────────────────────────────────────────────────────────
+// A minute and a half at nearly twice her pace; a blow given or taken ends it.
+const HARE = { ms: 90 * 1000, speed: 1.8, restMs: 10 * MIN };
+
+// ── The Hand of Glory ────────────────────────────────────────────────────────
+// Bought once. Lit underground it holds the creatures within reach (never a
+// boss) for as long as it burns, and then wants a long rest.
+const GLORY = { gold: 60, holdMs: 20 * 1000, range: 520, restMs: 20 * MIN };
+
+// ── Turning your silver ──────────────────────────────────────────────────────
+// Once a moon, while she is a young crescent: a twentieth of what is in the
+// bank comes back as luck, never less than `min` nor more than `max`.
+const MOON = { phase: 'waxing_crescent', share: 0.05, min: 8, max: 60, xp: 15 };
+
+module.exports = { HARE, GLORY, MOON, OLD_WAYS, BESOM_STEPS, BESOM_REST_MS, BESOM_RIDE_MS, BESOM_LANDINGS, BESOM_SIGHTS, POPPET, LEAD_SHAPES, LEAD_XP, BEES, BEE_NEWS, BROWNIE, BROWNIE_WORK, BROWNIE_GONE, SIN, TOAD };

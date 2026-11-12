@@ -165,6 +165,7 @@ const DUNGEON_CRITTER_MODELS = {
   venom_crawler: ['centipede', 52], moss_crawler: ['slug', 46],
   dark_adder: ['adder', 44], void_serpent: ['adder', 44],
   chaos_dragon: ['dragon', 60],
+  wander_church_grim: ['black_dog', 62], // the Church Grim wears the black dog of the lanes, grown
 };
 function realDungeonCritter(mobType, visual) {
   const spec = DUNGEON_CRITTER_MODELS[mobType];
@@ -245,7 +246,7 @@ function applyDungeonMobState(list) {
     const v = getOrCreateDungeonMobVisual(m.id, m.mobType);
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
-    v.room = m.room;
+    v.room = m.room; v.mobType = m.mobType;
     // Stamp death (alive -> dead) for the collapse timer; clear + restore blob
     // scale on respawn (dead -> alive).
     if (m.dead && v._wasDead === false) v.deathAt = performance.now();

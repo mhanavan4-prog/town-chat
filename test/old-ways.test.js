@@ -27,7 +27,7 @@ const card = (p, id) => ow.body(p).ways.find((w) => w.id === id);
 const can = (p, id, action) => { const a = (card(p, id).actions || []).find((x) => x.id === action); return !!(a && a.enabled); };
 const MIN = 60000;
 
-check('seven ways, each with its tier, its lore and its source', D.OLD_WAYS.length === 7 && D.OLD_WAYS.every((w) => ['record', 'folk', 'revival'].includes(w.tier) && w.lore.length > 200 && w.source.length > 30 && w.how.length > 40));
+check('ten ways, each with its tier, its lore and its source', D.OLD_WAYS.length === 10 && D.OLD_WAYS.every((w) => ['record', 'folk', 'revival'].includes(w.tier) && w.lore.length > 200 && w.source.length > 30 && w.how.length > 40));
 check('a guest is told to log in, and can do nothing', ow.body({ id: 'g', room: 'outside' }).isGuest === true && ow.act({ id: 'g', room: 'outside' }, 'lead', 'pour').error);
 
 // the besom
@@ -139,7 +139,7 @@ check('the quiet ends', ow.isCalmed(ann) === false);
 // wiring
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8'), main = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8'), html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8'), panel = fs.readFileSync(path.join(root, 'client/oldways.js'), 'utf8'), cat = fs.readFileSync(path.join(root, 'data/itemCatalog.js'), 'utf8');
 check('only goods that already exist change hands', ['fur_scrap', 'bone_shard', 'healing_potion', 'leather_hide'].every((id) => new RegExp('^  ' + id + ':', 'm').test(cat)));
-check('the server answers the panel, saves what was done, and moves whoever rides', /if \(msg\.type === 'oldways_do'\)/.test(server) && /saveAccounts\(\); saveInventories\(\); saveBankAccounts\(\);/.test(server) && /send\(ws, \{ type: 'broom_flight', \.\.\.out\.flight \}\);/.test(server) && /player\.room = out\.flight\.room;/.test(server));
+check('the server answers the panel, saves what was done, and moves whoever rides', /if \(msg\.type === 'oldways_do'\)/.test(server) && /saveAccounts\(\); saveInventories\(\); saveBankAccounts\(\);/.test(server) && /send\(ws, \{ type: 'broom_flight', \.\.\.out\.flight, rideMs/.test(server) && /player\.room = out\.flight\.room;/.test(server));
 check('a poppet\'s guard and a sin-eater\'s burden count with every other guard; the bone quiets the Wilds\' night creatures until you strike', /function statContrib\(player, statKey\) \{ return oldWays\.statContrib\(player, statKey\) \+/.test(server) && (server.match(/!oldWays\.isCalmed\(nearestP\)/g) || []).length === 2 && /if \(player && player\.toadCalmUntil\) player\.toadCalmUntil = 0;/.test(server));
 check('the panel is in the menu, closes with Escape, and a flight changes the map', /id="menuOldWays"/.test(html) && /id="oldWaysModal" class="floatPanel hidden"/.test(html) && /on\('menuOldWays'/.test(main) && /Modals\.isOpen\('oldWaysOpen'\) && e\.key === 'Escape'/.test(main) && /function broomFlight\(msg\)/.test(main) && /if \(msg\.room === 'wilds'\) \{ swapToWildsMap\(\);/.test(main));
 check('the panel shows why a thing waits, asks before the brownie is clothed, and gives every lore its tier and source', /a\.enabled \? '' : \(a\.why \|\| ''\)/.test(panel) && /if \(a\.confirm && !b\.dataset\.sure\)/.test(panel) && /callerTier-' \+ w\.tier/.test(panel) && /`Source: \$\{w\.source\}`/.test(panel));

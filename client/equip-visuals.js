@@ -6,7 +6,7 @@
 // active-status FX. CHAR/EQUIP_ATTACH + the glow texture + the visuals registry are
 // injected (THREE/LEGEND_FX are globals); myId/players via getters.
 // ---------------------------------------------------------------------------
-export default function createEquipVisuals({ CHAR, EQUIP_ATTACH, makeGlowTexture, visuals, getMyId, getPlayers }) {
+export default function createEquipVisuals({ CHAR, EQUIP_ATTACH, makeGlowTexture, visuals, getMyId, getPlayers, staticModel = () => null }) {
 function applyEquipVisual(id, equipped) {
   const v = visuals[id];
   if (!v) return;
@@ -176,6 +176,7 @@ function clearStatusVisual(v) {
   // fixes the TypeError every status apply/clear threw on KayKit visuals
   // (user-reported via Raven's Cloak, Session I).
   if (v.torso && v.torso.material && v.baseShirtColor != null) v.torso.material.color.setHex(v.baseShirtColor);
+  if (v.hareMesh) { v.group.remove(v.hareMesh); v.hareMesh = null; for (const c of v.hareHid || []) c.visible = true; v.hareHid = null; }
   if (v.colorcycleSprite) { v.group.remove(v.colorcycleSprite); v.colorcycleSprite = null; }
   if (v.bloodcurseSprite) { v.group.remove(v.bloodcurseSprite); v.bloodcurseSprite = null; }
   if (v.reversedSprite)   { v.group.remove(v.reversedSprite);   v.reversedSprite   = null; }
@@ -222,6 +223,15 @@ function applyStatusVisual(id, status) {
   } else if (newType === 'wolfpact') {
     v.wolfPactMesh = makeWolfPactAura();
     v.group.add(v.wolfPactMesh);
+  } else if (newType === 'hare') {
+    // Gone into a hare (the Old Ways): the witch is put away and a hare stands
+    // where she stood, for everyone who can see her.
+    const hare = staticModel('cr_hare', 30, 'height');
+    if (hare) {
+      v.hareHid = v.group.children.filter((c) => c.visible);
+      for (const c of v.hareHid) c.visible = false;
+      v.hareMesh = hare; v.group.add(hare);
+    }
   } else if (newType === 'meditate') {
     // No mesh — just a timestamp so syncVisuals knows how far into the
     // sit-then-rise it is. The cross-legged pose and the rising Y offset
