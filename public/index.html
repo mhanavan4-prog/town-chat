@@ -3030,6 +3030,7 @@
       <button class="menuRow" id="menuOgham">🌳 Tree Alphabet</button>
       <button class="menuRow" id="menuPractices">🌿 Your Craft</button>
       <button class="menuRow" id="menuOldWays" title="The besom, the poppet, lead-pouring, the bees, the brownie, sin-eating, the toad-bone">🧹 The Old Ways</button>
+      <button class="menuRow" id="menuDaybook" title="What you have done of the Old Ways, the wanderers, the rare rooms and the balefires, and when first">📖 Your Daybook</button>
       <button class="menuRow" id="menuCords">🪢 Knots &amp; Cords</button>
       <button class="menuRow" id="menuMoonWell">🌙 The Moon Well</button>
 
@@ -3415,6 +3416,13 @@
   /* …and what else is docked there on a phone steps down a line to make room. */
   body.touchMode.findsHudUp #firstStepsChip { top:134px; }
   body.touchMode.findsHudUp #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 118px); }
+  /* The daybook (client/oldways.js): a tick, a name, and the day or a hint. */
+  .dbRow { display:flex; gap:10px; align-items:flex-start; padding:7px 2px; border-top:1px solid rgba(255,255,255,0.07); opacity:0.72; }
+  .dbRow.done { opacity:1; }
+  .dbTick { flex:0 0 18px; text-align:center; font-weight:800; color:#7a6f8a; }
+  .dbRow.done .dbTick { color:#9ee37d; }
+  .dbName { font-weight:600; }
+  .dbNote { font-size:12px; opacity:0.75; margin-top:1px; }
   /* Shared bits for the new modals */
   .slTabs { display:flex; gap:6px; margin:10px 0 12px; flex-wrap:wrap; justify-content:center; }
   .slTab {
