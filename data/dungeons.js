@@ -6,21 +6,38 @@ const DUNGEON_LORE = {
   1: {
     name: 'The Rootcellar', epithet: 'beneath the oldest house in Thornreach',
     bossKey: 'boss_rat_king',
+    // Some nights something else is down here besides the keeper (lib/dungeons.js, the wanderers).
+    wanderer: { key: 'wander_rawhead', name: 'Rawhead-and-Bloody-Bones', tier: 'folk',
+      lore: 'A bogey of the dark places of a house. The name is in print by about 1548, and John Locke complained in 1693 of servants who kept children quiet with "Raw-Head and Bloody-Bones, and such other Names". In Somerset, as Ruth Tongue heard it, he "lived in a dark cupboard, usually under the stairs", crouched on a heap of the bones of children who told lies; in Lancashire and Yorkshire he waited in ponds and old marl-pits.',
+      source: 'J. Locke, Some Thoughts Concerning Education (1693); R. L. Tongue, Somerset Folklore (1965); E. M. Wright, Rustic Speech and Folk-Lore (1913); K. Briggs, A Dictionary of Fairies (1976).',
+      note: 'The stories only ever threaten with him. That he can be met and fought is the game\'s.' },
     plaque: '“Every town buries something. Thornreach dug a cellar for it. The roots grew down from above and the rats grew up from below, and in the dark where they meet, Old Gnawbone wears a crown of tarnished spoons. Feed him your courage — or your bones.”'
   },
   2: {
     name: 'The Weeping Crypts', epithet: 'where the old covens laid their debts',
     bossKey: 'boss_crypt_weaver',
+    wanderer: { key: 'wander_church_grim', name: 'The Church Grim', tier: 'folk',
+      lore: 'In the north of England it was said that the first one buried in a new churchyard must watch it against the Devil ever after, and that to spare a Christian soul the duty a black dog was buried first, on the north side. Its ghost was the grim: a great black dog that kept the graves from thieves and witches, and tolled the bell at midnight before a death. The Swedes and Danes told the same of the kyrkogrim, an animal walled alive into the church\'s foundation.',
+      source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1866; 2nd ed. 1879); B. Thorpe, Northern Mythology, vol. 2 (1851); K. Briggs, A Dictionary of Fairies (1976).',
+      note: 'The grim was a guardian and harmed only those who came to rob. Down here the game makes you the one who has come to rob.' },
     plaque: '“The stones down here sweat a cold water the gravediggers called crypt-tears. Widow Silk spins beneath the drowned chapel, and her web is strung with wedding rings. Mind the strands. She knows the weight of every visitor by heart.”'
   },
   3: {
     name: 'The Howling Forge', epithet: 'the mountain’s furnace that never went out',
     bossKey: 'boss_forge_tyrant',
+    wanderer: { key: 'wander_mine_demon', name: 'The Demon of the Rose-Garland Mine', tier: 'record',
+      lore: 'Georgius Agricola, the first great writer on mining, held that spirits lived in mines and said so in print in 1549 and 1556. Most were the gentle kobel, dwarfs about two feet high and dressed like miners, who throw pebbles at the workmen "but they rarely injure them unless the workmen first ridicule or curse them". Others were deadly. He wrote of one at Annaberg, in the mine called the Rose-garland, that killed twelve labourers with its breath, so that the mine was given up though it was rich in silver, and he listed such demons among the reasons a mine may lawfully be abandoned. Cobalt ore is named for the kobel, who were blamed for ore that poisoned the smelters and yielded nothing.',
+      source: 'G. Agricola, De animantibus subterraneis (1549) and De re metallica (1556), trans. H. C. and L. H. Hoover (1912).',
+      note: 'Agricola gives the demon a mine in Saxony, not a forge. The game has moved it under the mountain.' },
     plaque: '“Dwarrow-work or giant-work, the masons still argue — the Forge doesn’t care. It breathes through the floor grates and it remembers being a volcano. Cindermaw stokes the heart-coal with a shovel beaten from dead men’s shields. Bring water. Bring friends.”'
   },
   4: {
     name: 'The Starless Deep', epithet: 'the dark below the dark',
     bossKey: 'boss_pale_sovereign',
+    wanderer: { key: 'wander_black_annis', name: 'Black Annis', tier: 'folk',
+      lore: 'A hag with a blue face and iron claws who lived in a cave in the Dane Hills outside Leicester, which she was said to have scratched out of the sandstone with her own nails. She took lambs and children, and hung their skins on the oak at the cave\'s mouth. The place is "Black Anny\'s Bower Close" in title deeds of May 1764, and John Heyrick put her "features livid blue" and "vast talons" into verse before the century was out. Until about that time a drag was hunted from her Bower to the Mayor\'s door every Easter Monday.',
+      source: 'C. J. Billson, County Folk-Lore vol. 1: Leicestershire and Rutland (1895); K. Briggs, A Dictionary of Fairies (1976).',
+      note: 'Her cave was in a field near Leicester and is built over now. The game has let her go deeper.' },
     plaque: '“Lanterns gutter here not from wind but from doubt. This is the sea-floor of the night sky, where fallen constellations settle like silt. The Pale Sovereign holds court over everything the stars forgot — and it is always listening for new names.”'
   }
 };
@@ -71,7 +88,15 @@ const DUNGEON_MOB_TYPES = {
   boss_rat_king:       { name: 'Old Gnawbone, the Rat King',   tier: 1, xp: 45,  boss: true, color: 0x8a6a3a, scale: 1.5,  maxHealth: 170,  speed: 62, aggroRadius: 215, strikeRange: 55, dmgMin: 6,  dmgMax: 10, hitCooldownMs: 1500 },
   boss_crypt_weaver:   { name: 'Widow Silk, the Crypt Weaver', tier: 2, xp: 100, boss: true, color: 0x5a2a5a, scale: 1.65, maxHealth: 400,  speed: 72, aggroRadius: 235, strikeRange: 58, dmgMin: 14, dmgMax: 20, hitCooldownMs: 1600 },
   boss_forge_tyrant:   { name: 'Cindermaw, the Forge-Tyrant',  tier: 3, xp: 200, boss: true, color: 0xb84a10, scale: 1.95, maxHealth: 720,  speed: 46, aggroRadius: 245, strikeRange: 66, dmgMin: 26, dmgMax: 34, hitCooldownMs: 1900 },
-  boss_pale_sovereign: { name: 'The Pale Sovereign',           tier: 4, xp: 400, boss: true, color: 0xd8d8ea, scale: 2.1,  maxHealth: 1350, speed: 66, aggroRadius: 260, strikeRange: 64, dmgMin: 40, dmgMax: 52, hitCooldownMs: 1700 }
+  boss_pale_sovereign: { name: 'The Pale Sovereign',           tier: 4, xp: 400, boss: true, color: 0xd8d8ea, scale: 2.1,  maxHealth: 1350, speed: 66, aggroRadius: 260, strikeRange: 64, dmgMin: 40, dmgMax: 52, hitCooldownMs: 1700 },
+  // ── The wanderers ── a second, rarer boss in each dungeon, out of the
+  // folklore of dark places (the lore is with DUNGEON_LORE above). One walks
+  // its dungeon for a while, from chamber to chamber, and is gone again; they
+  // are bosses in every other way (party scaling, shared XP, a key, the loot).
+  wander_rawhead:      { name: 'Rawhead-and-Bloody-Bones',            tier: 1, xp: 30,  boss: true, wanderer: true, color: 0x8a2a22, scale: 1.2,  maxHealth: 110, speed: 70, aggroRadius: 200, strikeRange: 52, dmgMin: 5,  dmgMax: 9,  hitCooldownMs: 1400 },
+  wander_church_grim:  { name: 'The Church Grim',                     tier: 2, xp: 65,  boss: true, wanderer: true, color: 0x14141a, scale: 1.3,  maxHealth: 260, speed: 88, aggroRadius: 240, strikeRange: 56, dmgMin: 12, dmgMax: 18, hitCooldownMs: 1500 },
+  wander_mine_demon:   { name: 'The Demon of the Rose-Garland Mine',  tier: 3, xp: 130, boss: true, wanderer: true, color: 0x6a7078, scale: 1.5,  maxHealth: 470, speed: 58, aggroRadius: 240, strikeRange: 62, dmgMin: 22, dmgMax: 30, hitCooldownMs: 1700 },
+  wander_black_annis:  { name: 'Black Annis',                         tier: 4, xp: 260, boss: true, wanderer: true, color: 0x2a3a6a, scale: 1.6,  maxHealth: 880, speed: 74, aggroRadius: 260, strikeRange: 62, dmgMin: 36, dmgMax: 46, hitCooldownMs: 1600 }
 };
 
 const DUNGEON_MOB_KEYS_BY_TIER = {

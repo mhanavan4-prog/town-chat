@@ -3757,6 +3757,8 @@ function vulnerableMult(t) {
 // (mob strikes in each map's tick, plus applyDamage below) funnels through
 // here so the ward can't be bypassed by one forgotten call site.
 function absorbIncomingDamage(target, dmg) {
+  // a hare that is struck is a woman again, with the mark still on her
+  if (dmg > 0 && oldWays.endHare(target)) send(target.ws, { type: 'toast', level: 'important', message: '🐇 Something has its teeth in the hare, and it is you it has hold of. You are yourself again.' });
   if (isImmune(target)) return 0; // Deep Meditation — all damage shrugged off (covers mob paths too)
   // 'ward' is the class-neutral twin of 'pumpkin': identical halving, no
   // jack-o'-lantern head — used by the non-Witch classes' defensive
@@ -3834,6 +3836,7 @@ function pvpAllowed(attacker, target) {
 
 function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   if (player && player.toadCalmUntil) player.toadCalmUntil = 0; // strike, and the toad-bone's quiet is over
+  if (player && oldWays.endHare(player)) send(player.ws, { type: 'toast', level: 'important', message: '🐇 You strike, and you are yourself again.' });
   const outOfRange = (t) => maxRange != null && Math.hypot(t.x - player.x, t.y - player.y) > maxRange;
   // A pact damage-over-time tick re-enters applyDamage with its already-final
   // damage (see tickPactDots): it reuses the whole target-resolution + kill +
@@ -3943,6 +3946,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       t.dead = true;
       pactOnKill(player); // sworn-pact on-kill behavior (e.g. Reaper's Harvest)
       t.respawnAt = Date.now() + (t.boss ? DUNGEON_BOSS_RESPAWN_MS : DUNGEON_RESPAWN_MS);
+      if (t.wanderer) wandererSlain(t); // a wanderer is gone a long while
       grantXP(player, preset.xp);
       registerHuntKill(player);
       advanceQuestProgress(player, 'kill_mob', null);
@@ -8375,7 +8379,7 @@ const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'd
 
 // Dungeon engine (Session L) — extracted to lib/dungeons.js (Tier 3.4 Phase B).
 const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE, dungeonAffix });
-const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, bossEnrageMult, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY } = dungeonsMod;
+const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, bossEnrageMult, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY, wandererOf, wandererSlain, wandererWarning } = dungeonsMod;
 
 // ── Weekly dungeon affixes / "keystones" (depth lever #1) ────────────────────
 // The four dungeon tiers play differently each week: two affixes are drawn
@@ -8574,7 +8578,7 @@ setInterval(() => {
       return { id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: p.maxHealth, dead: m.dead, hidden, dormant, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) };
     }) : EMPTY,
     mobs3: hasWilds ? mobs3.map(m => ({ id: m.id, mobType: m.mobType, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB3_TYPES[m.mobType].maxHealth, dead: m.dead, provoked: !!m.provoked, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
-    dungeon: hasDungeon ? [...dungeonMobs, ...allDelveMobs()].map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    dungeon: hasDungeon ? [...dungeonMobs, ...allDelveMobs()].filter(m => !m.away).map(m => ({ id: m.id, mobType: m.mobType, tier: m.tier, room: m.room, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: dungeonMobMaxHealth(m), dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
     village: hasOutside ? villageNpcs.map(n => ({ id: n.id, charId: n.charId, name: n.name, x: n.x, y: n.y, facing: n.facing, working: n.working })) : EMPTY,
     torchNpcs: hasOutside ? torchNpcPublicState() : EMPTY,
     torches: hasOutside ? townTorchPublicState() : EMPTY,
@@ -9029,6 +9033,9 @@ const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKe
 const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, countItemQty, removeItemFromAccount, addItemToAccount, ensureBankAccount, grantXP, isNightNow, playerParty, parties, playerMaxHealth, WORLD2,
   itemName: (id) => (ITEM_CATALOG[id] ? ITEM_CATALOG[id].name : id),
   // the living boss of the dungeon or Delve floor she is in, if it is near enough to name
+  moonPhase: () => moonPhaseWindow(Date.now()),
+  // the Hand of Glory: every creature of her dungeon or Delve floor within reach, but never a boss, stands held
+  holdCreatures: (p, range, ms) => { let n = 0; for (const m of [...dungeonMobs, ...allDelveMobs()]) if (!m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) { m.heldUntil = Date.now() + ms; n++; } return n; },
   findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
   bossName: (m) => (DUNGEON_MOB_TYPES[m.mobType] ? DUNGEON_MOB_TYPES[m.mobType].name : 'the boss') });
 // Out in the Wilds: caches under cairns, and six balefires to light in a day (lib/wildsFinds.js).
@@ -14948,6 +14955,7 @@ wss.on('connection', (ws, req) => {
       player.roomLockUntil = Date.now() + 1500;
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
       dungeonFinds.onEnter(player, { fresh: true });
+      { const w = wandererOf(room); if (w && !w.dead) for (const who of [player, ...partyMembers]) send(who.ws, { type: 'toast', level: 'important', always: true, message: wandererWarning(w) }); }
       noteMilestone(player, 'delve');
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
@@ -16524,7 +16532,8 @@ wss.on('connection', (ws, req) => {
       if (out.flight) {
         // The broom carries her: the server moves her and tells her client where it set her down.
         player.room = out.flight.room; player.x = out.flight.x; player.y = out.flight.y; player.roomLockUntil = Date.now() + 1500;
-        send(ws, { type: 'broom_flight', ...out.flight });
+        player.flyingUntil = Date.now() + oldWays.D.BESOM_RIDE_MS;
+        send(ws, { type: 'broom_flight', ...out.flight, rideMs: oldWays.D.BESOM_RIDE_MS });
       }
       send(ws, { type: 'oldways_state', ...oldWays.body(player) });
       return;

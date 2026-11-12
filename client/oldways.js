@@ -34,7 +34,7 @@ export default function createOldWays({ send, place }) {
     if (!body) return;
     body.innerHTML = '';
     if (!state) { body.appendChild(el('div', 'slNote', 'Gathering your things…')); return; }
-    body.appendChild(el('div', 'wardIntro', state.isGuest ? 'Log into an account to keep the old ways.' : 'Seven things witches, cunning folk and horsemen were said to do. Each tells you where it comes from, and where the game goes beyond the record.'));
+    body.appendChild(el('div', 'wardIntro', state.isGuest ? 'Log into an account to keep the old ways.' : 'Ten things witches, cunning folk, horsemen and thieves were said to do. Each tells you where it comes from, and where the game goes beyond the record.'));
     const cols = el('div', 'menuCols');
     body.appendChild(cols);
     for (const w of state.ways) {

@@ -10559,19 +10559,64 @@ function broomFlight(msg) {
   _oldWays.close();
   portalFade('🧹 Up, and over…', () => {
     if (msg.room === 'wilds') { swapToWildsMap(); if (activeScene !== wildsScene) return false; } else swapToTownMap();
-    me.room = msg.room; me.x = msg.x; me.y = msg.y;
+    me.room = msg.room;
     portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
-    ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
     if (typeof playSfx === 'function') playSfx('portal');
-    // You come down astride it: the besom is under you for a few moments after you land.
-    const v = visuals[myId], broom = v && v.group && KK.staticInstance ? KK.staticInstance('wd_besom', 96, 'height') : null;
-    if (broom) {
-      broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50);
-      v.group.add(broom);
-      setTimeout(() => { if (broom.parent) broom.parent.remove(broom); }, 3500);
-    }
+    startBroomRide(msg.x, msg.y, msg.rideMs || 0);
     return true;
   });
+}
+
+// 🧹 The ride itself. The server has already set her down at the landing (and
+// holds the night creatures off her while she is in the air); what she sees is
+// the last stretch of the flight: the fade lifts on her already aloft, astride
+// the besom, coming in over the land in a long shallow curve and settling.
+// Only her own client flies the path, so nothing is sent while she is up.
+let broomRide = null;
+const BROOM_RIDE_ALT = 300, BROOM_RIDE_LEN = 2600, BROOM_RIDE_SWAY = 280;
+function startBroomRide(tx, ty, ms) {
+  const v = visuals[myId];
+  const W = (world && world.width) || 0, H = (world && world.height) || 0;
+  if (!v || !v.group || !(ms > 0) || !W || !H) { me.x = tx; me.y = ty; ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room })); return; }
+  // she comes in from the side of the map with the most room, so the whole run is over land
+  let dx = W / 2 - tx, dy = H / 2 - ty;
+  if (Math.hypot(dx, dy) < 200) { dx = 0; dy = 1; }
+  const d = Math.hypot(dx, dy), len = Math.min(BROOM_RIDE_LEN, Math.min(W, H) * 0.45);
+  const pad = 160, fx = Math.max(pad, Math.min(W - pad, tx + dx / d * len)), fy = Math.max(pad, Math.min(H - pad, ty + dy / d * len));
+  const broom = KK.staticInstance ? KK.staticInstance('wd_besom', 96, 'height') : null;
+  if (broom) { broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); }
+  broomRide = { t0: performance.now(), ms, fx, fy, tx, ty, broom, side: Math.random() < 0.5 ? -1 : 1 };
+  cameraYawOffset = 0;
+  me.x = fx; me.y = fy; me.facing = Math.atan2(tx - fx, ty - fy);
+  stepBroomRide();
+  // the camera starts up there with her, not back where she took off
+  const rp = getRenderPos(me), f = me.facing;
+  if (activeCamera) activeCamera.position.set(rp.x - Math.sin(f) * 300, groundY + BROOM_RIDE_ALT * 1.12 + 120, rp.z - Math.cos(f) * 300);
+}
+function stepBroomRide() {
+  const r = broomRide;
+  if (!r) return false;
+  const v = visuals[myId];
+  const t = Math.min(1, (performance.now() - r.t0) / r.ms);
+  if (!me || !v || t >= 1) {
+    broomRide = null;
+    if (v) v.flightY = 0;
+    if (me) { me.x = r.tx; me.y = r.ty; if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room })); }
+    // the besom stays under her a moment after her feet touch
+    if (r.broom) setTimeout(() => { if (r.broom.parent) r.broom.parent.remove(r.broom); }, 1500);
+    return false;
+  }
+  const s = 1 - Math.pow(1 - t, 1.7); // quick over the far country, slowing as she comes in
+  const lx = r.tx - r.fx, ly = r.ty - r.fy, ll = Math.hypot(lx, ly) || 1;
+  const sway = Math.sin(Math.PI * s) * BROOM_RIDE_SWAY * r.side;
+  const px = r.fx + lx * s + (-ly / ll) * sway, py = r.fy + ly * s + (lx / ll) * sway;
+  if (px !== me.x || py !== me.y) me.facing = Math.atan2(px - me.x, py - me.y);
+  me.x = px; me.y = py;
+  // level flight, then the long glide down over the last third
+  const down = t < 0.62 ? 0 : (t - 0.62) / 0.38;
+  v.flightY = Math.max(0.01, BROOM_RIDE_ALT * (1 - down * down * (3 - 2 * down)) + Math.sin(performance.now() * 0.004) * 5 * (1 - down));
+  if (r.broom) r.broom.rotation.z = Math.sin(performance.now() * 0.003) * 0.05;
+  return true;
 }
 
 function exitWilds() {
@@ -14190,12 +14235,18 @@ const DUNGEON_MOB_VISUALS = {
   // ── The signature bosses (Session L) — one per named dungeon ──
   boss_rat_king:       { color: 0x8a6a3a, eyeColor: 0xffcc44, scale: 1.5,  boss: true },
   boss_crypt_weaver:   { color: 0x5a2a5a, eyeColor: 0xff88ff, scale: 1.65, boss: true },
+  // The wanderers (data/dungeons.js): a second, rarer boss in each dungeon.
+  wander_rawhead:      { color: 0x8a2a22, eyeColor: 0xffe0c0, scale: 1.2, boss: true, kkKey: 'skel_minion', kkHeight: 84, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0xa02a22, amt: 0.7, emissive: 0x3a0806, ei: 0.5 } },
+  wander_church_grim:  { color: 0x14141a, eyeColor: 0xff2a1a, scale: 1.3, boss: true },
+  wander_mine_demon:   { color: 0x6a7078, eyeColor: 0xb8ffd0, scale: 1.5, boss: true, kkKey: 'mon_beast', kkHeight: 112, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0x70787e, amt: 0.6, emissive: 0x1a3a2a, ei: 0.45 } },
+  wander_black_annis:  { color: 0x2a3a6a, eyeColor: 0xd0e0ff, scale: 1.6, boss: true, kkKey: 'skel_mage', kkHeight: 128, kkAttack: 'Unarmed_Melee_Attack_Punch_A', kkTint: { to: 0x2a3a7a, amt: 0.7, emissive: 0x0a1030, ei: 0.5 } },
   boss_forge_tyrant:   { color: 0xb84a10, eyeColor: 0xffee66, scale: 1.95, boss: true, kkKey: 'skel_golem', kkHeight: 152, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xb84a10, amt: 0.56, emissive: 0x5a1c00, ei: 0.55 } },
   boss_pale_sovereign: { color: 0xd8d8ea, eyeColor: 0xaaccff, scale: 2.1,  boss: true, kkKey: 'skel_mage', kkHeight: 150, kkAttack: '2H_Melee_Attack_Slice', kkTint: { to: 0xd8d8ea, amt: 0.5, emissive: 0x3a4a6a, ei: 0.5 } }
 };
 const DUNGEON_BOSS_NAMES = {
   boss_rat_king: 'Old Gnawbone, the Rat King',
   boss_crypt_weaver: 'Widow Silk, the Crypt Weaver',
+  wander_rawhead: 'Rawhead-and-Bloody-Bones', wander_church_grim: 'The Church Grim', wander_mine_demon: 'The Demon of the Rose-Garland Mine', wander_black_annis: 'Black Annis',
   boss_forge_tyrant: 'Cindermaw, the Forge-Tyrant',
   boss_pale_sovereign: 'The Pale Sovereign'
 };
@@ -15202,6 +15253,7 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
   if (isDead) want = 'Death_A'; // the full fall; clamps on its final (collapsed) frame
   else if ((id === myId && seatedAt) || p.seated) want = 'Sit_Chair_Idle';
   else if (v.statusType === 'meditate') want = 'Sit_Floor_Idle';
+  else if (v.flightY) want = 'Sit_Chair_Idle'; // astride the besom
   else if (isMoving) {
     const spd = moveDist / Math.max(dt, 1e-4);
     const fwd = spd > 200 ? 'Running_A' : 'Walking_A';
@@ -15616,6 +15668,7 @@ const EQUIP_ATTACH = {
 const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipVisuals({
   CHAR, EQUIP_ATTACH, makeGlowTexture, visuals,
   getMyId: () => myId, getPlayers: () => players,
+  staticModel: (key, size, mode) => (KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
 });
 
 
@@ -15704,7 +15757,7 @@ function syncLabels() {
     }
     const rp = getRenderPos(p);
     const floorYOffset = (v.floorYS !== undefined && v.floorRoomS === p.room) ? v.floorYS : getFloorHeight(p.room, rp.x, rp.z);
-    const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset, rp.z);
+    const headScreen = worldToScreen(rp.x, groundY + CHAR.headY + floorYOffset + (v.flightY || 0), rp.z);
     // Speech bubbles ride the same anchor but ignore the hover gate — the
     // whole point is seeing who spoke WITHOUT mousing over them.
     if (!MOBILE_UI) updateBubbleTag(p, v, headScreen, now);
@@ -15954,12 +16007,14 @@ function updateCamera(dt) {
   const floorYOffset = (vMe && vMe.floorYS !== undefined && vMe.floorRoomS === me.room) ? vMe.floorYS : getFloorHeight(me.room, rp.x, rp.z);
   let targetX = rp.x + dirX * horizBack;
   let targetZ = rp.z + dirZ * horizBack;
-  let targetY = groundY + cam.height + floorYOffset + verticalRise;
+  const flightY = (vMe && vMe.flightY) || 0; // aloft on the besom: the camera rides up with her, and a little further back
+  if (flightY) { const k = 1 + Math.min(1, flightY / BROOM_RIDE_ALT) * 0.9; targetX = rp.x + dirX * horizBack * k; targetZ = rp.z + dirZ * horizBack * k; }
+  let targetY = groundY + cam.height + floorYOffset + verticalRise + flightY * 1.12;
 
   // Outdoors, never let the camera sink inside a building shell — clip the
   // player→camera segment against each building's blocker box and slide the
   // camera up the same line, exactly like the indoor wall rule above.
-  const anchorY = groundY + floorYOffset + 42;
+  const anchorY = groundY + floorYOffset + 42 + flightY;
   if (activeScene === outdoorScene && KK_CAM_BLOCKERS.length) {
     let m = 1;
     for (let i = 0; i < KK_CAM_BLOCKERS.length; i++) {
@@ -15995,7 +16050,7 @@ function updateCamera(dt) {
     }
   }
 
-  activeCamera.lookAt(rp.x, groundY + cam.lookUp + floorYOffset, rp.z);
+  activeCamera.lookAt(rp.x, groundY + cam.lookUp + floorYOffset + flightY * 0.9, rp.z);
 
   // Ghost out trees/props standing between the camera and the character.
   updateCamObstructions(dt, rp.x, anchorY, rp.z);
@@ -16212,6 +16267,7 @@ const STATUS_FX = {
   regen: { icon: '🫧', label: 'Regenerating', debuff: false, desc: 'Health knits back steadily over time.' },
   speedboost: { icon: '💨', label: 'Swift', debuff: false, desc: 'Fleet-footed — increased movement speed.' },
   ravencloak: { icon: '🌘', label: 'Raven Cloak', debuff: false, desc: 'Cloaked in feathers and shadow.' },
+  hare: { icon: '🐇', label: 'A hare', debuff: false, desc: 'Gone into a hare: nearly twice your pace. A blow given or taken ends it.' },
   giant: { icon: '🍄', label: 'Giant', debuff: false, desc: 'Grown huge — you tower over the town.' },
   bats: { icon: '🦇', label: 'Bat Swarm', debuff: false, desc: 'A swarm of bats wheels around you.' },
   meditate: { icon: '🪷', label: 'Meditating', debuff: false, desc: 'Centered and calm.' },
@@ -16596,6 +16652,20 @@ function openPlaqueModal() {
   document.getElementById('plaqueText').textContent = lore.plaque;
   const bossName = lore.bossKey && DUNGEON_MOB_VISUALS[lore.bossKey] ? (DUNGEON_BOSS_NAMES[lore.bossKey] || '') : '';
   document.getElementById('plaqueBoss').textContent = bossName ? `⚔️ Its keeper: ${bossName}` : '';
+  // The wanderer: a second, rarer boss, with where it comes from in the record.
+  let wEl = document.getElementById('plaqueWanderer');
+  if (!wEl) { wEl = document.createElement('div'); wEl.id = 'plaqueWanderer'; wEl.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);text-align:left;font-size:13px;line-height:1.5'; document.getElementById('plaqueBoss').after(wEl); }
+  const w = lore.wanderer;
+  wEl.textContent = '';
+  if (w) {
+    const abroad = Object.values(dungeonMobVisuals || {}).some((d) => d.mobType === w.key && !d.dead);
+    const add = (tag, text, css) => { const e = document.createElement(tag); e.textContent = text; if (css) e.style.cssText = css; wEl.appendChild(e); };
+    add('div', `🕯️ Some nights, also: ${w.name}`, 'font-weight:700;margin-bottom:4px');
+    add('div', abroad ? 'It is abroad down here now.' : 'It is not here now. It comes and goes.', 'opacity:.8;font-style:italic;margin-bottom:6px');
+    add('div', w.lore);
+    add('div', `${w.tier === 'record' ? 'In the record' : 'Folk tradition'} · ${w.source}`, 'opacity:.7;font-size:12px;margin-top:6px');
+    add('div', w.note, 'opacity:.85;font-size:12px;margin-top:4px');
+  }
   document.getElementById('plaqueModal').classList.remove('hidden');
 }
 (function () {
@@ -18759,7 +18829,7 @@ function sitOnBench() {
 }
 
 function tryInteract() {
-  if (!me) return;
+  if (!me || broomRide) return;
   if (seatedAt) { const wasOutdoor = seatedAt.outdoor; standUp(); if (wasOutdoor) ws.send(JSON.stringify({ type: 'sit', seated: false })); return; }
   if (nearestTownBench()) { sitOnBench(); return; }
   const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
@@ -18874,7 +18944,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || broomRide || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -19906,6 +19976,8 @@ function update(dt) {
   // Raven's Cloak is the Witch's escape tool — the dark-feather visual plus
   // the same doubled pace speedboost/wolfpact already grant.
   if (me.activeStatus && me.activeStatus.type === 'ravencloak') speed *= 2;
+  // Gone into a hare (the Old Ways, data/oldWays.js HARE.speed).
+  if (me.activeStatus && me.activeStatus.type === 'hare') speed *= 1.8;
   // Predator's Pace / Trailblazer (the 'swift' skill) — a permanent, stacking
   // walk-speed bonus, self-enforced client-side exactly like the statuses above.
   if (mySkillSpeedMult && mySkillSpeedMult !== 1) speed *= mySkillSpeedMult;
@@ -19965,7 +20037,8 @@ function update(dt) {
   updateManorEmbers(dt);
   updateCottageDressing(dt);
 
-  if (mode === 'outdoor') {
+  const riding = stepBroomRide(); // on the besom the path is flown for her
+  if (riding) { /* no walking in the air */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
   } else {
     updateIndoor(stepX, stepY);
@@ -20003,7 +20076,7 @@ function update(dt) {
   moveSendTimer -= dt;
   if (moveSendTimer <= 0) {
     moveSendTimer = 0.05;
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === WebSocket.OPEN && !broomRide) {
       ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
     }
   }
@@ -20393,6 +20466,8 @@ if (location.search.includes('testdrive=1')) {
     enter(roomId) { if (me && world && world.buildings.some((b) => b.id === roomId)) { enterBuilding(roomId); return true; } return false; },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
+    // how far through the besom ride she is (0 to 1), or null on the ground
+    ride() { return broomRide ? (performance.now() - broomRide.t0) / broomRide.ms : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
     wards() { _wards.open(); return true; },

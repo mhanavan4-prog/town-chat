@@ -24,6 +24,8 @@ function updateStatusVisuals(dt) {
       // KayKit rigs can't tint the shared shirt material — hue-cycle the
       // aura sprite added in applyStatusVisual instead.
       v.colorcycleSprite.material.color.setHSL((now * 0.0006) % 1, 0.8, 0.6);
+    } else if (v.statusType === 'hare' && v.hareMesh) {
+      v.hareMesh.position.y = Math.abs(Math.sin(now * 0.013)) * 5; // it is never quite still
     } else if (v.statusType === 'ravencloak' && v.cloakMesh) {
       v.cloakMesh.rotation.z = Math.sin(now * 0.003) * 0.15;
     } else if (v.statusType === 'wolfmark' && v.wolfMarkMesh) {
@@ -321,7 +323,7 @@ function syncVisuals(dt) {
         // Emote offsets (v.emoteSpin / v.emoteYOff) let an authored emote — the
         // Dance spin+bounce — ride on top of facing and ground height, which are
         // otherwise overwritten every frame here. Default 0 when not emoting.
-        v.group.position.set(rp.x, posY + (v.emoteYOff || 0), rp.z);
+        v.group.position.set(rp.x, posY + (v.emoteYOff || 0) + (v.flightY || 0), rp.z); // flightY: aloft on the besom
         v.group.rotation.y = p.facing + (v.emoteSpin || 0);
       }
       // Ghost floats slightly above ground with a gentle bob

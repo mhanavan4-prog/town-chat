@@ -54,7 +54,7 @@ setTimeout(async () => {
   const { DUNGEON_LORE, DUNGEON_MOB_TYPES, dungeonMobs } = hooks;
   check('all four dungeons are named with lore + a boss', [1, 2, 3, 4].every(t =>
     DUNGEON_LORE[t] && DUNGEON_LORE[t].name && DUNGEON_LORE[t].plaque && DUNGEON_MOB_TYPES[DUNGEON_LORE[t].bossKey]));
-  const bosses = dungeonMobs.filter(m => m.boss);
+  const bosses = dungeonMobs.filter(m => m.boss && !m.wanderer); // the wanderers are a second, rarer boss (test/more-ways.test.js)
   check('exactly one signature boss spawned per tier', bosses.length === 4 &&
     new Set(bosses.map(b => b.tier)).size === 4, bosses.map(b => b.id));
   check('bosses respawn slowly (5 min vs 60s)', hooks.DUNGEON_BOSS_RESPAWN_MS === 5 * 60 * 1000);
