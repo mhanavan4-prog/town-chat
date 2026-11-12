@@ -374,6 +374,16 @@ function buildWildsScene(w2) {
   caveSign.position.set(CX, 185, CZ);
   scene.add(caveSign);
   WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
+  // The road north (data/wayside.js): the gibbet at the crossroads, the coin tree, the coffin stone.
+  for (const w of (w2.wayside || [])) {
+    kkPlace(scene, w.model, w.x, w.y, w.size, w.id === 'cointree' ? 0.5 : w.id === 'coffinstone' ? -0.3 : 0, w.id === 'gibbet' ? 'height' : 'fit');
+    // A small core to walk round: the post, the trunk, the stone.
+    const r = w.id === 'gibbet' ? 16 : w.id === 'coffinstone' ? 34 : 30;
+    WILDS_WALLS.push({ x: w.x - r, y: w.y - r, w: r * 2, h: r * 2 });
+    const lbl = makeSignSprite(`${w.icon} ${w.name}`);
+    lbl.position.set(w.x, w.id === 'gibbet' ? 205 : 120, w.y); scene.add(lbl);
+    WILDS_KIOSKS.push({ x: w.x, z: w.y + (w.id === 'gibbet' ? 40 : 60), npc: 'wayside', waysideId: w.id, hint: w.hint, radius: 120 });
+  }
   // The dancing ground by the Unbound Circle: where hands are taken for the reel (the Old Ways, data/oldWays.js REEL).
   WILDS_KIOSKS.push({ x: 2200, z: 5240, npc: 'oldways', npcName: '💃 the dancing ground', hint: 'take hands for the reel, and the other old ways', radius: 90 });
 

@@ -1568,6 +1568,8 @@ WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
 // The Nine-and-Twenty, a stone circle no one counts the same twice (data/countlessStones.js).
 const COUNT = require('./data/countlessStones');
 WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns and six balefires, between the landmarks
+// The road north (data/wayside.js): the gibbet, the coin tree and the coffin stone, where the client draws them.
+WORLD2.wayside = require('./data/wayside').WAYSIDE.map((w) => ({ id: w.id, x: w.x, y: w.y, model: w.model, size: w.size, name: w.name, icon: w.icon, hint: w.hint }));
 WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, note: COUNT.COUNTLESS_NOTE, source: COUNT.COUNTLESS_SOURCE };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
@@ -1721,6 +1723,7 @@ WILDS_FLORA_TYPES.push('crotal_stone');
 // else moves.
 {
   const keepOff = [
+    ...WORLD2.wayside.map((w) => ({ x: w.x, y: w.y, r: 230 })),
     { x: WORLD2.countless.x, y: WORLD2.countless.y, r: WORLD2.countless.radius + 140 },
     { x: WORLD2.clootieWell.x, y: WORLD2.clootieWell.y, r: 310 },
     { x: WORLD2.troyTown.hub[0], y: WORLD2.troyTown.hub[1], r: WORLD2.troyTown.radius + 90 },
@@ -9099,6 +9102,9 @@ const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, ba
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
+const wayside = require('./lib/wayside')({ send, grantXP, playerMaxHealth,
+  acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
+  noteRoad: (p) => { if (daybook.note(p, 'road')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the road north, walked.' }); } });
 const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload,
   noteRound: (p) => { if (daybook.note(p, 'balefires')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the round of the balefires.' }); saveAccounts(); } });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
@@ -15062,6 +15068,7 @@ wss.on('connection', (ws, req) => {
     // Use a thing in a dungeon or the Delve: a chest, a cache, a vein, a brazier, a seal.
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'wayside_use') { if (wayside.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
