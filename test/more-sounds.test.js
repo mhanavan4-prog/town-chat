@@ -38,5 +38,6 @@ const main = read('client/main.js');
 check('a village door sounds going in and coming out, and the Countless Stones result may bring a sound', (main.match(/playSfx\('door'\)/g) || []).length >= 4 && /if \(msg\.type === 'count_stones_result'\) \{ if \(msg\.sfx && typeof playSfx === 'function'\) playSfx\(msg\.sfx\);/.test(main));
 check('the book sounds when it is opened, not each time it is turned to its other half', /if \(m\.classList\.contains\('hidden'\)\) sfx\('page_turn'\);/.test(read('client/oldways.js')) && /sfx: \(id\) => \{ if \(typeof playSfx === 'function'\) playSfx\(id\); \}/.test(main));
 check('the old sites sound only when the thing is done', /event === 'done' \? \{ sfx: 'troy_done' \}/.test(read('server.js')) && /event === 'done' \? \{ sfx: 'crick_done' \}/.test(read('server.js')) && /v\.key === 'beaten' \? \{ sfx: 'stones_counted' \}/.test(read('server.js')));
+check('the candle\'s following sound is played low, lower with distance, and not back to back', /playSfx\('candle_follow', 0\.3 \* \(1 - 0\.6 \* Math\.min\(1, Math\.hypot\(me\.x - x, me\.y - y\) \/ 420\)\)\)/.test(main) && /\(t - c\.standMs\) \/ 6500\)/.test(main) && manifest.sfx.find((e) => e.id === 'candle_follow').duration_seconds < 6.5);
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
