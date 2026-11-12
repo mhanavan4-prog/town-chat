@@ -9427,10 +9427,20 @@ const GFX = (() => {
     let msaaTarget = null;
     if (renderer.capabilities && renderer.capabilities.isWebGL2 && typeof THREE.WebGLMultisampleRenderTarget === 'function') {
       const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
-      msaaTarget = new THREE.WebGLMultisampleRenderTarget(Math.max(2, sz.x), Math.max(2, sz.y), { format: THREE.RGBAFormat });
+      // stencilBuffer:true is here for the DEPTH it brings. An offscreen target
+      // with a depth buffer and no stencil gets DEPTH_COMPONENT16 from three
+      // (r128), and sixteen bits cannot tell a rug from the floor it lies on a
+      // few hundred units from the camera: the two flicker through each other
+      // in stripes (the Coven Court's rug, decals on the ground outdoors). With
+      // a stencil it is packed DEPTH24_STENCIL8, the same 24 bits the default
+      // framebuffer has on low quality, where none of this showed.
+      msaaTarget = new THREE.WebGLMultisampleRenderTarget(Math.max(2, sz.x), Math.max(2, sz.y), { format: THREE.RGBAFormat, stencilBuffer: true });
       msaaTarget.samples = st.quality === 'high' ? 4 : 2; // gentler on mobile/medium
     }
-    st.composer = new THREE.EffectComposer(renderer, msaaTarget || undefined);
+    // WebGL1 has no multisampled target, but wants the same 24-bit depth.
+    const sz1 = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const plainTarget = msaaTarget ? null : new THREE.WebGLRenderTarget(Math.max(2, sz1.x), Math.max(2, sz1.y), { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, stencilBuffer: true });
+    st.composer = new THREE.EffectComposer(renderer, msaaTarget || plainTarget);
     st.renderPass = new THREE.RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     st.composer.addPass(st.renderPass);
     // Bloom is by far the heaviest composer pass — several fullscreen blur
