@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createOldWays({ send, place }) {
+export default function createOldWays({ send, place, sfx = () => {} }) {
   let state = null, book = null, tab = 'ways';
   const open_ = new Set(); // lore folds the reader has opened, kept across re-renders
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
@@ -16,6 +16,7 @@ export default function createOldWays({ send, place }) {
     const m = document.getElementById('oldWaysModal');
     if (!m) return;
     tab = which === 'book' ? 'book' : 'ways';
+    if (m.classList.contains('hidden')) sfx('page_turn'); // the book opened, not merely turned to its other half
     m.classList.remove('hidden');
     if (place) place(m);
     Modals.set('oldWaysOpen', true);

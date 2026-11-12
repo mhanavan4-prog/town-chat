@@ -1860,7 +1860,7 @@ function onWsMessage(ev) {
     return;
   }
 
-  if (msg.type === 'count_stones_result') { _countStones.result(msg); return; }
+  if (msg.type === 'count_stones_result') { if (msg.sfx && typeof playSfx === 'function') playSfx(msg.sfx); _countStones.result(msg); return; }
   if (msg.type === 'npc_hint_dialogue') {
     showNpcHintDialogue(msg);
     return;
@@ -2976,11 +2976,12 @@ function onWsMessage(ev) {
   // ── The village's opened buildings (data/villageHouses.js) ──
   if (msg.type === 'vh_entered') {
     const h = villageHouseCatalog[msg.id];
-    if (me && h) { me.room = h.room; me.x = msg.spawn.x; me.y = msg.spawn.y; me.facing = Math.PI; swapToVillageHouse(h.id); setUnlockToast(`${h.icon} ${h.name}. ${h.blurb}`); }
+    if (me && h) { me.room = h.room; me.x = msg.spawn.x; me.y = msg.spawn.y; me.facing = Math.PI; swapToVillageHouse(h.id); if (typeof playSfx === 'function') playSfx('door'); setUnlockToast(`${h.icon} ${h.name}. ${h.blurb}`); }
     return;
   }
   if (msg.type === 'vh_exited') {
     if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; me.facing = 0; }
+    if (typeof playSfx === 'function') playSfx('door');
     swapToWildsMap();
     return;
   }
@@ -16737,7 +16738,7 @@ const _charmBook = createCharmBook({ send: (payload) => { if (ws && ws.readyStat
 // 🪢 Knots & the Wind — cord magic (blueprint F).
 const _cords = createCords({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 // 🌿 The Witch Paths' practices (Green, Lunar, Hedge, Kitchen).
-const _oldWays = createOldWays({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
+const _oldWays = createOldWays({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130), sfx: (id) => { if (typeof playSfx === 'function') playSfx(id); } });
 const _practices = createPractices({ send: (payload) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload)); }, place: (m) => setDefaultFloatPos(m, 440, 130) });
 
 const _seance = createSeance({

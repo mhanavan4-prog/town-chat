@@ -4335,7 +4335,7 @@ function troyTownMove(player) {
     done: `🌀 In and out without a false step!${xp ? ` +${xp} XP` : ''}${runs > 1 ? ` (run ${runs})` : ''}`,
   };
   send(player.ws, { type: 'troy_walk', event, phase: st && st.phase, xp, runs });
-  send(player.ws, { type: 'toast', message: words[event] });
+  send(player.ws, { type: 'toast', message: words[event], ...(event === 'done' ? { sfx: 'troy_done' } : {}) });
 }
 // Crawling the Crick-stone (data/menAnTol.js): nine times through the hole
 // from the south, back round by the west each time, against the sun. Nine
@@ -4363,7 +4363,7 @@ function menAnTolMove(player) {
     done: `🪨 Nine times through, against the sun: the Crick-stone's cure, as Bottrell had it.${xp ? ` +${xp} XP` : ''}`,
   };
   send(player.ws, { type: 'men_an_tol', event, count: event === 'done' ? MEN.MEN_TIMES : (st ? st.count : 0), xp });
-  send(player.ws, { type: 'toast', message: words[event] });
+  send(player.ws, { type: 'toast', message: words[event], ...(event === 'done' ? { sfx: 'crick_done' } : {}) });
   if (event === 'done') send(player.ws, { type: 'npc_hint_dialogue', npcId: 'men_an_tol', npcName: '🪨 The Crick-stone', message: MEN.MEN_AN_TOL_DONE, note: MEN.MEN_AN_TOL_NOTE });
 }
 // Award XP to a player, leveling up as many times as thresholds are crossed,
@@ -8843,7 +8843,7 @@ function noteWandererSlain(killer, mob) {
     if (!a.wanderers) a.wanderers = {};
     const rec = a.wanderers[lore.key] || (a.wanderers[lore.key] = { slain: 0, firstAt: Date.now() });
     rec.slain++;
-    send(p.ws, { type: 'toast', level: 'important', always: true, message: rec.slain === 1
+    send(p.ws, { type: 'toast', level: 'important', always: true, sfx: 'wanderer_laid', message: rec.slain === 1
       ? `🕯️ ${lore.name} is laid, for a while. You bring up ${lore.keepsake.name}. ${lore.keepsake.text} It is on the shelf in your cottage.`
       : `🕯️ ${lore.name} is laid again (${rec.slain} times now, by your count).` });
     sendWandererRecord(p);
@@ -13400,7 +13400,7 @@ wss.on('connection', (ws, req) => {
         if (a.countless.day !== today) { a.countless.day = today; xp = COUNT.COUNTLESS_XP; grantXP(player, xp); }
         saveAccounts();
       }
-      send(ws, { type: 'count_stones_result', ok: true, stage: 'second', first, second: n, verdict: v.key, text: v.text + (xp ? ` +${xp} XP` : ''), xp });
+      send(ws, { type: 'count_stones_result', ok: true, stage: 'second', first, second: n, verdict: v.key, text: v.text + (xp ? ` +${xp} XP` : ''), xp, ...(v.key === 'beaten' ? { sfx: 'stones_counted' } : {}) });
       return;
     }
     // ── The Forbidden Shelf (roadmap #6): read today's date-seeded book at the
@@ -15235,7 +15235,7 @@ wss.on('connection', (ws, req) => {
       // A paid bed at the Lyke-Wake in the Wildlands Village (data/villageHouses.js)
       // is where she wakes if the Wilds kill her, or a deep she went down into from them.
       const bed = villageHouses.wakeAt(player);
-      const woke = () => send(ws, { type: 'toast', level: 'important', always: true, message: '🕯️ You wake at the Lyke-Wake. Somebody sat up with you all night; the candle is burnt down to the stick.' });
+      const woke = () => send(ws, { type: 'toast', level: 'important', always: true, sfx: 'lyke_wake', message: '🕯️ You wake at the Lyke-Wake. Somebody sat up with you all night; the candle is burnt down to the stick.' });
       if (player.room && player.room.startsWith('dungeon_')) {
         const returnRoom = player.dungeonReturnRoom || 'outside';
         const returnPos = returnRoom === 'wilds' ? (bed || WORLD2.spawn) : WORLD.spawn;
