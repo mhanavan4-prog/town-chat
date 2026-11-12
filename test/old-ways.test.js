@@ -27,7 +27,7 @@ const card = (p, id) => ow.body(p).ways.find((w) => w.id === id);
 const can = (p, id, action) => { const a = (card(p, id).actions || []).find((x) => x.id === action); return !!(a && a.enabled); };
 const MIN = 60000;
 
-check('ten ways, each with its tier, its lore and its source', D.OLD_WAYS.length === 10 && D.OLD_WAYS.every((w) => ['record', 'folk', 'revival'].includes(w.tier) && w.lore.length > 200 && w.source.length > 30 && w.how.length > 40));
+check('eleven ways, each with its tier, its lore and its source', D.OLD_WAYS.length === 11 && D.OLD_WAYS.every((w) => ['record', 'folk', 'revival'].includes(w.tier) && w.lore.length > 200 && w.source.length > 30 && w.how.length > 40));
 check('a guest is told to log in, and can do nothing', ow.body({ id: 'g', room: 'outside' }).isGuest === true && ow.act({ id: 'g', room: 'outside' }, 'lead', 'pour').error);
 
 // the besom

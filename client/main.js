@@ -3098,6 +3098,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'dungeon_finds') { lastRareRoom = msg.rare || null; applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
+  if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
@@ -10583,6 +10584,31 @@ function broomFlight(msg) {
 // Only her own client flies the path, so nothing is sent while she is up.
 let broomRide = null;
 const BROOM_RIDE_ALT = 300, BROOM_RIDE_LEN = 2600, BROOM_RIDE_SWAY = 280;
+// 💃 The reel at the stones (lib/oldWays.js): once three have hold the server
+// says it is turning, and each dancer's own client carries her round the ring
+// against the sun until it is danced out. Her moves go to the server as they
+// always do, which is how the others see the ring go round.
+let reelDance = null;
+function setReelState(msg) {
+  const v = visuals[myId];
+  if (!msg.turning || !me) { reelDance = null; if (v) v.emoteYOff = 0; return; }
+  _oldWays.close();
+  reelDance = { t0: performance.now(), done: msg.total - msg.ms, total: msg.total, x: msg.x, y: msg.y, r: msg.r, turns: msg.turns, a0: (msg.place / Math.max(1, msg.of)) * Math.PI * 2 };
+}
+function stepReel() {
+  const r = reelDance;
+  if (!r || !me) return false;
+  const u = (r.done + performance.now() - r.t0) / r.total;
+  if (u >= 1.15) { reelDance = null; const v0 = visuals[myId]; if (v0) v0.emoteYOff = 0; return false; } // the server ends it; this is only in case its word is lost
+  const a = r.a0 - Math.min(1, u) * r.turns * Math.PI * 2; // against the sun
+  const px = r.x + Math.cos(a) * r.r, py = r.y + Math.sin(a) * r.r;
+  if (px !== me.x || py !== me.y) me.facing = Math.atan2(px - me.x, py - me.y);
+  me.x = px; me.y = py;
+  const v = visuals[myId];
+  if (v) v.emoteYOff = Math.abs(Math.sin(performance.now() * 0.011)) * 6; // a skipping step
+  return true;
+}
+
 // Someone else coming in on the besom: the server has her at the landing
 // already, so what the rest of us see is the end of it, a witch on a broom
 // coming down out of the sky to where she will stand.
@@ -19256,7 +19282,7 @@ function updateInteractHint() {
   }
   if (kiosk && kiosk.npc === 'oldways') {
     hint.classList.remove('hidden');
-    document.getElementById('interactHintText').textContent = `${interactVerb()} see to the bees, and the other old ways`;
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${kiosk.hint || 'see to the bees, and the other old ways'}`;
     return;
   }
   if (kiosk && kiosk.npc === 'locksmith') {
@@ -20092,7 +20118,8 @@ function update(dt) {
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
-  if (riding) { /* no walking in the air */ } else if (mode === 'outdoor') {
+  const reeling = !riding && stepReel(); // in the reel the ring carries her
+  if (riding || reeling) { /* no walking in the air, or out of the ring */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
   } else {
     updateIndoor(stepX, stepY);

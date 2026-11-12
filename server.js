@@ -8537,6 +8537,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickDelves(dt);
   dungeonFinds.tick();
+  if (oldWays.tick()) saveAccounts(); // the reel at the stones
   tickPlayerStatusHealth(now, dt);
   tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
   tickTorchNpcs(dt);
@@ -9066,6 +9067,7 @@ const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, coun
   itemName: (id) => (ITEM_CATALOG[id] ? ITEM_CATALOG[id].name : id),
   // the living boss of the dungeon or Delve floor she is in, if it is near enough to name
   moonPhase: () => moonPhaseWindow(Date.now()),
+  send, covenOf: (p) => { const cv = p && p.accountKey && covenOf(p.accountKey); return cv ? { id: cv.id, name: cv.name } : null; },
   // the Hand of Glory: every creature of her dungeon or Delve floor within reach, but never a boss, stands held
   holdCreatures: (p, range, ms) => { let n = 0; for (const m of [...dungeonMobs, ...allDelveMobs()]) if (!m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) { m.heldUntil = Date.now() + ms; n++; } return n; },
   findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
