@@ -9678,6 +9678,12 @@ const NPC_SHOPS = {
     { id: 'iron_nails', price: 6 } // iron against witchcraft — for a witch bottle
   ]}
 };
+// Trade between town and Wilds (lib/shopTrade.js): each pays over for what the other has.
+const shopTrade = require('./lib/shopTrade')({
+  shops: NPC_SHOPS, sellValueFor, maxDiscount: SHOP_REGULARS_DISCOUNT,
+  wildsGoods: [...PLANT_KEYS, ...Object.values(WILDS_FLORA_HARVEST)],
+  townGoods: ['wood', 'berries', 'flower_bloom', 'lumber_bundle', 'stone_block'],
+});
 
 // Building-interior hint-givers — not quest-givers themselves (not in
 // QUEST_BY_NPC), just a friendly local who'll point a stuck player back at
@@ -15367,12 +15373,13 @@ wss.on('connection', (ws, req) => {
         name: ITEM_CATALOG[s.id]?.name || s.id,
         icon: ITEM_CATALOG[s.id]?.icon || '?'
       }));
+      const trade = shopTrade.pricesFor(npcId, SELL_VALUE_MAP);
       send(ws, {
         type: 'npc_shop_state', npcId, npcName: shop.name, items: priced,
-        sellValues: SELL_VALUE_MAP,
-        greeting: discount
+        sellValues: trade.values, prized: trade.prized,
+        greeting: (discount
           ? `Ah, ${seenAs}! Always a pleasure — your usual rate, of course. (−${Math.round(discount * 100)}% for regulars)`
-          : `Welcome, ${seenAs}. Have a look around.`,
+          : `Welcome, ${seenAs}. Have a look around.`) + ' ' + shopTrade.wantLine(npcId),
         discountPct: discount ? Math.round(discount * 100) : 0
       });
       return;
@@ -15422,7 +15429,7 @@ wss.on('connection', (ws, req) => {
       if (!NPC_SHOPS[npcId]) return; // must actually be at a shopkeeper
       const itemId = String(msg.itemId || '');
       const meta = ITEM_CATALOG[itemId];
-      const unit = sellValueFor(itemId);
+      const unit = shopTrade.unitFor(npcId, itemId); // the till agrees with the Sell tab: over the odds for goods from the other side
       if (!meta || unit <= 0) { send(ws, { type: 'shop_error', message: "The shopkeeper won't buy that." }); return; }
       const inv = getInventory(player);
       const have = countItemQty(inv, itemId);
@@ -18514,7 +18521,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

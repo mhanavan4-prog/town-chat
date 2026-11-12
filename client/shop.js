@@ -25,6 +25,7 @@ function closeNpcShopModal() {
 
 let shopBuyItems = [];
 let shopSellValues = {};
+let shopPrized = new Set(); // what this keeper pays over for (lib/shopTrade.js)
 let shopTab = 'buy';
 
 function renderNpcShop(msg) {
@@ -33,6 +34,7 @@ function renderNpcShop(msg) {
   currentShopNpcName = msg.npcName;
   shopBuyItems = msg.items || [];
   if (msg.sellValues) shopSellValues = msg.sellValues;
+  shopPrized = new Set(msg.prized || []);
   document.getElementById('npcShopTitle').textContent = `🛒 ${msg.npcName}`;
   const bal = getBankState() ? getBankState().balance : '?';
   const balEl = document.getElementById('npcShopBalance');
@@ -116,14 +118,16 @@ function renderShopSellList(container) {
     container.appendChild(empty);
     return;
   }
+  ids.sort((p, q) => (shopPrized.has(q) ? 1 : 0) - (shopPrized.has(p) ? 1 : 0)); // what they pay over for comes first
   for (const itemId of ids) {
     const meta = ITEM_CATALOG[itemId] || { name: itemId, icon: '❔' };
     const unit = shopSellValues[itemId];
+    const over = shopPrized.has(itemId) ? ' <span style="color:#ffcf6b;font-size:11px;white-space:nowrap;">▲ pays over</span>' : '';
     const qty = totals[itemId];
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:8px;';
     row.innerHTML = `${itemGlyph(itemId, meta.icon)}
-      <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span></span>
+      <span style="flex:1;color:#eafff0;">${meta.name} <span style="color:#9fb0c0;font-size:11px;">×${qty}</span>${over}</span>
       <span style="color:#ffd700;font-weight:700;">${unit} <span class="coin"></span><span style="color:#9fb0c0;font-weight:400;font-size:11px;"> ea</span></span>
       <button data-q="1" style="padding:5px 10px;background:#2f7a4f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Sell 1</button>
       <button data-q="all" style="padding:5px 10px;background:rgba(47,122,79,0.55);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">All (${qty})</button>`;
