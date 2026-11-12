@@ -17,7 +17,7 @@ const ann = { id: 'a', accountKey: 'ann' }, old = { id: 'o', accountKey: 'old' }
 const find = (body, id) => body.leaves.flatMap((l) => l.entries).find((e) => e.id === id);
 
 const b0 = db.body(ann);
-check('the book has four leaves and a line for every Old Way, wanderer and rare room, and the balefires', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 1 && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
+check('the book has five leaves and a line for every Old Way, wanderer, rare room and village door, the balefires, and the three old sites', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds,village' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 4 + Object.keys(require('../data/villageHouses').VILLAGE_HOUSES).length && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
 check('what is not done says how to come by it, in a line', b0.leaves.flatMap((l) => l.entries).every((e) => !e.done && e.hint.length > 15 && e.hint.length < 140 && e.first === null && e.times === 0) && OLD_WAYS.every((w) => db.WAY_HINT[w.id]));
 check('a guest keeps no daybook, and nothing can be written in one', db.body(guest).isGuest === true && db.note(guest, 'balefires') === false && db.noteWay(guest, 'lead') === false);
 
@@ -41,13 +41,18 @@ accounts.ann.wanderers = { [key]: { slain: 3, firstAt: 12345 } };
 check('a wanderer laid is read from the record already kept of it', (() => { const e = find(db.body(ann), 'wanderer:' + key); return e.done && e.times === 3 && e.first === 12345 && e.name === DUNGEON_LORE[2].wanderer.name; })());
 db.note(ann, 'rare:well');
 check('a rare room used is written under its own name', find(db.body(ann), 'rare:well').done && find(db.body(ann), 'rare:well').name === RARE_ROOMS.well.name && !find(db.body(ann), 'rare:hoard').done);
-check('the count on the cover is the count of what is ticked', db.body(ann).done === db.body(ann).leaves.flatMap((l) => l.entries).filter((e) => e.done).length && db.body(ann).done === 7);
+// the old sites, and the village
+accounts.ann.troyTown = { runs: 4, day: 1 }; accounts.ann.menAnTol = { crawls: 1, day: 1 };
+check('Troy Town, the Crick-stone and the Countless Stones are read from the counts they already keep, with no first day', (() => { const t = find(db.body(ann), 'troy'), c = find(db.body(ann), 'crick'), n = find(db.body(ann), 'countless'); return t.done && t.times === 4 && t.first === null && c.done && c.times === 1 && !n.done && n.hint.length > 20; })());
+check('a village door gone through is written under the house\'s own name', db.note(ann, 'house:lodging') === true && find(db.body(ann), 'house:lodging').done && find(db.body(ann), 'house:lodging').name === 'The Lyke-Wake' && !find(db.body(ann), 'house:barn').done);
+check('the count on the cover is the count of what is ticked', db.body(ann).done === db.body(ann).leaves.flatMap((l) => l.entries).filter((e) => e.done).length && db.body(ann).done === 10);
 
 // wiring
 const server = read('server.js'), panel = read('client/oldways.js'), main = read('client/main.js'), html = read('public/index.html');
 check('the server writes down an Old Way when its button has done something, but not its undoing, and the reel when it is danced out', /const firstTime = msg\.way !== 'reel' && !\['back', 'shed'\]\.includes\(String\(msg\.action\)\) && daybook\.noteWay\(player, String\(msg\.way \|\| ''\)\);/.test(server) && /for \(const p of danced\) daybook\.noteWay\(p, 'reel'\); saveAccounts\(\);/.test(server));
 check('…and a rare room used, and the balefire round made, each saved', /noteRare: \(p, kind\) => \{ if \(daybook\.note\(p, 'rare:' \+ kind\)\)/.test(server) && /noteRound: \(p\) => \{ if \(daybook\.note\(p, 'balefires'\)\)/.test(server) && (read('lib/dungeonFinds.js').match(/noteRare\(player, r\.kind\);/g) || []).length === 3 && /noteRound\(player\);/.test(read('lib/wildsFinds.js')));
 check('the page is a second leaf of the Old Ways panel, with its own row in the menu', /msg\.type === 'daybook_state'\) \{ send\(ws, \{ type: 'daybook_state', \.\.\.daybook\.body\(player\) \}\)/.test(server) && /if \(msg\.type === 'daybook_state'\) \{ _oldWays\.setBook\(msg\); return; \}/.test(main) && /on\('menuDaybook', closeSheetAnd\(\(\) => \{ _oldWays\.open\('book'\); \}\)\);/.test(main) && /id="menuDaybook"/.test(html) && /function renderBook\(body\)/.test(panel) && /\.dbRow\.done \.dbTick/.test(html));
+check('going in at a village door writes it down the first time, and a count with no day reads as a count', /villageHouses\.enter\(player, String\(msg\.id \|\| ''\)\) && daybook\.note\(player, 'house:' \+ String\(msg\.id\)\)/.test(server) && /e\.times > 0 \? \(e\.times === 1 \? 'Once\.' : `\$\{e\.times\} times\.`\)/.test(panel));
 check('on a phone what can be done now is listed first', /const ordered = \[\.\.\.state\.ways\]\.sort\(\(x, y\) => \(isReady\(y\) \? 1 : 0\) - \(isReady\(x\) \? 1 : 0\)\);/.test(panel));
 
 console.log(`\n${pass} passed, ${fail} failed`);

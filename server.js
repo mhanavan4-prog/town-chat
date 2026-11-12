@@ -15901,7 +15901,7 @@ wss.on('connection', (ws, req) => {
     // step out and you're back where you went in. The client gates the door to a
     // crypt's doorstep, so validation here is light (must be out in the Wilds).
     // ── The village's opened buildings (data/villageHouses.js) ──
-    if (msg.type === 'vh_enter') { villageHouses.enter(player, String(msg.id || '')); return; }
+    if (msg.type === 'vh_enter') { if (villageHouses.enter(player, String(msg.id || '')) && daybook.note(player, 'house:' + String(msg.id))) { send(ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook.' }); saveAccounts(); } return; }
     if (msg.type === 'vh_exit') { villageHouses.exit(player); return; }
     if (msg.type === 'vh_use') { if (villageHouses.use(player, String(msg.spot || '')) === 'paid') { saveBankAccounts(); saveAccounts(); } return; }
 
