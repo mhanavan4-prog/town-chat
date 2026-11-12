@@ -58,4 +58,34 @@ const WAY = {
   roadGold: 30, roadXp: 40,        // all three in one day: the road walked
 };
 
-module.exports = { WAYSIDE, WAYSIDE_BY_ID, WAY };
+// The corpse candle (canwyll corff): at night a small light comes down the
+// road from the coffin stone to the gibbet. Keep behind it to the end.
+const CANDLE = {
+  tier: 'folk',
+  from: 'coffinstone',
+  // from the coffin stone, round the coin tree, to the foot of the gibbet
+  path: [[5180, 4700], [5060, 5300], [4870, 5900], [4930, 6600], [5045, 7140]],
+  speed: 80,          // a slow walking pace: she can be overtaken, and must not be
+  standMs: 7000,      // it stands by the stone this long before it goes
+  wake: 230,          // how near the coffin stone, by night, before it sets out
+  lose: 380, loseMs: 4000,   // further behind than this, for this long, and it is gone
+  cross: 45,          // nearer than this is in its way
+  ahead: 70, beside: 80,     // or this far before it on the road
+  struck: 0.25,       // of her health, and never the last of it
+  xp: 60,
+  kinds: [
+    { id: 'child', colour: 0x9fc4ff, size: 22, name: 'a small pale-blue light', whose: 'a child\'s' },
+    { id: 'woman', colour: 0xf2f2ff, size: 34, name: 'a white light', whose: 'a woman\'s' },
+    { id: 'man', colour: 0xff8a6a, size: 38, name: 'a reddish light', whose: 'a man\'s' },
+  ],
+  lore: [
+    'In Wales it was the canwyll corff, the corpse candle: a small light seen going by night, about the height of a hand above the ground, along the very road a funeral would take from a house to the churchyard, days before anyone in the house was known to be ill.',
+    'Its size and colour told whose it was. A small pale or bluish light was a child\'s, a larger one a grown person\'s; in some accounts a white one was a woman\'s and a red one a man\'s. Two together meant two burials.',
+    'It was not to be meddled with. The stories are of people who stood in its way, or struck at it, and were thrown down or took sick. You stepped off the road and let it by.',
+    'St David was said to have prayed that his people might have warning of their deaths, and the candle was the answer.',
+  ],
+  source: 'John Aubrey, Miscellanies (1696), printing letters on corpse-candles in Wales; Edmund Jones, A Relation of Apparitions of Spirits in the County of Monmouth and the Principality of Wales (1780); Wirt Sikes, British Goblins (1880).',
+  note: 'A folk belief, well recorded. Following one down the road for a reward is the game\'s; in the stories you kept out of its way and learned who had died.',
+};
+
+module.exports = { CANDLE, WAYSIDE, WAYSIDE_BY_ID, WAY };
