@@ -1568,6 +1568,8 @@ WORLD2.clootieWell = { ...require('./data/clootie').CLOOTIE_WELL };
 // The Nine-and-Twenty, a stone circle no one counts the same twice (data/countlessStones.js).
 const COUNT = require('./data/countlessStones');
 WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns and six balefires, between the landmarks
+// The bound fires round the Wildlands Village (data/villageWard.js), where the client draws them.
+{ const { WARD } = require('./data/villageWard'); WORLD2.ward = { centre: WARD.centre, radius: WARD.radius, model: WARD.model, size: WARD.size, stones: WARD.stones.map((s) => ({ id: s.id, x: s.x, y: s.y, name: s.name })) }; }
 // The road north (data/wayside.js): the gibbet, the coin tree and the coffin stone, where the client draws them.
 WORLD2.wayside = require('./data/wayside').WAYSIDE.map((w) => ({ id: w.id, x: w.x, y: w.y, model: w.model, size: w.size, name: w.name, icon: w.icon, hint: w.hint }));
 WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, note: COUNT.COUNTLESS_NOTE, source: COUNT.COUNTLESS_SOURCE };
@@ -1724,6 +1726,7 @@ WILDS_FLORA_TYPES.push('crotal_stone');
 {
   const keepOff = [
     ...WORLD2.wayside.map((w) => ({ x: w.x, y: w.y, r: 230 })),
+    ...WORLD2.ward.stones.map((s) => ({ x: s.x, y: s.y, r: 150 })),
     { x: WORLD2.countless.x, y: WORLD2.countless.y, r: WORLD2.countless.radius + 140 },
     { x: WORLD2.clootieWell.x, y: WORLD2.clootieWell.y, r: 310 },
     { x: WORLD2.troyTown.hub[0], y: WORLD2.troyTown.hub[1], r: WORLD2.troyTown.radius + 90 },
@@ -8284,6 +8287,8 @@ function tickWilds(dt) {
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
     if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
     if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
+    // the village's bound fires, when the round is closed, are not crossed (lib/villageWard.js)
+    { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } }
     if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
     // A caster keeps facing its quarry even while backpedalling.
     if (preset.ranged && nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT) m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
@@ -8542,6 +8547,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickDelves(dt);
   dungeonFinds.tick();
+  villageWard.tick(); // at dawn the bound fires are out
   { const lit = corpseCandle.tick(players.values()); if (lit.length) saveAccounts(); } // the corpse candle on the road north
   { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
@@ -9103,6 +9109,12 @@ const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, ba
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
+// The bound fires: a round of fire, sunways, that keeps the night's creatures out of the village till dawn (lib/villageWard.js).
+const villageWard = require('./lib/villageWard')({ send, grantXP, isNight: () => isNightNow(), cycleId: () => Math.floor(Date.now() / CYCLE_MS),
+  tellWilds: (m) => broadcastRoom('wilds', m), playerById: (id) => players.get(id) || null,
+  noteWard: (p) => { if (daybook.note(p, 'ward')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the bound fires, carried round.' }); },
+  // whatever was inside when the round closed is put out to its edge
+  onClosed: () => { for (const m of mobs2) { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } } saveAccounts(); } });
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -15080,7 +15092,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
     if (msg.type === 'wayside_use') { if (wayside.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
-    if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); return; }
+    if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
+    if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead
