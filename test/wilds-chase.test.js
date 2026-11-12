@@ -25,7 +25,8 @@ setTimeout(() => {
   sock.emit('message', JSON.stringify({ type: 'join', name: 'Quarry' }));
   const player = h.players.get(sock.lastOfType('init').id);
   // put the clock into the night half of the cycle
-  const CYCLE = 30 * 60 * 1000; let t = Math.ceil(realNow() / CYCLE) * CYCLE - 5 * 60 * 1000;
+  const CYCLE = 40 * 60 * 1000; // twenty minutes of day, then twenty of night (server.js CYCLE_MS)
+  let t = Math.ceil(realNow() / CYCLE) * CYCLE - 5 * 60 * 1000;
   Date.now = () => t;
   check("it is night", h.isNightNow());
   // something solid she can stand behind and still be seen across: the stall by the hall

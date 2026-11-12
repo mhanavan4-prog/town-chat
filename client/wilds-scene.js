@@ -13,11 +13,12 @@ import { makeMenAnTol } from './props-menantol.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
-let wardFlames = {}, lastWard = null;
+let wardFlames = {}, lastWard = null, packmanMarks = [];
 function applyVillageWard(msg) {
   lastWard = msg;
   const lit = new Set(msg.lit || []);
   for (const id in wardFlames) if (wardFlames[id]) wardFlames[id].visible = lit.has(id);
+  for (const o of packmanMarks) o.visible = !!msg.warded;   // the packman is at the stall only while the round is closed
 }
 // What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
 let wildsFinds = {}, lastWildsFinds = null;
@@ -395,6 +396,16 @@ function buildWildsScene(w2) {
       const lbl = makeSignSprite(`🔥 ${s.name[0].toUpperCase() + s.name.slice(1)}`);
       lbl.position.set(s.x, w2.ward.size + 70, s.y); scene.add(lbl);
       WILDS_KIOSKS.push({ x: s.x, z: s.y + 45, npc: 'wardstone', wardId: s.id, radius: 110, _g: g });
+    }
+    // The packman at the village stall (data/packman.js): his sign and his lantern show only on a warded night.
+    packmanMarks = [];
+    if (w2.packman) {
+      const sign = makeSignSprite(`🎒 ${w2.packman.name}`);
+      sign.position.set(w2.packman.x, 150, w2.packman.y);
+      const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xffc46a, transparent: true, opacity: 0.8, depthWrite: false }));
+      lamp.scale.set(90, 90, 1); lamp.position.set(w2.packman.x, 78, w2.packman.y);
+      for (const o of [sign, lamp]) { o.visible = false; scene.add(o); packmanMarks.push(o); }
+      WILDS_KIOSKS.push({ x: w2.packman.x, z: w2.packman.y, npc: 'packman', radius: 170 });
     }
     if (lastWard) applyVillageWard(lastWard);
   }

@@ -24,7 +24,7 @@ const at = (p, id) => { const s = WARD.stones.find((x) => x.id === id); p.x = s.
 const light = (p, id) => { at(p, id); sent.length = 0; wilds.length = 0; return ward.use(p, id); };
 const told = (re) => sent.some(([, m]) => m.type === 'toast' && re.test(m.message));
 const cried = (re) => wilds.some((m) => m.type === 'toast' && re.test(m.message));
-const state = () => [...wilds].reverse().find((m) => m.type === 'ward_state');
+const state = () => [...wilds].reverse().find((m) => m.type === 'village_ward');
 
 night = false;
 check('by day the basket is cold, and you are read the history instead', light(a, 'east') === false && told(/cold/) && sent.some(([, m]) => m.type === 'vh_board' && m.epithet === 'In the record' && m.lines.some((l) => /^Source: /.test(l))) && !ward.isWarded());
@@ -49,9 +49,10 @@ check('one person can carry the whole round alone', ['west', 'north', 'east', 's
 const server = read('server.js'), main = read('client/main.js'), ws = read('client/wilds-scene.js');
 check('the server draws the stones for the client, keeps the scatter off them, answers their use and tells a newcomer how the round stands', /WORLD2\.ward = \{ centre: WARD\.centre, radius: WARD\.radius/.test(server) && /\.\.\.WORLD2\.ward\.stones\.map\(\(s\) => \(\{ x: s\.x, y: s\.y, r: 150 \}\)\)/.test(server) && /if \(msg\.type === 'ward_use'\) \{ villageWard\.use\(player, String\(msg\.id \|\| ''\)\); return; \}/.test(server) && /wildsFinds\.sendTo\(player\); send\(ws, villageWard\.payload\(\)\);/.test(server));
 check('the night creatures of the Wilds are held at the round each step, and put out of it when it closes; it ends on the tick at dawn', /wildsWalk\(m, vx, vy, dt, now, margin\);\n[^\n]*\n {4}\{ const out = villageWard\.keepOut\(m\.x, m\.y\); if \(out\) \{ m\.x = out\.x; m\.y = out\.y; \} \}/.test(server) && /onClosed: \(\) => \{ for \(const m of mobs2\)/.test(server) && /villageWard\.tick\(\);/.test(server));
-check('the client stands a stone at each, shows its flame when lit, and lets fire be put to it', /for \(const s of w2\.ward\.stones\)/.test(ws) && /wardFlames\[id\]\.visible = lit\.has\(id\)/.test(ws) && /type: 'ward_use', id: kiosk\.wardId/.test(main) && /if \(msg\.type === 'ward_state'\) \{ wardState = msg; applyVillageWard\(msg\); return; \}/.test(main));
+check('the client stands a stone at each, shows its flame when lit, and lets fire be put to it', /for \(const s of w2\.ward\.stones\)/.test(ws) && /wardFlames\[id\]\.visible = lit\.has\(id\)/.test(ws) && /type: 'ward_use', id: kiosk\.wardId/.test(main) && /if \(msg\.type === 'village_ward'\) \{ wardState = msg; applyVillageWard\(msg\); return; \}/.test(main));
 check('the stone has a model in the manifest and on disk', /wd_boundstone: 'kk\/home\/boundstone\.glb'/.test(main) && fs.existsSync(path.join(root, 'public/kk/home/boundstone.glb')));
 const db = require('../lib/daybook')({ accounts: { z: { daybook: { ward: { first: 3, times: 2 } } } } });
 check('and the round has a line in the daybook', db.body({ accountKey: 'z' }).leaves.find((l) => l.id === 'wilds').entries.find((x) => x.id === 'ward').times === 2);
+check('its message has a name of its own: ward_state is the Circle of Salt\'s, and is still heard', /type: 'village_ward'/.test(read('lib/villageWard.js')) && /if \(msg\.type === 'ward_state'\) \{ myWardUntil = msg\.until \|\| 0;/.test(main) && (main.match(/msg\.type === 'ward_state'/g) || []).length === 1);
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
