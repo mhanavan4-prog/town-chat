@@ -108,10 +108,13 @@ function build(n) {
   const braziers = rest.filter((_, i) => i % 2 === 0).slice(0, 4).map((ch, i) => ({ id: 'brazier' + (i + 1), x: ch.x + sgn() * 110, y: ch.y + sgn() * 110, chamber: ch.id }));
   const seals = rest.filter((_, i) => i % 2 === 1).slice(0, 3).map((ch, i) => ({ id: 'seal' + (i + 1), ...corner(ch, sgn(), sgn(), 250), chamber: ch.id }));
 
+  // where a rare room can be (data/rareRooms.js): the middle of a chamber that has no trap there
+  const rareSites = rest.filter((_, i) => i % 2 === 0).map((ch, i) => ({ id: 'rare' + (i + 1), x: ch.x, y: ch.y, chamber: ch.id }));
+
   // standing rock inside the chambers (short walls), clear of the doorways, the
   // middle, and everything that stands or lies in the chamber
   const pillars = [];
-  const taken = [...lanes, ...chests, ...caches, ...nodes, ...traps, ...braziers, ...seals];
+  const taken = [...lanes, ...chests, ...caches, ...nodes, ...traps, ...braziers, ...seals, ...rareSites];
   const clearOf = (w) => taken.every((p) => p.x < w.x - 70 || p.x > w.x + w.w + 70 || p.y < w.y - 70 || p.y > w.y + w.h + 70);
   for (const ch of rest) {
     const k = n === 5 ? 3 : 2;
@@ -131,7 +134,7 @@ function build(n) {
     size: DUNGEON_SIZE, walls, pillars, doors, chambers,
     entry: { x: entryC.x, y: entryC.y + 190 }, boss: bossC,
     portal: { x: entryC.x - 270, y: entryC.y + 290 }, plaque: { x: entryC.x + 270, y: entryC.y + 250 },
-    lanterns, doorLamps, lanes, chests, caches, nodes, traps, braziers, seals,
+    lanterns, doorLamps, lanes, chests, caches, nodes, traps, braziers, seals, rareSites,
   };
 }
 

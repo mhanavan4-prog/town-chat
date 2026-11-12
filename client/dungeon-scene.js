@@ -59,6 +59,7 @@ let rootcellarSigilTextures = null;
 const FIND_VERBS = {
   chest: 'open the chest (it wants a bone key)', cache: 'search the cache', ore: 'work the ore seam',
   mushroom: 'pick the cave mushrooms', crystal: 'scrape the crystal', brazier: 'light the brazier', seal: 'strike the seal',
+  rare_marked: 'read the marks', rare_hoard: 'strike the old vault', rare_hoard_open: 'reach into the hoard', rare_well: 'drop a bent pin in the well',
 };
 let lastFinds = null;        // the server's last word, kept to show again on a rebuilt scene
 let findsClockSkew = 0;      // server clock minus ours, so vents breathe when the server says they do
@@ -125,6 +126,20 @@ function buildFinds(scene, layout, theme, rockStain) {
       finds[t.id] = { kind: 'rockfall', g, warn, warnUntil: 0 };
     }
   }
+  // The rare room (data/rareRooms.js): one set of pieces, stood in whichever
+  // chamber has it for now and put away when none does. Its kiosk is kept far
+  // off the floor until then.
+  if ((layout.rareSites || []).length) {
+    const holder = new THREE.Group(); holder.name = 'rareRoom'; holder.visible = false; scene.add(holder);
+    const piece = (key, size, mode, stainIt) => { const g = kkStatic && hasKK && hasKK(key) ? kkStatic(key, size, mode) : null; if (g) { holder.add(stainIt ? stainRock(g) : g); g.visible = false; } return g; };
+    const ring = new THREE.Mesh(new THREE.RingGeometry(286, 300, 48), new THREE.MeshBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 2.5; ring.visible = false; holder.add(ring);
+    const kiosk = { x: -99999, z: -99999, npc: 'dfind', findId: 'rare', findKind: 'rare_marked' };
+    kiosks.push(kiosk);
+    finds.rare = { kind: 'rare', holder, ring, kiosk,
+      marked: piece('dg_rare_marks', 150, 'height', true), hoard: piece('dg_rare_vault', 120, 'fit', true),
+      hoardOpen: piece('dg_rare_vault_open', 130, 'fit', true), well: piece('dg_rare_well', 120, 'fit', true) };
+  }
   scene.userData.finds = finds;
   scene.userData.findKiosks = kiosks;
   if (lastFinds) applyDungeonFinds(lastFinds);
@@ -136,6 +151,20 @@ function applyDungeonFinds(msg) {
   const scene = getDungeonScene(), finds = scene && scene.userData && scene.userData.finds;
   if (!finds) return;
   const used = new Set(msg.used || []), lit = new Set(msg.lit || []), broken = new Set(msg.broken || []);
+  if (finds.rare) {
+    const f = finds.rare, r = msg.rare;
+    f.holder.visible = !!r;
+    f.kiosk.x = r ? r.x : -99999; f.kiosk.z = r ? r.y : -99999;
+    if (r) {
+      f.holder.position.set(r.x, 0, r.y);
+      f.kiosk.findKind = r.kind === 'hoard' && r.open ? 'rare_hoard_open' : 'rare_' + r.kind;
+      if (f.marked) f.marked.visible = r.kind === 'marked';
+      f.ring.visible = r.kind === 'marked';
+      if (f.hoard) f.hoard.visible = r.kind === 'hoard' && !r.open;
+      if (f.hoardOpen) f.hoardOpen.visible = r.kind === 'hoard' && !!r.open;
+      if (f.well) f.well.visible = r.kind === 'well';
+    }
+  }
   for (const id of Object.keys(finds)) {
     const f = finds[id];
     if (f.kind === 'chest') { if (f.shut) f.shut.visible = !used.has(id); if (f.open) f.open.visible = used.has(id); }
