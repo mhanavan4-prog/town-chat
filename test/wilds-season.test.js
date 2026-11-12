@@ -18,7 +18,7 @@ class Color {
 }
 class Geo { setAttribute(n, a) { this.attributes = { [n]: a }; } dispose() {} }
 const THREE = { Color, BufferGeometry: Geo, BufferAttribute: class { constructor(array) { this.array = array; } }, PointsMaterial: class { constructor(o) { Object.assign(this, o); } dispose() {} },
-  Points: class { constructor(g, m) { this.geometry = g; this.material = m; this.position = { set() {} }; } }, CanvasTexture: class {} };
+  Points: class { constructor(g, m) { this.geometry = g; this.material = m; this.position = { set() {} }; } }, DataTexture: class { constructor(data, w, h) { this.data = data; this.w = w; this.h = h; } }, RGBAFormat: 1, LinearFilter: 1 };
 global.document = { createElement: () => ({ getContext: () => ({ createRadialGradient: () => ({ addColorStop() {} }), fillRect() {} }) }) };
 global.performance = global.performance || { now: () => Date.now() };
 
@@ -42,9 +42,14 @@ let active = scene, season = 'mabon', quality = 'high';
   check('the hand-made plants, which share their material with some stone, are dyed at half strength; trim is left alone', halfShift > 0 && halfShift < fullShift && trim.color.getHex() === 0x884422 && plant.emissive.getHex() !== 0 && plant.emissive.getHex() !== S.mabon.leafGlow);
   check('a thing that glowed of itself keeps its glow', lamp.emissive.getHex() === 0x202020);
   check('what falls is in the air, as many as the season has at full quality', scene.added && scene.added.name === 'wildsSeasonAir' && scene.added.geometry.attributes.position.array.length === S.mabon.airN * 3 && scene.added.material.color === S.mabon.airCol);
+  const tex = scene.added.material.map, src = read('client/wilds-season.js');
+  check('the flake is made from numbers, never drawn on a canvas (Safari salts canvas pixels with noise), clear at the rim and solid in the middle', tex && tex.data.length === 32 * 32 * 4 && tex.data[3] === 0 && tex.data[(16 * 32 + 16) * 4 + 3] === 255 && !/createElement\('canvas'\)|CanvasTexture/.test(src));
+  check('what falls is small: a leaf is not the size of a plate', scene.added.material.size <= 6 && S.yule && /FLAKE_SIZE = \{ motes: 3, snow: 5, petals: 5, leaves: 6 \}/.test(src));
   const y0 = scene.added.geometry.attributes.position.array[1];
   ws.update(0.1);
   check('…and falls', scene.added.geometry.attributes.position.array[1] < y0);
+  for (let k = 0; k < 50; k++) ws.update(0.05);
+  check('none drifts right past the eye', (() => { const p = scene.added.geometry.attributes.position.array; for (let i = 0; i < p.length; i += 3) if (Math.abs(p[i]) < 100 && Math.abs(p[i + 2]) < 100) return false; return true; })());
 
   // leaving: the shared leaves go back, the ground and air stay
   active = {};
