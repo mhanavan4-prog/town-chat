@@ -9095,7 +9095,7 @@ function mootBoardLines(player) {
   lines.push(isNightNow() ? '🌙 It is night: the besom will fly, and the reel can be danced.' : '☀️ It is day. Night is the time for the besom and the reel.');
   return lines;
 }
-const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
+const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
@@ -9623,6 +9623,11 @@ const NPC_SHOPS = {
   npc_mara: { name: 'Ranger Mara', items: [
     { id: 'iron_sword', price: 50 }, { id: 'leather_boots', price: 30 },
     { id: 'steel_shield', price: 40 }, { id: 'healing_potion', price: 15 }
+  ]},
+  // The wise-woman of the Wildlands Village (data/villageHouses.js): remedies, and somewhere to sell out in the Wilds.
+  npc_averil: { name: 'Dame Averil, the wise-woman', items: [
+    { id: 'healing_potion', price: 14 }, { id: 'cleansing_clover', price: 16 },
+    { id: 'regen_root', price: 18 }, { id: 'healing_herb', price: 10 }, { id: 'glass_vial', price: 6 }
   ]},
   npc_finn: { name: 'Herbalist Finn', items: [
     { id: 'healing_potion', price: 15 }, { id: 'magic_scroll', price: 25 },
@@ -15892,7 +15897,7 @@ wss.on('connection', (ws, req) => {
     // ── The village's opened buildings (data/villageHouses.js) ──
     if (msg.type === 'vh_enter') { villageHouses.enter(player, String(msg.id || '')); return; }
     if (msg.type === 'vh_exit') { villageHouses.exit(player); return; }
-    if (msg.type === 'vh_use') { villageHouses.use(player, String(msg.spot || '')); return; }
+    if (msg.type === 'vh_use') { if (villageHouses.use(player, String(msg.spot || '')) === 'paid') saveBankAccounts(); return; }
 
     if (msg.type === 'enter_crypt') {
       if (player.room !== 'wilds' || player.isDead) return;

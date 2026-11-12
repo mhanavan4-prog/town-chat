@@ -11524,13 +11524,13 @@ function exitCrypt() {
 let villageHouseCatalog = {};     // id -> { room, name, door, width, height, spawn, spots, … }
 const VH_WORLDS = {};             // id -> { width, height, buildings: [], spawn }
 let vhScene = null, vhId = null;
-const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture });
+const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid });
 function isVHRoom(room) { return typeof room === 'string' && room.startsWith('vh_'); }
 function vhIdOf(room) { for (const h of Object.values(villageHouseCatalog)) if (h.room === room) return h.id; return null; }
 function vhKiosks() {
   const h = villageHouseCatalog[vhId];
   if (!h) return [];
-  return [{ x: h.width / 2, z: h.height - 40, portal: 'vh_exit', radius: 80 }, ...h.spots.map((s) => ({ x: s.x, z: s.y, vhSpot: s.id, hint: s.hint, radius: 110 }))];
+  return [{ x: h.width / 2, z: h.height - 40, portal: 'vh_exit', radius: 80 }, ...h.spots.map((s) => ({ x: s.x, z: s.y, vhSpot: s.id, vhShop: s.shop || null, hint: s.hint, radius: 110 }))];
 }
 function swapToVillageHouse(id) {
   const h = villageHouseCatalog[id];
@@ -19039,7 +19039,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'crypt_exit') { exitCrypt(); return; }
   if (kiosk && kiosk.portal === 'vh_enter') { ws.send(JSON.stringify({ type: 'vh_enter', id: kiosk.vhId })); return; }
   if (kiosk && kiosk.portal === 'vh_exit') { ws.send(JSON.stringify({ type: 'vh_exit' })); return; }
-  if (kiosk && kiosk.vhSpot) { if (kiosk.vhSpot === 'store') openBankModal(); else ws.send(JSON.stringify({ type: 'vh_use', spot: kiosk.vhSpot })); return; }
+  if (kiosk && kiosk.vhSpot) { if (kiosk.vhSpot === 'store') openBankModal(); else if (kiosk.vhShop) ws.send(JSON.stringify({ type: 'npc_shop_open', npcId: kiosk.vhShop })); else ws.send(JSON.stringify({ type: 'vh_use', spot: kiosk.vhSpot })); return; }
   if (kiosk && kiosk.portal === 'manor_enter') { enterManor(); return; }
   if (kiosk && kiosk.portal === 'manor_exit') { exitManor(); return; }
   if (kiosk && kiosk.portal === 'cottage_exit') { exitCottage(); return; }
