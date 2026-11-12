@@ -10676,8 +10676,9 @@ function stepCorpseCandle() {
   flame.material.opacity = 0.95 * fl; halo.material.opacity = 0.28 * fl;
   // while it goes down the road it can be heard, faintly, for as long as she keeps near it
   if (t > c.standMs && d < c.total && me && Math.hypot(me.x - x, me.y - y) < 420) {
-    const bar = Math.floor((t - c.standMs) / 4400) + 1;
-    if (bar !== c.bar) { c.bar = bar; if (typeof playSfx === 'function') playSfx('candle_follow'); }
+    // kept low, lower the further off she is, and with a breath of quiet between: it is a thing half heard
+    const bar = Math.floor((t - c.standMs) / 6500) + 1;
+    if (bar !== c.bar) { c.bar = bar; if (typeof playSfx === 'function') playSfx('candle_follow', 0.3 * (1 - 0.6 * Math.min(1, Math.hypot(me.x - x, me.y - y) / 420))); }
   }
   if (t > c.standMs + c.total / c.speed * 1000 + 8000) setCorpseCandle({ on: false }); // the server puts it out; this is only in case its word is lost
 }
