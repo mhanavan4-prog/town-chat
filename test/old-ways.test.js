@@ -146,5 +146,18 @@ check('the panel shows why a thing waits, asks before the brownie is clothed, an
 const dung = fs.readFileSync(path.join(root, 'lib/dungeons.js'), 'utf8'), delve = fs.readFileSync(path.join(root, 'lib/delve.js'), 'utf8'), cottage = fs.readFileSync(path.join(root, 'client/cottage-scene.js'), 'utf8');
 check('a bound boss drags its feet in a dungeon and on a Delve floor', /m\.boundUntil > now \? \{ \.\.\.base, speed: base\.speed \* \(m\.boundSlow \|\| 0\.6\) \} : base/.test(dung) && /\(m\.boundUntil > now \? \(m\.boundSlow \|\| 0\.6\) : 1\)/.test(delve) && /findBoss: \(p, range\) => \[\.\.\.dungeonMobs, \.\.\.allDelveMobs\(\)\]\.find\(\(m\) => m\.boss && !m\.dead && m\.room === p\.room/.test(server));
 check('her besom leans by the cottage door, and the cream stands on the hearthstone the night it is set', /besom: !!\(key && accounts\[key\] && accounts\[key\]\.oldWays && accounts\[key\]\.oldWays\.besom && accounts\[key\]\.oldWays\.besom\.made\)/.test(server) && /kkStatic\('wd_besom', 96, 'height'\)/.test(cottage) && /kkStatic\('wd_cream', 18, 'fit'\)/.test(cottage) && /wd_besom: 'kk\/home\/besom\.glb', wd_cream: 'kk\/home\/cream_bowl\.glb'/.test(main) && fs.existsSync(path.join(root, 'public/kk/home/besom.glb')) && fs.existsSync(path.join(root, 'public/kk/home/cream_bowl.glb')));
+// a bound boss, in the real dungeon tick: it covers six tenths of the ground it would
+{
+  const ps = new Map();
+  const dmod = require('../lib/dungeons')({ players: ps, send: () => {}, isEvading: () => false, absorbIncomingDamage: (_p, d) => d, noteAttacked: () => {}, DUNGEON_ROOMS: { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' }, DUNGEON_SIZE: 2400, dungeonAffix: () => null });
+  const b = dmod.dungeonMobs.find((m) => m.boss && m.tier === 1);
+  ps.set('z', { id: 'z', room: 'dungeon_t1', x: b.spawnX + 150, y: b.spawnY, health: 1e6, isDead: false, ws: null });
+  const step = () => { b.x = b.spawnX; b.y = b.spawnY; dmod.tickDungeon(1); return Math.hypot(b.x - b.spawnX, b.y - b.spawnY); };
+  const free = step();
+  b.boundUntil = Date.now() + 60000; b.boundSlow = D.POPPET.bindSlow;
+  const bound = step();
+  b.boundUntil = 0;
+  check('a bound boss covers six tenths of the ground in the same time, and its full stride again once the binding is off', free > 10 && Math.abs(bound / free - 0.6) < 0.01 && Math.abs(step() - free) < 0.01, { free, bound });
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

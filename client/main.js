@@ -3094,7 +3094,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
-  if (msg.type === 'wilds_finds') { applyWildsFinds(msg); showWildsFindsHud(msg); return; }
+  if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
@@ -10403,6 +10403,7 @@ function showDungeonFindsHud(msg) {
 }
 // Out in the Wilds the same line counts the day's balefires.
 let wildsFindsAskedAt = 0;
+let wildsFindsState = null; // the day's balefires and searched cairns, as the server last told it (the map marks them)
 function showWildsFindsHud(msg) {
   const el = document.getElementById('dungeonFindsHud');
   if (!el || !(me && me.room === 'wilds')) return;
@@ -17389,6 +17390,16 @@ const { openNotifModal } = _notif;
     if (typeof WILDS_CAMPFIRES !== 'undefined') {
       for (const f of WILDS_CAMPFIRES) drawProp(ctx, PX(f.x), PY(f.y) + fireS * 0.2, fireS, 'campfire');
     }
+    // Balefires: a fire for each, and a ring round the ones still to light today,
+    // so the round can be planned from the map.
+    if (world2.finds) {
+      const litToday = new Set((wildsFindsState && wildsFindsState.lit) || []);
+      for (const f of world2.finds.balefires) {
+        const fx = PX(f.x), fy = PY(f.y);
+        drawProp(ctx, fx, fy + fireS * 0.2, fireS * 0.9, 'campfire');
+        if (!litToday.has(f.id)) { ctx.save(); ctx.strokeStyle = '#ffb060'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(fx, fy, fireS * 0.75, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      }
+    }
     // NPCs: villager props at their true spots, then names stacked downward so
     // the tight camp clusters read as a clean list instead of a tangle.
     if (typeof WILDS_NPCS !== 'undefined') {
@@ -20376,6 +20387,8 @@ if (location.search.includes('testdrive=1')) {
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     look(yaw, pitch) { cameraYawOffset = +yaw || 0; if (pitch != null) cameraPitchOffset = +pitch || 0; return true; },
+    // Stand in the Manor's hall (the look of it only; the server keeps its own door).
+    manor() { swapToManorMap(); if (me) { me.room = 'manor'; me.x = MANOR_WORLD.spawn.x; me.y = MANOR_WORLD.spawn.y; } return activeScene === manorScene; },
     // Step straight into a town building's interior (the look of it; the server still keeps its own doors).
     enter(roomId) { if (me && world && world.buildings.some((b) => b.id === roomId)) { enterBuilding(roomId); return true; } return false; },
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },

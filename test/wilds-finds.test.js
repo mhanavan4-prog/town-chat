@@ -47,5 +47,6 @@ check('a cairn over each cache and a brazier on a cairn for each balefire, on le
 check('a lit balefire burns for you, and the day\'s count stands at the top of the screen in the Wilds', /f\.flame\.visible = lit\.has\(id\)/.test(scene) && /function showWildsFindsHud\(msg\)/.test(main) && /🔥 Balefires/.test(main) && /type: 'wilds_finds_state'/.test(main));
 check('the bee garth stands in the town and opens the Old Ways', /function buildBeeGarth\(scene\)/.test(town) && /altarModel\(one, 'tw_skep', 34, 'height'\)/.test(town) && /npc: 'oldways'/.test(town) && /kiosk\.npc === 'oldways'\) \{ if \(!Modals\.isOpen\('oldWaysOpen'\)\) _oldWays\.open\(\); return; \}/.test(main) && fs.existsSync(path.join(root, 'public/kk/home/bee_skep.glb')));
 check('you land astride the besom, and it is put away after a few moments', /broom\.name = 'ridingBesom'/.test(main) && /setTimeout\(\(\) => \{ if \(broom\.parent\) broom\.parent\.remove\(broom\); \}, 3500\);/.test(main));
+check('the Wilds map shows each balefire, ringed while it is still to light today', /for \(const f of world2\.finds\.balefires\)/.test(main) && /if \(!litToday\.has\(f\.id\)\)/.test(main) && /wildsFindsState = msg; applyWildsFinds\(msg\);/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
