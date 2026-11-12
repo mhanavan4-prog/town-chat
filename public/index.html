@@ -2325,6 +2325,18 @@
     position:sticky; bottom:0; z-index:4;
     box-shadow:0 -10px 24px rgba(10,7,4,0.9);
   }
+  /* Every other panel too. Nine of them (cottage, kitchen, garden, familiar,
+     path, guise, scrying, the Book of Shadows, the ancestor altar) carry an
+     id rule capping them at 84vh, which outranked the full-screen rule above:
+     on a phone held sideways they stopped short of the bottom of the screen
+     and their Close button was below the fold with nothing to say so. They
+     now fill the screen like the rest, and any panel's own Close button
+     (the direct child, at the bottom) stays in reach as you scroll. */
+  body.touchMode .floatPanel { height:100% !important; max-height:none !important; overflow-y:auto; }
+  body.touchMode .floatPanel > .btn[id$="CloseBtn"] {
+    position:sticky; bottom:0; z-index:4; width:100%;
+    box-shadow:0 -10px 24px rgba(10,7,4,0.9);
+  }
   /* Inventory joins the same pattern (it was its own little window too) */
   body.touchMode #inventoryPanel {
     left:0 !important; top:0 !important; right:0 !important; bottom:0 !important;
