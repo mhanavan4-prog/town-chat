@@ -7,7 +7,10 @@ const DUNGEON_LORE = {
     name: 'The Rootcellar', epithet: 'beneath the oldest house in Thornreach',
     bossKey: 'boss_rat_king',
     // Some nights something else is down here besides the keeper (lib/dungeons.js, the wanderers).
-    wanderer: { key: 'wander_rawhead', name: 'Rawhead-and-Bloody-Bones', tier: 'folk',
+    wanderer: { key: 'wander_rawhead',
+      // what she brings up the first time it falls to her; it stands on a shelf in her cottage (the game's own invention)
+      keepsake: { id: 'bone', model: 'wd_kbone', name: 'a bone from the heap', text: 'One small bone from the heap he sat on. You would rather not know whose.' },
+      name: 'Rawhead-and-Bloody-Bones', tier: 'folk',
       lore: 'A bogey of the dark places of a house. The name is in print by about 1548, and John Locke complained in 1693 of servants who kept children quiet with "Raw-Head and Bloody-Bones, and such other Names". In Somerset, as Ruth Tongue heard it, he "lived in a dark cupboard, usually under the stairs", crouched on a heap of the bones of children who told lies; in Lancashire and Yorkshire he waited in ponds and old marl-pits.',
       source: 'J. Locke, Some Thoughts Concerning Education (1693); R. L. Tongue, Somerset Folklore (1965); E. M. Wright, Rustic Speech and Folk-Lore (1913); K. Briggs, A Dictionary of Fairies (1976).',
       note: 'The stories only ever threaten with him. That he can be met and fought is the game\'s.' },
@@ -16,7 +19,10 @@ const DUNGEON_LORE = {
   2: {
     name: 'The Weeping Crypts', epithet: 'where the old covens laid their debts',
     bossKey: 'boss_crypt_weaver',
-    wanderer: { key: 'wander_church_grim', name: 'The Church Grim', tier: 'folk',
+    wanderer: { key: 'wander_church_grim',
+      // what she brings up the first time it falls to her; it stands on a shelf in her cottage (the game's own invention)
+      keepsake: { id: 'rope', model: 'wd_krope', name: 'a hank of bell-rope', text: 'A length of the rope it tolled with, the sally still on it.' },
+      name: 'The Church Grim', tier: 'folk',
       lore: 'In the north of England it was said that the first one buried in a new churchyard must watch it against the Devil ever after, and that to spare a Christian soul the duty a black dog was buried first, on the north side. Its ghost was the grim: a great black dog that kept the graves from thieves and witches, and tolled the bell at midnight before a death. The Swedes and Danes told the same of the kyrkogrim, an animal walled alive into the church\'s foundation.',
       source: 'W. Henderson, Notes on the Folk-Lore of the Northern Counties (1866; 2nd ed. 1879); B. Thorpe, Northern Mythology, vol. 2 (1851); K. Briggs, A Dictionary of Fairies (1976).',
       note: 'The grim was a guardian and harmed only those who came to rob. Down here the game makes you the one who has come to rob.' },
@@ -25,7 +31,10 @@ const DUNGEON_LORE = {
   3: {
     name: 'The Howling Forge', epithet: 'the mountain’s furnace that never went out',
     bossKey: 'boss_forge_tyrant',
-    wanderer: { key: 'wander_mine_demon', name: 'The Demon of the Rose-Garland Mine', tier: 'record',
+    wanderer: { key: 'wander_mine_demon',
+      // what she brings up the first time it falls to her; it stands on a shelf in her cottage (the game's own invention)
+      keepsake: { id: 'cobalt', model: 'wd_kcobalt', name: 'a lump of cobalt ore', text: 'Grey, heavy, and blue where it broke. The smelters would have cursed it.' },
+      name: 'The Demon of the Rose-Garland Mine', tier: 'record',
       lore: 'Georgius Agricola, the first great writer on mining, held that spirits lived in mines and said so in print in 1549 and 1556. Most were the gentle kobel, dwarfs about two feet high and dressed like miners, who throw pebbles at the workmen "but they rarely injure them unless the workmen first ridicule or curse them". Others were deadly. He wrote of one at Annaberg, in the mine called the Rose-garland, that killed twelve labourers with its breath, so that the mine was given up though it was rich in silver, and he listed such demons among the reasons a mine may lawfully be abandoned. Cobalt ore is named for the kobel, who were blamed for ore that poisoned the smelters and yielded nothing.',
       source: 'G. Agricola, De animantibus subterraneis (1549) and De re metallica (1556), trans. H. C. and L. H. Hoover (1912).',
       note: 'Agricola gives the demon a mine in Saxony, not a forge. The game has moved it under the mountain.' },
@@ -34,7 +43,10 @@ const DUNGEON_LORE = {
   4: {
     name: 'The Starless Deep', epithet: 'the dark below the dark',
     bossKey: 'boss_pale_sovereign',
-    wanderer: { key: 'wander_black_annis', name: 'Black Annis', tier: 'folk',
+    wanderer: { key: 'wander_black_annis',
+      // what she brings up the first time it falls to her; it stands on a shelf in her cottage (the game's own invention)
+      keepsake: { id: 'claw', model: 'wd_kclaw', name: 'an iron claw', text: 'One claw, long as your hand. There is sandstone still in the pitting.' },
+      name: 'Black Annis', tier: 'folk',
       lore: 'A hag with a blue face and iron claws who lived in a cave in the Dane Hills outside Leicester, which she was said to have scratched out of the sandstone with her own nails. She took lambs and children, and hung their skins on the oak at the cave\'s mouth. The place is "Black Anny\'s Bower Close" in title deeds of May 1764, and John Heyrick put her "features livid blue" and "vast talons" into verse before the century was out. Until about that time a drag was hunted from her Bower to the Mayor\'s door every Easter Monday.',
       source: 'C. J. Billson, County Folk-Lore vol. 1: Leicestershire and Rutland (1895); K. Briggs, A Dictionary of Fairies (1976).',
       note: 'Her cave was in a field near Leicester and is built over now. The game has let her go deeper.' },
