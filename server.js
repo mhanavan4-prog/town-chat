@@ -9095,7 +9095,7 @@ function mootBoardLines(player) {
   lines.push(isNightNow() ? '🌙 It is night: the besom will fly, and the reel can be danced.' : '☀️ It is day. Night is the time for the besom and the reel.');
   return lines;
 }
-const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
+const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
@@ -15214,15 +15214,21 @@ wss.on('connection', (ws, req) => {
         player.disguise = null;
         broadcastAll({ type: 'disguise_state', id: player.id, name: null, image: null });
       }
+      // A paid bed at the Lyke-Wake in the Wildlands Village (data/villageHouses.js)
+      // is where she wakes if the Wilds kill her, or a deep she went down into from them.
+      const bed = villageHouses.wakeAt(player);
+      const woke = () => send(ws, { type: 'toast', level: 'important', always: true, message: '🕯️ You wake at the Lyke-Wake. Somebody sat up with you all night; the candle is burnt down to the stick.' });
       if (player.room && player.room.startsWith('dungeon_')) {
         const returnRoom = player.dungeonReturnRoom || 'outside';
-        const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
+        const returnPos = returnRoom === 'wilds' ? (bed || WORLD2.spawn) : WORLD.spawn;
+        if (returnRoom === 'wilds' && bed) woke();
         player.x = returnPos.x; player.y = returnPos.y;
         player.room = returnRoom;
         player.dungeonReturnRoom = null;
         send(ws, { type: 'you_respawned', room: returnRoom, x: returnPos.x, y: returnPos.y });
       } else if (player.room === 'wilds') {
-        player.x = WORLD2.spawn.x; player.y = WORLD2.spawn.y;
+        player.x = (bed || WORLD2.spawn).x; player.y = (bed || WORLD2.spawn).y;
+        if (bed) woke();
         send(ws, { type: 'you_respawned', room: 'wilds', x: player.x, y: player.y });
       } else {
         player.x = WORLD.spawn.x; player.y = WORLD.spawn.y;
@@ -15897,7 +15903,7 @@ wss.on('connection', (ws, req) => {
     // ── The village's opened buildings (data/villageHouses.js) ──
     if (msg.type === 'vh_enter') { villageHouses.enter(player, String(msg.id || '')); return; }
     if (msg.type === 'vh_exit') { villageHouses.exit(player); return; }
-    if (msg.type === 'vh_use') { if (villageHouses.use(player, String(msg.spot || '')) === 'paid') saveBankAccounts(); return; }
+    if (msg.type === 'vh_use') { if (villageHouses.use(player, String(msg.spot || '')) === 'paid') { saveBankAccounts(); saveAccounts(); } return; }
 
     if (msg.type === 'enter_crypt') {
       if (player.room !== 'wilds' || player.isDead) return;
