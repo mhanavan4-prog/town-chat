@@ -10,7 +10,8 @@ const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const D = require('../data/oldWays'), R = D.REEL;
 
 let clock = 70 * 86400000, night = true, full = false;
-const accounts = { ann: {}, bet: {}, cat: {}, dot: {} }, xp = {}, sent = [], covens = { ann: 'c1', bet: 'c1', cat: 'c1', dot: 'c2' };
+const accounts = { ann: {}, bet: {}, cat: {}, dot: {} }, xp = {}, sent = [], covens = { ann: 'c1', bet: 'c1', cat: 'c1', dot: 'c2' }, notes = [];
+let win = { night: true, startsAt: 0, endsAt: 0 };
 const players = new Map();
 const mk = (id, acct) => { const p = { id, name: id, accountKey: acct ? id : null, room: 'wilds', x: R.at.x + 100, y: R.at.y, health: 60, isDead: false, ws: id }; players.set(id, p); xp[id] = 0; return p; };
 const ow = require('../lib/oldWays')({
@@ -18,7 +19,9 @@ const ow = require('../lib/oldWays')({
   ensureBankAccount: () => ({ balance: 0 }), grantXP: (p, n) => { xp[p.id] += n; }, isNightNow: () => night,
   playerParty: new Map(), parties: new Map(), playerMaxHealth: () => 100, WORLD2: { spawn: { x: 5000, y: 9000 } }, now: () => clock,
   moonPhase: () => ({ key: full ? 'full' : 'waning_gibbous', isFull: full, startsAt: 1 }), send: (ws, m) => sent.push({ to: ws, ...m }),
-  covenOf: (p) => (p.accountKey && covens[p.accountKey] ? { id: covens[p.accountKey], name: 'the Thorn' } : null),
+  covenOf: (p) => (p.accountKey && covens[p.accountKey] ? { id: covens[p.accountKey], name: 'the Thorn', leader: p.accountKey === 'ann' } : null),
+  covenOnline: (id) => [...players.values()].filter((p) => p.accountKey && covens[p.accountKey] === id),
+  covenNote: (id, who, action) => notes.push({ id, who, action }), nightWindow: () => win,
 });
 const ann = mk('ann', true), bet = mk('bet', true), cat = mk('cat', true), dot = mk('dot', true), gus = mk('gus', false);
 const card = (p) => ow.body(p).ways.find((w) => w.id === 'reel');
@@ -93,10 +96,29 @@ clock += R.restMs; night = true;
 ow.act(ann, 'reel', 'hands'); night = false; sent.length = 0; ow.tick();
 check('daylight sends home whoever is still waiting', ow._reel.hands.size === 0 && said(ann, /getting light/));
 
+// a coven called to the stones
+clock += R.restMs; night = false; sent.length = 0;
+win = { night: false, startsAt: clock + 7 * 60000, endsAt: clock + 27 * 60000 };
+check('only her who leads a coven is offered the calling of it', can(ann, 'call') && !(card(bet).actions || []).some((x) => x.id === 'call') && !(card(dot).actions || []).some((x) => x.id === 'call') && !(card(gus).actions || []).some((x) => x.id === 'call'));
+const c1 = ow.act(ann, 'reel', 'call');
+check('by day she calls it for nightfall, and every one of hers in the game is told, with how long there is', /at nightfall, in 7 minutes/.test(c1.toast) && said(bet, /ann calls the Thorn to the stones.*at nightfall, in 7 minutes/) && said(cat, /It wants three/) && !said(dot, /calls/) && !said(ann, /ann calls/) && notes.length === 1 && notes[0].id === 'c1' && /called the coven to the reel/.test(notes[0].action));
+check('the coven sees it on the reel\'s card; nobody else does', /ann has called your coven to the stones at nightfall, in 7 minutes/.test(card(bet).status) && !/called/.test(card(dot).status));
+check('she cannot call twice over', !can(ann, 'call') && /called already/.test(why(ann, 'call')) && ow.act(ann, 'reel', 'call').error);
+clock += 6 * 60000; sent.length = 0; ow.tick();
+check('before nightfall nothing more is said', !said(bet, /Night has come down/));
+clock += 60001; night = true; ow.tick(); ow.tick();
+check('when the night falls the coven is told, once', sent.filter((m) => m.to === 'bet' && /Night has come down/.test(m.message)).length === 1 && /tonight: it is time/.test(card(bet).status));
+clock += 20 * 60000; night = false; ow.tick();
+check('at first light the call is over, but word cannot go round again so soon', !ow._calls.has('c1') && !/called/.test(card(bet).status) && !can(ann, 'call') && /not long since/.test(why(ann, 'call')));
+clock += R.callRestMs; night = true; win = { night: true, startsAt: clock - 60000, endsAt: clock + 19 * 60000 }; sent.length = 0;
+const c2 = ow.act(ann, 'reel', 'call');
+check('called by night, it is for now, and the night-has-fallen word is not sent after it', /now, and until first light/.test(c2.toast) && said(bet, /now, and until first light/) && (ow.tick(), !said(bet, /Night has come down/)));
+
 // wiring
 const server = read('server.js'), main = read('client/main.js'), wilds = read('client/wilds-scene.js');
 check('the server turns the reel on its clock, saves what was earned, and tells the module who is of which coven', /const danced = oldWays\.tick\(\); if \(danced\) \{ for \(const p of danced\) daybook\.noteWay\(p, 'reel'\); saveAccounts\(\); \}/.test(server) && /send, covenOf: \(p\) => \{ const cv = p && p\.accountKey && covenOf\(p\.accountKey\);/.test(server));
 check('each dancer\'s client carries her round against the sun, skipping, and walks her nowhere else meanwhile', /if \(msg\.type === 'reel_state'\) \{ setReelState\(msg\); return; \}/.test(main) && /const a = r\.a0 - Math\.min\(1, u\) \* r\.turns \* Math\.PI \* 2; \/\/ against the sun/.test(main) && /const reeling = !riding && stepReel\(\);/.test(main) && /if \(riding \|\| reeling\)/.test(main));
+check('the server tells the module who leads, who of a coven is about, and when the night is, and writes the call in the coven\'s log', /leader: cv\.leaderKey === p\.accountKey/.test(server) && /covenOnline: \(id\) => \[\.\.\.players\.values\(\)\]\.filter\(\(p\) => p\.accountKey && covenIndex\.get\(p\.accountKey\) === id\)/.test(server) && /covenLog\(cv, who, action\); saveCoven\(id\);/.test(server) && /nightWindow: \(\) => \{ const t = Date\.now\(\), start = t - \(t % CYCLE_MS\);/.test(server));
 check('there is a dancing ground by the Circle that opens the panel', /npc: 'oldways', npcName: '💃 the dancing ground'/.test(wilds) && /kiosk\.hint \|\| 'see to the bees/.test(main));
 
 console.log(`\n${pass} passed, ${fail} failed`);

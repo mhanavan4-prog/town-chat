@@ -94,7 +94,7 @@ const OLD_WAYS = [
   },
   {
     id: 'reel', icon: '💃', name: 'The reel at the stones',
-    how: 'By night, at the Unbound Circle in the Wilds, take hands. When three or more have hold, the reel goes round the stones against the sun. Stay in it to the end and blows land softer on every dancer for half an hour, the more so the more who danced.',
+    how: 'By night, at the Unbound Circle in the Wilds, take hands. When three or more have hold, the reel goes round the stones against the sun. Stay in it to the end and blows land softer on every dancer for half an hour, the more so the more who danced. The leader of a coven can call hers to the stones for the coming night.',
     tier: 'record',
     lore: 'The pamphlet Newes from Scotland (1591) tells how the witches of North Berwick, some two hundred of them, went to the kirk there on All Hallows\' Eve of 1590 and "took hands on the land and danced this reel or short dance, singing all with one voice: Commer goe ye before, commer goe ye; Gif ye will not goe before, commer let me". Geillis Duncan, a maidservant of Tranent, went before them playing it on a trump, the small harp held in the teeth, and King James, who sat in on the examinations, was so taken with the strangeness of it that he had her fetched to play the dance to him. One of the indictments says they went round the kirk withershins, the men nine times and the women six. Duncan was hanged on the Castlehill of Edinburgh in December 1591, saying at the last that what she had told of others was put into her mouth by those who tortured her. That stone circles are dancers is a different tale and a commoner one: the Merry Maidens in Cornwall are nineteen girls turned to stone for dancing on a Sunday. In the game the reel is danced at standing stones, not in a kirkyard, and it does the dancers good; the record says only that it was danced.',
     source: 'Newes from Scotland (1591); R. Pitcairn, Ancient Criminal Trials in Scotland, vol. 1 (1833); L. Normand and G. Roberts, Witchcraft in Early Modern Scotland (2000); R. Hunt, Popular Romances of the West of England (1865), for the Merry Maidens.',
@@ -207,6 +207,8 @@ const MOON = { phase: 'waxing_crescent', share: 0.05, min: 8, max: 60, xp: 15 };
 // Each who stays to the end has `guardPer` for every dancer (up to `guardMax`)
 // for `boonMs`; a ring all of one coven has `covenGuard` more.
 const REEL = { at: { room: 'wilds', x: 2200, y: 5000 }, joinRange: 420, ringR: 190, need: 3, ms: 40 * 1000, turns: 3,
-  guardPer: 0.03, guardMax: 0.15, covenGuard: 0.03, boonMs: 30 * MIN, xp: 60, fullMoonXp: 2, restMs: 6 * HOUR };
+  guardPer: 0.03, guardMax: 0.15, covenGuard: 0.03, boonMs: 30 * MIN, xp: 60, fullMoonXp: 2, restMs: 6 * HOUR,
+  // a coven's leader may call her coven to the stones for the coming night, this often
+  callRestMs: 2 * HOUR };
 
 module.exports = { HARE, GLORY, MOON, REEL, OLD_WAYS, BESOM_STEPS, BESOM_REST_MS, BESOM_RIDE_MS, BESOM_LANDINGS, BESOM_SIGHTS, POPPET, LEAD_SHAPES, LEAD_XP, BEES, BEE_NEWS, BROWNIE, BROWNIE_WORK, BROWNIE_GONE, SIN, TOAD };
