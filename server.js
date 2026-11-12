@@ -10519,8 +10519,11 @@ const EMBER_LANDMARKS = [
   { id: 'emberfall',   name: 'Emberfall Caldera',  x: 16500, y: 15800, radius: 1500, nodeType: 'emberbloom',
     blurb: 'A cracked caldera that breathes fire — the ground itself is a hazard here.' },
 ];
+// Ashminster (data/emberTown.js): the town in the middle of the Wastes. Named to the player like a landmark, but it anchors no spawns and no veins.
+const { EMBER_TOWN } = require('./data/emberTown');
 function emberLandmarksPublic() {
-  return EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb }));
+  return [...EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb })),
+    { id: EMBER_TOWN.id, name: EMBER_TOWN.name, x: EMBER_TOWN.x, y: EMBER_TOWN.y, radius: EMBER_TOWN.radius, warlord: false, town: true, blurb: EMBER_TOWN.blurb }];
 }
 
 const EMBER_MOB_TYPES = {
@@ -10586,6 +10589,11 @@ const EMBER_MOB_SPAWNS = (() => {
     const clustered = Math.round(n * 0.65);
     for (let i = 0; i < clustered; i++) clusterAt(EMBER_LANDMARKS[i % EMBER_LANDMARKS.length], type);
     for (let i = clustered; i < n; i++) scatter(type);
+  }
+  // Nothing rises inside Ashminster: a spawn that fell there is put out to its edge, on its own bearing.
+  for (const sp of out) {
+    const dx = sp.x - EMBER_TOWN.x, dy = sp.y - EMBER_TOWN.y, d = Math.hypot(dx, dy);
+    if (d < EMBER_TOWN.clear) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = EMBER_TOWN.x + u[0] * EMBER_TOWN.clear; sp.y = EMBER_TOWN.y + u[1] * EMBER_TOWN.clear; }
   }
   return out;
 })();
