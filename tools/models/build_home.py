@@ -2164,6 +2164,22 @@ def cointree():
     return m, '#c8b060'
 
 
+def boundstone():
+    """A bound stone: a rough standing stone at the edge of a village's ground, with an iron cresset pinned to its head to carry fire."""
+    m = Model('boundstone')
+    m.add(blob(0.3, 0.22, 0.78, seg=7, rings=7, colors=ROCKP, jitter=0.16, seed=63).xf(rz(0.3), (0, 0, 0.7)))
+    for a in (0.4, 2.3, 4.4):   # packing stones at the foot
+        m.add(blob(0.2, 0.16, 0.12, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=int(a * 10) + 3).xf(None, (0.3 * math.cos(a), 0.26 * math.sin(a), 0.06)))
+    m.add(trim(tube([(0, 0, 1.3), (0, 0, 1.62)], 0.03, sides=5, colors=IRON)))   # the pin
+    H = ((1.62, 0.1), (1.72, 0.17), (1.84, 0.2))
+    for z, r in H:   # the cresset's hoops
+        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 9)], 0.016, sides=4, colors=IRON)))
+    for a in np.linspace(0, TAU, 6)[:-1]:   # and its ribs
+        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for z, r in H], 0.014, sides=4, colors=IRON)))
+    m.add(blob(0.1, 0.1, 0.05, seg=6, rings=3, colors=('#1a1512', '#3a3028'), jitter=0.2, seed=8).xf(None, (0, 0, 1.7)))   # old char in the basket
+    return m, None
+
+
 def coffinstone():
     """A coffin stone: a long flat slab on two rough stubs beside the corpse road, worn smooth on top, with a small cross cut in one end."""
     m = Model('coffinstone')
@@ -2197,7 +2213,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

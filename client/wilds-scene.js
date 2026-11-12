@@ -12,6 +12,13 @@ import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+// The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
+let wardFlames = {}, lastWard = null;
+function applyVillageWard(msg) {
+  lastWard = msg;
+  const lit = new Set(msg.lit || []);
+  for (const id in wardFlames) if (wardFlames[id]) wardFlames[id].visible = lit.has(id);
+}
 // What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
 let wildsFinds = {}, lastWildsFinds = null;
 function applyWildsFinds(msg) {
@@ -374,6 +381,23 @@ function buildWildsScene(w2) {
   caveSign.position.set(CX, 185, CZ);
   scene.add(caveSign);
   WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
+  // The bound stones round the village (data/villageWard.js), each with its basket; the flame shows when it is lit.
+  wardFlames = {};
+  if (w2.ward) {
+    for (const s of w2.ward.stones) {
+      const g = kkPlace(scene, w2.ward.model, s.x, s.y, w2.ward.size, s.x * 0.01, 'height');
+      WILDS_WALLS.push({ x: s.x - 18, y: s.y - 18, w: 36, h: 36 });
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(13, 50, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      flame.position.set(s.x, w2.ward.size + 18, s.y); flame.visible = false;
+      flame.onBeforeRender = () => { flame.scale.y = 0.85 + Math.sin(performance.now() * 0.006 + s.x) * 0.18; };
+      scene.add(flame);
+      wardFlames[s.id] = flame;
+      const lbl = makeSignSprite(`🔥 ${s.name[0].toUpperCase() + s.name.slice(1)}`);
+      lbl.position.set(s.x, w2.ward.size + 70, s.y); scene.add(lbl);
+      WILDS_KIOSKS.push({ x: s.x, z: s.y + 45, npc: 'wardstone', wardId: s.id, radius: 110, _g: g });
+    }
+    if (lastWard) applyVillageWard(lastWard);
+  }
   // The road north (data/wayside.js): the gibbet at the crossroads, the coin tree, the coffin stone.
   for (const w of (w2.wayside || [])) {
     kkPlace(scene, w.model, w.x, w.y, w.size, w.id === 'cointree' ? 0.5 : w.id === 'coffinstone' ? -0.3 : 0, w.id === 'gibbet' ? 'height' : 'fit');
@@ -1239,5 +1263,5 @@ function buildWildsNPCs(scene) {
   }
 }
 
-  return { buildWildsScene, applyWildsFinds };
+  return { buildWildsScene, applyWildsFinds, applyVillageWard };
 }

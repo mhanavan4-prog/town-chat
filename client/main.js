@@ -466,6 +466,7 @@ const KK = (() => {
     dg_rare_marks: 'kk/home/rare_marks.glb', dg_rare_vault: 'kk/home/rare_vault.glb', dg_rare_vault_open: 'kk/home/rare_vault_open.glb', dg_rare_well: 'kk/home/rare_well.glb', // the rare rooms (data/rareRooms.js)
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
+    wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
@@ -3140,6 +3141,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'ward_state') { wardState = msg; applyVillageWard(msg); return; }
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
@@ -4282,6 +4284,7 @@ let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 // ── Session L state ──────────────────────────────────────────────────────────
 let rareRoomCatalog = {};         // kind -> { icon, name, how, tier, lore, source, note } (data/rareRooms.js)
 let lastRareRoom = null;          // the rare room of the dungeon or Delve floor you are in, from the last dungeon_finds
+let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
@@ -14163,7 +14166,7 @@ function exitRefuge() {
 // THREE global; layout tables, prop makers, mob/decor helpers injected; scene/
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
-const { buildWildsScene, applyWildsFinds } = createWildsScene({
+const { buildWildsScene, applyWildsFinds, applyVillageWard } = createWildsScene({
   getVillageHouses: () => villageHouseCatalog,
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
@@ -19120,6 +19123,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'dfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'dungeon_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
+  if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
   if (kiosk && kiosk.npc === 'wolf_pact') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'werewolf_talk' })); return; }
@@ -19440,6 +19444,12 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'wardstone') {
+    // the village's bound fires (data/villageWard.js): lit, or the round closed, pressing reads their history
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${wardState.warded || (wardState.lit || []).includes(kiosk.wardId) ? 'read about the bound fires' : 'put fire to the bound stone'}`;
     return;
   }
   if (kiosk && kiosk.npc === 'wayside') {

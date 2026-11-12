@@ -67,7 +67,7 @@ const CANDLE = {
   path: [[5180, 4700], [5060, 5300], [4870, 5900], [4930, 6600], [5045, 7140]],
   speed: 80,          // a slow walking pace: she can be overtaken, and must not be
   standMs: 7000,      // it stands by the stone this long before it goes
-  wake: 230,          // how near the coffin stone, by night, before it sets out
+  wake: 170,          // how near the coffin stone, by night, before it sets out
   lose: 380, loseMs: 4000,   // further behind than this, for this long, and it is gone
   cross: 45,          // nearer than this is in its way
   ahead: 70, beside: 80,     // or this far before it on the road
