@@ -5,13 +5,14 @@
 // sign helper are injected. Mirrors the crypt's module shape, so the swap
 // plumbing in main.js treats a village room as it treats the crypt.
 // ---------------------------------------------------------------------------
-export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture }) {
+export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid }) {
   const built = {}; // house id -> { scene, camera }
 
   const LOOK = {
     barn:  { bg: 0x1a120a, wall: 0x5a4028, floor: 0x6a5232, amb: 0xffe2b0, light: 0xffc070, h: 230 },
     tower: { bg: 0x0e1014, wall: 0x4a4c54, floor: 0x3a3a40, amb: 0xc8d4e8, light: 0xffd090, h: 300 },
     hall:  { bg: 0x16100a, wall: 0x6a4a2c, floor: 0x4a3420, amb: 0xffdcb0, light: 0xffb060, h: 250 },
+    cottage: { bg: 0x120e0a, wall: 0x6a5a44, floor: 0x4a3a28, amb: 0xffe0b8, light: 0xffb868, h: 190 },
   };
 
   function build(house) {
@@ -73,6 +74,32 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       kkPlace(scene, 'furn_shield', 30, D / 2, 60, Math.PI / 2, 'fit'); kkPlace(scene, 'furn_torch', 70, 70, 100, 0, 'height'); kkPlace(scene, 'furn_torch', W - 70, 70, 100, 0, 'height');
       kkPlace(scene, 'furn_sidetable', W - 90, D / 2 + 20, 60, 0, 'fit'); kkPlace(scene, 'furn_rlantern', W - 90, D / 2 + 20, 26, 0, 'fit');
       kkPlace(scene, 'furn_banner', W / 2 + 120, 14, 110, 0, 'height');
+    } else if (house.id === 'cottage') {
+      // the wise-woman's one room: her shelf of remedies to the west, herself by the
+      // hearth to the east, a stool at the fire, and herbs hung to dry along the beam
+      const w = spot('wares'), u = spot('unwitch'), t = spot('trade');
+      kkPlace(scene, 'furn_hearth', W / 2, 34, 150, 0, 'fit');
+      lamp(W / 2, 110, 70, 1.8, 520); glow(W / 2, 40, 64, 100, 0xff8a30);
+      kkPlace(scene, 'furn_bookcase', w.x, w.y - 110, 150, 0, 'height');
+      for (const [dx, key, sz] of [[-34, 'cave_potion', 26], [0, 'cave_jar', 24], [34, 'cave_eyejar', 24]]) { const g = kkPlace(scene, key, w.x + dx, w.y - 60, sz, 0, 'height'); if (g) g.position.y = 0; }
+      kkPlace(scene, 'furn_sidetable', w.x, w.y - 50, 70, 0, 'fit');
+      sign('🌿 Remedies — Press F', w.x, 150, w.y - 110);
+      // Dame Averil herself, by the fire: the Witch's body, in an old woman's greys and browns
+      try {
+        const dame = createHumanoid ? createHumanoid(0).group : null;
+        if (dame) {
+          dame.position.set(u.x, 0, u.y - 60); dame.rotation.y = 0; // facing into the room (south)
+          dame.traverse((o) => { if (!o.isMesh && !o.isSkinnedMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color) m.color.lerp(new THREE.Color(0x6a5a48), 0.5); });
+          scene.add(dame);
+        }
+      } catch (e) { /* a room without its mistress is still a room */ }
+      sign('🌿 Dame Averil — Press F', u.x, 118, u.y - 60);
+      kkPlace(scene, 'furn_stool', t.x, t.y, 30, 0, 'fit');
+      for (let x = 70; x < W - 40; x += 62) { const g = kkPlace(scene, 'furn_herbs', x, 60, 34, x, 'height'); if (g) g.position.y = L.h - 70; }
+      // (no rug: the kit's is pale and took the firelight as a white sheet in so small a room)
+      kkPlace(scene, 'wd_besom', W - 50, D - 110, 90, 0.3, 'height');
+      kkPlace(scene, 'furn_sidetable', W - 70, 150, 60, 0, 'fit'); kkPlace(scene, 'furn_rjar', W - 70, 150, 22, 0, 'fit');
+      lamp(W * 0.25, D * 0.55, 100, 0.45, 300); lamp(W * 0.75, D * 0.55, 100, 0.45, 300);
     } else {
       // the Moot Hall: the hearth on the north wall, the long table down the middle, the board by the door
       const h = spot('hearth'), b = spot('board');
