@@ -33,6 +33,7 @@ import createCords from './cords.js';
 import createPractices from './practices.js';
 import createOldWays from './oldways.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
+import createWildsSeason, { wildsSeasonFor } from './wilds-season.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -10361,7 +10362,7 @@ function initScene(w) {
 function swapToWildsMap() {
   if (!wildsScene && world2) {
     try {
-      buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); // lazy: built on first entry, not at boot
+      buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); _wildsSeason.redress(); // lazy: built on first entry, not at boot
       // If the KayKit models hadn't all streamed in yet — e.g. a reload/resume
       // straight into the Wilds on a cold load — this build used placeholder
       // NPCs (a procedural Artificer, no Lexton) and skipped the KayKit
@@ -10485,7 +10486,7 @@ let wildsPrebuildScheduled = false;
 function prebuildWilds() {
   if (wildsScene || !world2 || !KK.settled) return;
   try {
-    buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place();
+    buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); _wildsSeason.redress();
     // Prebuild runs as soon as the GATING town settles, which is typically
     // before the character/NPC bodies finish streaming — so the Artificer,
     // Lexton and the Wilds quest NPCs would be baked as procedural stand-ins.
@@ -10531,7 +10532,7 @@ function scheduleWildsUpgrade() {
     for (const light of sharedLights) wildsScene.remove(light); // free the shared lights from the stale scene
     manorExteriorGroup = null; // force ensureManorExterior to re-add to the fresh scene
     wildsScene = null;         // force a full rebuild on the next call
-    try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); } catch (e) { console.error('Wilds upgrade rebuild failed:', e); return; }
+    try { buildWildsScene(world2); applyDrawDistanceTier(GFX.quality); _dowseMarks.place(); _wildsSeason.redress(); } catch (e) { console.error('Wilds upgrade rebuild failed:', e); return; }
     if (wasActive && wildsScene) {
       for (const light of sharedLights) wildsScene.add(light);
       world = world2; walls = WILDS_WALLS; cameraYawOffset = 0; cameraPitchOffset = 0;
@@ -10560,7 +10561,10 @@ function enterWilds() {
     me.y = world2.spawn.y;
     portalCooldownUntil = Date.now() + PORTAL_COOLDOWN_MS;
     ws.send(JSON.stringify({ type: 'move', x: me.x, y: me.y, room: me.room }));
-    setUnlockToast('🌀 You step through the portal into the Wilds.');
+    // the land's dress for the season, said once a visit to the game
+    const _sk = (calendarState && calendarState.season && calendarState.season.key) || null, _ws = wildsSeasonFor(_sk);
+    setUnlockToast(_ws && _wildsSeasonTold !== _sk ? `🌀 You step through the portal into the Wilds. ${_ws.note}` : '🌀 You step through the portal into the Wilds.');
+    _wildsSeasonTold = _sk;
     return true;
   });
 }
@@ -13284,6 +13288,15 @@ function swapToCottageMap() {
   setActiveContext(cottageScene, cottageCamera, null);
   try { applyCottageDressing(); } catch (e) { /* dressing is cosmetic — never block entry */ }
 }
+
+// ── The Wilds wear the season too (client/wilds-season.js): ground, leaf and air. ──
+const _wildsSeason = createWildsSeason({
+  THREE, getWildsScene: () => wildsScene, getActiveScene: () => activeScene, getCamera: () => activeCamera,
+  getSeasonKey: () => (TEST_SEASON || (calendarState && calendarState.season && calendarState.season.key) || null),
+  getQuality: () => GFX.quality,
+});
+let TEST_SEASON = null;          // set through the test seam only, to look at a season out of its time
+let _wildsSeasonTold = null;     // the season whose line has been said this session
 
 // ── Seasonal cottage dressing — the room turns with the Wheel of the Year. A
 // soft seasonal light + a drifting particle (blossom, leaves, snow, embers…),
@@ -20123,6 +20136,7 @@ function update(dt) {
   updatePortals(dt);
   updateManorEmbers(dt);
   updateCottageDressing(dt);
+  _wildsSeason.update(dt);
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
@@ -20556,6 +20570,8 @@ if (location.search.includes('testdrive=1')) {
     kiosks() { return OUTDOOR_KIOSKS.map(k => ({ ...k })); },
     world() { return world ? { buildings: world.buildings, spawn: world.spawn } : null; },
     // how far through the besom ride she is (0 to 1), or null on the ground
+    // wear a season out of its time (null puts the real one back), and say what is worn
+    season(key, keep) { if (!keep) { TEST_SEASON = key || null; _wildsSeason.redress(); } const names = {}; if (wildsScene) wildsScene.traverse((o) => { if (o.isMesh && o.material) for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { const k = (m.name || '(none)') + (o.isInstancedMesh ? ' [batched]' : '') + (m.map ? ' +map' : '') + (m.vertexColors ? ' +vc' : ''); names[k] = (names[k] || 0) + 1; } }); let bleed = 0; for (const sc of [outdoorScene, cottageScene, caveScene, manorScene]) if (sc) sc.traverse((o) => { if (o.isMesh && o.material && !Array.isArray(o.material) && o.material.userData && o.material.userData.seasonBase !== undefined && o.material.color.getHex() !== o.material.userData.seasonBase) bleed++; }); return { worn: _wildsSeason.worn(), air: !!_wildsSeason.air(), materials: names, bleed }; },
     ride() { return broomRide ? (performance.now() - broomRide.t0) / broomRide.ms : null; },
     me() { return me ? { x: me.x, y: me.y, room: me.room, charId: me.charId, facing: me.facing } : null; },
     callerResult(r) { callerResult = r; openBoardModal(); return true; },
