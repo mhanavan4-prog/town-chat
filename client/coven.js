@@ -424,7 +424,7 @@ function renderCovenRite() {
         hint.style.cssText = 'font-size:12px;margin-top:4px;color:' + (ph.candle.youLit ? '#5ee7c0' : '#ece3ff');
         hint.innerHTML = ph.candle.youLit
           ? '🕯️ Your candle burns on the altar.'
-          : (active ? '🕯️ Light yours at the <b>séance altar</b> in the Phantom Parlor (stand on the circle, press F / tap).' : '');
+          : (active ? '🕯️ Light yours at the <b>séance altar</b> in the Phantom Parlor (stand on the circle and use the prompt).' : '');
         card.appendChild(hint);
       } else {
         for (const o of (ph.objectives || [])) card.appendChild(riteBar(o.label, o.progress, o.target));

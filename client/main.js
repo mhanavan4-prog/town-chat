@@ -3068,8 +3068,8 @@ function onWsMessage(ev) {
     const _gifts = (!cottageVisiting && Array.isArray(msg.teaGifts)) ? msg.teaGifts.length : 0;
     const _giftTail = _gifts ? ` 🍵 ${_gifts} cup${_gifts > 1 ? 's' : ''} wait for you — open 🏠 Home to accept.` : '';
     setUnlockToast(cottageVisiting
-      ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage.${_dressTail} Press F at the door to head home.`
-      : `🏠 You step into your cottage.${_dressTail}${_giftTail} Press F at the door to leave; open 🏠 Home to rearrange.`);
+      ? `🏠 You step into ${cottageHostName ? cottageHostName + '’s' : 'a'} cottage.${_dressTail} ${isTouchDevice() ? 'Tap the prompt' : 'Press F'} at the door to head home.`
+      : `🏠 You step into your cottage.${_dressTail}${_giftTail} ${isTouchDevice() ? 'Tap the prompt' : 'Press F'} at the door to leave; open 🏠 Home to rearrange.`);
     return;
   }
   if (msg.type === 'cottage_exited') {

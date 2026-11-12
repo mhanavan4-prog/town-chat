@@ -66,7 +66,18 @@ function signRoundRect(cx, x, y, w, h, r) {
   cx.closePath();
 }
 
+// What a world sign says to this player. Signs are written for a keyboard
+// ("… — Press F"); a phone has no F, and its tap prompt already says what to
+// do, so there the bare instruction is dropped and "Press F to enter"
+// becomes "tap to enter".
+export function signTextFor(text, touch) {
+  if (!touch) return text;
+  return String(text).replace(/\s*[—·-]\s*Press F\s*$/, '').replace(/Press F to /g, 'tap to ');
+}
+const SIGN_TOUCH = typeof window !== 'undefined' && (('ontouchstart' in window) || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0));
+
 export function makeSignSprite(text) {
+  text = signTextFor(text, SIGN_TOUCH);
   // Carved-talisman theme — the same language as the NPC nameplates and the
   // overhead player tags (dark plum parchment, a two-tone gold/violet border,
   // warm cream Georgia serif, diamond end-glyphs) so world signs stop reading
