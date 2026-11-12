@@ -12,6 +12,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     barn:  { bg: 0x1a120a, wall: 0x5a4028, floor: 0x6a5232, amb: 0xffe2b0, light: 0xffc070, h: 230 },
     tower: { bg: 0x0e1014, wall: 0x4a4c54, floor: 0x3a3a40, amb: 0xc8d4e8, light: 0xffd090, h: 300 },
     hall:  { bg: 0x16100a, wall: 0x6a4a2c, floor: 0x4a3420, amb: 0xffdcb0, light: 0xffb060, h: 250 },
+    lodging: { bg: 0x100c0a, wall: 0x5e4a38, floor: 0x40301f, amb: 0xffd8a8, light: 0xffb060, h: 200 },
     cottage: { bg: 0x120e0a, wall: 0x6a5a44, floor: 0x4a3a28, amb: 0xffe0b8, light: 0xffb868, h: 190 },
   };
 
@@ -74,6 +75,23 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       kkPlace(scene, 'furn_shield', 30, D / 2, 60, Math.PI / 2, 'fit'); kkPlace(scene, 'furn_torch', 70, 70, 100, 0, 'height'); kkPlace(scene, 'furn_torch', W - 70, 70, 100, 0, 'height');
       kkPlace(scene, 'furn_sidetable', W - 90, D / 2 + 20, 60, 0, 'fit'); kkPlace(scene, 'furn_rlantern', W - 90, D / 2 + 20, 26, 0, 'fit');
       kkPlace(scene, 'furn_banner', W / 2 + 120, 14, 110, 0, 'height');
+    } else if (house.id === 'lodging') {
+      // the Lyke-Wake: beds down the west side, the fire and its keeper to the east, a candle in the window
+      const b = spot('bed'), k = spot('keeper');
+      for (const [x, z] of [[90, 90], [90, 230], [250, 90]]) kkPlace(scene, 'furn_cbed', x, z, 110, Math.PI / 2, 'fit');
+      sign('🛏️ A bed — Press F', b.x, 120, b.y - 20);
+      kkPlace(scene, 'furn_hearth', k.x, 34, 150, 0, 'fit');
+      lamp(k.x, 110, 70, 1.6, 480); glow(k.x, 40, 64, 100, 0xff8a30);
+      try {
+        const keeper = createHumanoid ? createHumanoid(3).group : null;
+        if (keeper) { keeper.position.set(k.x + 70, 0, k.y - 40); keeper.traverse((o) => { if (!o.isMesh && !o.isSkinnedMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color) m.color.lerp(new THREE.Color(0x5a5048), 0.5); }); scene.add(keeper); }
+      } catch (e) { /* the house keeps itself */ }
+      sign('🕯️ The keeper — Press F', k.x + 70, 118, k.y - 40);
+      kkPlace(scene, 'furn_sidetable', W - 60, D / 2, 56, 0, 'fit');
+      const c = kkPlace(scene, 'cave_candle', W - 60, D / 2, 26, 0, 'height'); if (c) c.position.y = 30;
+      glow(W - 60, 62, D / 2, 46, 0xffd080); lamp(W - 60, D / 2, 70, 0.5, 220);
+      kkPlace(scene, 'furn_stool', k.x - 60, k.y + 40, 30, 0, 'fit');
+      lamp(W * 0.3, D * 0.55, 100, 0.4, 320);
     } else if (house.id === 'cottage') {
       // the wise-woman's one room: her shelf of remedies to the west, herself by the
       // hearth to the east, a stool at the fire, and herbs hung to dry along the beam

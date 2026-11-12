@@ -6,20 +6,20 @@ let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra !== undefined ? JSON.stringify(extra) : ''); } }
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
-const { VILLAGE_HOUSES: H, HOUSE_BY_ROOM, VH, WISE_WOMAN, isVillageRoom } = require('../data/villageHouses');
+const { VILLAGE_HOUSES: H, HOUSE_BY_ROOM, VH, WISE_WOMAN, LYKE_WAKE, isVillageRoom } = require('../data/villageHouses');
 const { WILDS_FINDS } = require('../data/wildsFinds');
 
 let clock = 5_000_000, lit = [], used = [];
-const purse = { balance: 20 };
+const purse = { balance: 20 }, acct = {};
 const sent = [];
 const vh = require('../lib/villageHouses')({ send: (ws, m) => sent.push({ to: ws, ...m }), playerMaxHealth: () => 100, wildsFinds: { payloadFor: () => ({ lit, used }) }, wildsData: WILDS_FINDS,
-  bankOf: (pl) => (pl.guest ? null : purse),
+  bankOf: (pl) => (pl.guest ? null : purse), acctOf: (pl) => (pl.guest ? null : acct),
   abroad: () => ['🕯️ Nothing is walking.', '🌒 The moon: Waxing Crescent.', '☀️ It is day.'], now: () => clock });
 const mk = (extra) => ({ id: 'p', ws: 'p', room: 'wilds', x: 0, y: 0, health: 40, isDead: false, ...extra });
 const last = (type) => [...sent].reverse().find((m) => m.type === type);
 const said = (re) => sent.some((m) => m.type === 'toast' && re.test(m.message));
 
-check('four buildings are open, each with a room of its own, a door, a place to stand inside and something to use', Object.keys(H).join() === 'barn,tower,hall,cottage' && Object.values(H).every((h) => h.room.startsWith('vh_') && HOUSE_BY_ROOM[h.room] === h && h.spots.length >= 1 && h.spawn.x === h.width / 2 && h.spawn.y < h.height && h.blurb.length > 40 && h.spots.every((s) => s.x > 60 && s.x < h.width - 60 && s.y > 60 && s.y < h.height - 60 && s.hint)));
+check('five buildings are open, each with a room of its own, a door, a place to stand inside and something to use', Object.keys(H).join() === 'barn,tower,hall,cottage,lodging' && Object.values(H).every((h) => h.room.startsWith('vh_') && HOUSE_BY_ROOM[h.room] === h && h.spots.length >= 1 && h.spawn.x === h.width / 2 && h.spawn.y < h.height && h.blurb.length > 40 && h.spots.every((s) => s.x > 60 && s.x < h.width - 60 && s.y > 60 && s.y < h.height - 60 && s.hint)));
 check('a village room is known by its name, and nothing else is taken for one', isVillageRoom('vh_barn') && !isVillageRoom('wilds') && !isVillageRoom('vh_nowhere') && !isVillageRoom(null));
 check('the doors stand apart from one another, in the village', (() => { const d = Object.values(H).map((h) => h.door); return d.every((a, i) => d.every((b, j) => i === j || Math.hypot(a.x - b.x, a.y - b.y) > 400) && Math.hypot(a.x - 5000, a.y - 3000) < 1050); })());
 
@@ -80,7 +80,7 @@ check('each house has its own dressing, and a way out at the south end', /house\
   w.activeStatus = { type: 'bloodcurse', expiresAt: clock + 60000 }; purse.balance = VH.unwitchGold - 1; sent.length = 0;
   check('harm she will lift, for her fee, and not for less', vh.use(w, 'unwitch') === true && w.activeStatus && said(new RegExp(VH.unwitchGold + ' gold to do it')) && purse.balance === VH.unwitchGold - 1);
   purse.balance = 20; sent.length = 0;
-  check('paid, she takes it off, and the server is told to save the purse', vh.use(w, 'unwitch') === 'paid' && w.activeStatus === null && purse.balance === 20 - VH.unwitchGold && said(/goes out of the room like a draught/) && /villageHouses\.use\(player, String\(msg\.spot \|\| ''\)\) === 'paid'\) saveBankAccounts\(\);/.test(read('server.js')));
+  check('paid, she takes it off, and the server is told to save the purse', vh.use(w, 'unwitch') === 'paid' && w.activeStatus === null && purse.balance === 20 - VH.unwitchGold && said(/goes out of the room like a draught/) && /villageHouses\.use\(player, String\(msg\.spot \|\| ''\)\) === 'paid'\) \{ saveBankAccounts\(\);/.test(read('server.js')));
   const g = mk({ x: c.door.x, y: c.door.y, guest: true }); vh.enter(g, 'cottage'); g.x = w.x; g.y = w.y; g.activeStatus = { type: 'stumble', expiresAt: clock + 60000 }; sent.length = 0;
   check('a guest has nothing to pay her with', vh.use(g, 'unwitch') === true && g.activeStatus && said(/no name to put it to/));
   check('every harm the game can lay on you is on her list, and nothing that helps', ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'rooted', 'reversed', 'bloodcurse', 'pumpkin'].every((k) => VH.harms.includes(k) && new RegExp(k + ": \\{ icon: '[^']+', label: '[^']+', debuff: true").test(read('client/main.js'))) && !VH.harms.includes('speedboost') && !VH.harms.includes('hare'));
@@ -88,6 +88,33 @@ check('each house has its own dressing, and a way out at the south end', /house\
   const b = last('vh_board');
   check('at her hearth she tells her trade: its tier, the Act of 1736, her source, and where the game leaves the record', b && /on her trade/.test(b.title) && b.epithet === 'In the record' && b.lines.some((l) => /Witchcraft Act of 1736/.test(l)) && b.lines.some((l) => /^Source: O\. Davies/.test(l)) && /the game's/.test(b.lines[b.lines.length - 1]) && WISE_WOMAN.tier === 'record');
   check('the client opens her shelf as a shop, and draws her room', /else if \(kiosk\.vhShop\) ws\.send\(JSON\.stringify\(\{ type: 'npc_shop_open', npcId: kiosk\.vhShop \}\)\);/.test(read('client/main.js')) && /vhShop: s\.shop \|\| null/.test(read('client/main.js')) && /house\.id === 'cottage'/.test(read('client/village-house.js')));
+}
+
+// the Lyke-Wake: a paid bed is where you wake
+{
+  const L = H.lodging, w = mk({ x: L.door.x, y: L.door.y });
+  check('with no bed taken there is nowhere of hers to wake', vh.wakeAt(w) === null);
+  vh.enter(w, 'lodging');
+  const bed = L.spots.find((x) => x.id === 'bed'); w.x = bed.x; w.y = bed.y;
+  purse.balance = VH.bedGold - 1; sent.length = 0;
+  check('a bed is not given for less than its price', vh.use(w, 'bed') === true && !acct.lodging && said(new RegExp(VH.bedGold + ' gold for a day and a night')) && purse.balance === VH.bedGold - 1);
+  purse.balance = 30; sent.length = 0;
+  check('paid, the bed is hers for a day and a night, and the server saves both the purse and the account', vh.use(w, 'bed') === 'paid' && purse.balance === 30 - VH.bedGold && acct.lodging.until === clock + VH.bedMs && said(/you will wake here/) && /=== 'paid'\) \{ saveBankAccounts\(\); saveAccounts\(\); \}/.test(read('server.js')));
+  check('…and that is where she wakes: outside its door', (() => { const at = vh.wakeAt(w); return at && at.x === L.door.x && at.y === L.door.y + 30; })());
+  sent.length = 0;
+  check('she is not charged twice for the same night', vh.use(w, 'bed') === true && purse.balance === 30 - VH.bedGold && said(/Your bed is paid for \(24 hours more\)/));
+  clock += VH.bedMs - VH.bedRenewMs + 1000;
+  check('when the day is nearly out she may pay on', vh.use(w, 'bed') === 'paid' && purse.balance === 30 - 2 * VH.bedGold && acct.lodging.until === clock + VH.bedMs);
+  clock += VH.bedMs + 1;
+  check('a bed not paid for is not kept', vh.wakeAt(w) === null);
+  const g = mk({ x: L.door.x, y: L.door.y, guest: true }); vh.enter(g, 'lodging'); g.x = bed.x; g.y = bed.y; sent.length = 0;
+  check('a guest has no name to keep a bed under', vh.use(g, 'bed') === true && said(/have not given one/) && vh.wakeAt(g) === null);
+  const k = L.spots.find((x) => x.id === 'keeper'); w.x = k.x; w.y = k.y; sent.length = 0; vh.use(w, 'keeper');
+  const b = last('vh_board');
+  check('the keeper tells the name over the door: Aubrey\'s dirge of 1686, its source, and where the game leaves the record', b && b.epithet === 'In the record' && b.lines.some((l) => /Aubrey wrote down in 1686/.test(l) && /Fire and Fleet and Candle-light/.test(l)) && b.lines.some((l) => /Whinny-moor/.test(l)) && b.lines.some((l) => /^Source: J\. Aubrey/.test(l)) && /the game's/.test(b.lines[b.lines.length - 1]) && LYKE_WAKE.tier === 'record');
+  const server = read('server.js');
+  check('killed in the Wilds, or in a deep gone down into from them, she wakes at her bed and is told so; killed in town\'s deeps she does not', /const bed = villageHouses\.wakeAt\(player\);/.test(server) && /returnRoom === 'wilds' \? \(bed \|\| WORLD2\.spawn\) : WORLD\.spawn;/.test(server) && /player\.x = \(bed \|\| WORLD2\.spawn\)\.x; player\.y = \(bed \|\| WORLD2\.spawn\)\.y;\s+if \(bed\) woke\(\);/.test(server) && /You wake at the Lyke-Wake/.test(server));
+  check('the room is drawn with its beds', /house\.id === 'lodging'/.test(read('client/village-house.js')) && /kkPlace\(scene, 'furn_cbed'/.test(read('client/village-house.js')));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
