@@ -37,18 +37,27 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
   let again = 0;
   let dyed = false; // whether the shared leaf materials are wearing the season just now
   const BOX = { w: 900, h: 420, d: 900 };
-  // one soft round flake, drawn once, for whatever is in the air
+  // small: a point close to the eye is drawn large, and a leaf the size of a plate is not a leaf
+  const NEAR = 110;
+  const FLAKE_SIZE = { motes: 3, snow: 5, petals: 5, leaves: 6 };
+  // One soft round flake for whatever is in the air, made from numbers, not
+  // drawn on a canvas: Safari salts canvas pixels with noise (a privacy
+  // measure), which turned every flake into a speckled biscuit.
   let flake = null;
   function flakeTexture() {
     if (flake) return flake;
-    const c = document.createElement('canvas'); c.width = c.height = 32;
-    const g = c.getContext('2d'), grad = g.createRadialGradient(16, 16, 2, 16, 16, 15);
-    grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.6, 'rgba(255,255,255,0.85)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grad; g.fillRect(0, 0, 32, 32);
-    flake = new THREE.CanvasTexture(c);
+    const N = 32, px = new Uint8Array(N * N * 4);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const r = Math.hypot(x - (N - 1) / 2, y - (N - 1) / 2) / (N / 2);
+      const a = r >= 1 ? 0 : r < 0.45 ? 1 : 1 - (r - 0.45) / 0.55;
+      const i = (y * N + x) * 4;
+      px[i] = px[i + 1] = px[i + 2] = 255; px[i + 3] = Math.round(a * a * 255);
+    }
+    flake = new THREE.DataTexture(px, N, N, THREE.RGBAFormat);
+    flake.magFilter = flake.minFilter = THREE.LinearFilter;
+    flake.needsUpdate = true;
     return flake;
   }
-
   // d dyes the leaves (null puts them back); the ground takes g, which defaults to d.
   function dressLand(scene, d, g = d) {
     const seen = new Set();
@@ -98,7 +107,7 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    const mat = new THREE.PointsMaterial({ color: d.airCol, map: flakeTexture(), size: d.air === 'motes' ? 6 : d.air === 'snow' ? 10 : d.air === 'petals' ? 11 : 15, transparent: true, opacity: d.air === 'motes' ? 0.7 : 0.9, depthWrite: false, fog: true });
+    const mat = new THREE.PointsMaterial({ color: d.airCol, map: flakeTexture(), size: FLAKE_SIZE[d.air] || 5, transparent: true, opacity: d.air === 'motes' ? 0.7 : 0.9, depthWrite: false, fog: true });
     const points = new THREE.Points(geo, mat);
     points.name = 'wildsSeasonAir'; points.frustumCulled = false;
     scene.add(points);
@@ -144,6 +153,8 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
       a[i * 3] += Math.sin(t * 0.9 + air.sway[i]) * drift * dt;
       a[i * 3 + 2] += Math.cos(t * 0.7 + air.sway[i]) * drift * dt * 0.6;
       if (a[i * 3 + 1] < 0) { a[i * 3 + 1] = BOX.h; a[i * 3] = (Math.random() - 0.5) * BOX.w; a[i * 3 + 2] = (Math.random() - 0.5) * BOX.d; }
+      // none drifting right past the eye: one that comes within arm's reach of the watcher is set further off
+      if (Math.abs(a[i * 3]) < NEAR && Math.abs(a[i * 3 + 2]) < NEAR) { a[i * 3] = (a[i * 3] < 0 ? -1 : 1) * (NEAR + Math.random() * 120); }
     }
     air.points.geometry.attributes.position.needsUpdate = true;
   }
