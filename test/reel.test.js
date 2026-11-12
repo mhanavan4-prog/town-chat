@@ -62,7 +62,7 @@ check('not yet', ow.tick() === false && ow._reel.endsAt > 0 && xp.ann === 0);
 clock += 1001; sent.length = 0;
 const paid = ow.tick();
 const g3 = R.guardPer * 3;
-check('danced out: each who stayed has the XP and the boon, by the number who danced', paid === true && [ann, bet, gus].every((p) => xp[p.id] === R.xp && p.reelBoonUntil === clock + R.boonMs && Math.abs(p.reelGuard - g3) < 1e-9 && said(p, /danced out, 3 of you/) && state(p).turning === false));
+check('danced out: each who stayed has the XP and the boon, by the number who danced', Array.isArray(paid) && paid.length === 3 && [ann, bet, gus].every((p) => xp[p.id] === R.xp && p.reelBoonUntil === clock + R.boonMs && Math.abs(p.reelGuard - g3) < 1e-9 && said(p, /danced out, 3 of you/) && state(p).turning === false));
 check('the boon is a guard like any other, and wears off', Math.abs(ow.statContrib(ann, 'guard') - g3) < 1e-9 && ow.statContrib(ann, 'power') === 0 && (clock += R.boonMs + 1, ow.statContrib(ann, 'guard') === 0));
 check('the ring is empty again and nobody is still held by it', ow._reel.hands.size === 0 && !ow._reel.endsAt && !ow.isCalmed(ann));
 check('her legs want six hours, and it is on her account; the guest\'s rest is kept while she is here', accounts.ann.oldWays.reel.restUntil === clock - R.boonMs - 1 + R.restMs && accounts.ann.oldWays.reel.danced === 1 && !can(ann, 'hands') && /Not yet/.test(why(ann, 'hands')) && !can(gus, 'hands'));
@@ -95,7 +95,7 @@ check('daylight sends home whoever is still waiting', ow._reel.hands.size === 0 
 
 // wiring
 const server = read('server.js'), main = read('client/main.js'), wilds = read('client/wilds-scene.js');
-check('the server turns the reel on its clock, saves what was earned, and tells the module who is of which coven', /if \(oldWays\.tick\(\)\) saveAccounts\(\);/.test(server) && /send, covenOf: \(p\) => \{ const cv = p && p\.accountKey && covenOf\(p\.accountKey\);/.test(server));
+check('the server turns the reel on its clock, saves what was earned, and tells the module who is of which coven', /const danced = oldWays\.tick\(\); if \(danced\) \{ for \(const p of danced\) daybook\.noteWay\(p, 'reel'\); saveAccounts\(\); \}/.test(server) && /send, covenOf: \(p\) => \{ const cv = p && p\.accountKey && covenOf\(p\.accountKey\);/.test(server));
 check('each dancer\'s client carries her round against the sun, skipping, and walks her nowhere else meanwhile', /if \(msg\.type === 'reel_state'\) \{ setReelState\(msg\); return; \}/.test(main) && /const a = r\.a0 - Math\.min\(1, u\) \* r\.turns \* Math\.PI \* 2; \/\/ against the sun/.test(main) && /const reeling = !riding && stepReel\(\);/.test(main) && /if \(riding \|\| reeling\)/.test(main));
 check('there is a dancing ground by the Circle that opens the panel', /npc: 'oldways', npcName: '💃 the dancing ground'/.test(wilds) && /kiosk\.hint \|\| 'see to the bees/.test(main));
 

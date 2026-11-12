@@ -8537,7 +8537,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickDelves(dt);
   dungeonFinds.tick();
-  if (oldWays.tick()) saveAccounts(); // the reel at the stones
+  { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
   tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
   tickTorchNpcs(dt);
@@ -9073,10 +9073,14 @@ const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, coun
   findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
   bossName: (m) => (DUNGEON_MOB_TYPES[m.mobType] ? DUNGEON_MOB_TYPES[m.mobType].name : 'the boss') });
 // Out in the Wilds: caches under cairns, and six balefires to light in a day (lib/wildsFinds.js).
-const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload });
+// The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
+const daybook = require('./lib/daybook')({ accounts });
+const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload,
+  noteRound: (p) => { if (daybook.note(p, 'balefires')) send(p.ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook: the round of the balefires.' }); saveAccounts(); } });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
 // the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
 const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,
+  noteRare: (p, kind) => { if (daybook.note(p, 'rare:' + kind)) { send(p.ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook.' }); } saveAccounts(); },
   delveRunsByRoom: delveMod.delveRunsByRoom, delveFloorTier: delveMod.delveFloorTier, playerMaxHealth });
 const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTakenMult, delveMendingBonus, delveStart, delveLeave, tickDelves, noteDelveKill, delveMenuPayload, delveRunOf, allDelveMobs, delveSpawnFloor, delveStatePayloadFor, delveBroadcast, DELVE_MODS, DELVE_BOONS } = delveMod;
 
@@ -16557,13 +16561,17 @@ wss.on('connection', (ws, req) => {
 
     // ── Kitchen witchcraft: brew and sip a tea for a timed buff ──
     // ── The Old Ways ───────────────────────────────────────────────────────
+    if (msg.type === 'daybook_state') { send(ws, { type: 'daybook_state', ...daybook.body(player) }); return; }
     if (msg.type === 'oldways_state') { send(ws, { type: 'oldways_state', ...oldWays.body(player) }); return; }
     if (msg.type === 'oldways_do') {
       const out = oldWays.act(player, String(msg.way || ''), String(msg.action || ''), msg.choice);
       if (out.error) { send(ws, { type: 'toast', level: 'important', message: out.error }); send(ws, { type: 'oldways_state', ...oldWays.body(player) }); return; }
+      // written in the daybook: not the reel (that is written when it is danced out), nor the undoing of a thing
+      const firstTime = msg.way !== 'reel' && !['back', 'shed'].includes(String(msg.action)) && daybook.noteWay(player, String(msg.way || ''));
       saveAccounts(); saveInventories(); saveBankAccounts();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       send(ws, { type: 'toast', level: 'important', always: true, message: out.toast });
+      if (firstTime) send(ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook.' });
       if (out.touched && out.touched.ws) send(out.touched.ws, { type: 'toast', level: 'important', always: true, message: out.touchedToast });
       if (out.flight) {
         // The broom carries her: the server moves her and tells her client where it set her down.

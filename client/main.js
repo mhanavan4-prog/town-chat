@@ -3050,6 +3050,7 @@ function onWsMessage(ev) {
   if (msg.type === 'cords_state') { _cords.setState(msg); return; }
   if (msg.type === 'practice_state') { _practices.setState(msg); return; }
   if (msg.type === 'oldways_state') { _oldWays.setState(msg); return; }
+  if (msg.type === 'daybook_state') { _oldWays.setBook(msg); return; }
   if (msg.type === 'broom_flight') { broomFlight(msg); return; }
   if (msg.type === 'practice_error') { if (msg.message) setUnlockToast(`🌿 ${msg.message}`); return; }
   if (msg.type === 'cords_error') { if (msg.message) setUnlockToast(`🪢 ${msg.message}`); return; }
@@ -7752,6 +7753,7 @@ function hydrateMenuRows() {
   on('menuCords', closeSheetAnd(() => { if (!Modals.isOpen('cordsOpen')) _cords.open(); }));
   on('menuPractices', closeSheetAnd(() => { if (!Modals.isOpen('practicesOpen')) _practices.open(); }));
   on('menuOldWays', closeSheetAnd(() => { if (!Modals.isOpen('oldWaysOpen')) _oldWays.open(); }));
+  on('menuDaybook', closeSheetAnd(() => { _oldWays.open('book'); }));
   on('runeCloseBtn', closeRuneModal);
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
