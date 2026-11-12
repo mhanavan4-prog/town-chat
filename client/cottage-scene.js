@@ -273,6 +273,22 @@ function setWards(w) {
     const bowl = kkStatic('wd_cream', 18, 'fit');
     if (bowl) { bowl.name = 'creamBowl'; bowl.position.set(W / 2 + 44, 0.5, 66); wardGroup.add(bowl); }
   }
+  if (w.keepsakes && w.keepsakes.length && kkStatic) {
+    // What she has brought up from the wanderers under the dungeons
+    // (data/dungeons.js): each on a shelf on the east wall, in the order of the deeps.
+    const shelf = kkStatic('wd_kshelf', 110, 'fit');
+    if (shelf) {
+      shelf.name = 'keepsakeShelf'; shelf.rotation.y = -Math.PI / 2; shelf.position.set(W - 8, 66, D * 0.36);
+      wardGroup.add(shelf);
+      w.keepsakes.forEach((key, i) => {
+        const k = kkStatic(key, 19, 'fit');
+        if (!k) return;
+        k.name = 'keepsake'; k.userData.keepsake = key; k.rotation.y = -Math.PI / 2 + 0.3;
+        k.position.set(W - 20, 66 + 110 * 0.235 + 0.3, D * 0.36 + (i - (w.keepsakes.length - 1) / 2) * 25); // on the plank, whose top is 0.235 of its width above its brackets' feet
+        wardGroup.add(k);
+      });
+    }
+  }
   if (w.sheaf) {
     // The last sheaf (data/lastSheaf.js): the neck from a beam, the Maiden hung
     // up, both by the hearth; the kern baby on a shelf on the west wall, "at

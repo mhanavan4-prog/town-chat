@@ -3947,6 +3947,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
       pactOnKill(player); // sworn-pact on-kill behavior (e.g. Reaper's Harvest)
       t.respawnAt = Date.now() + (t.boss ? DUNGEON_BOSS_RESPAWN_MS : DUNGEON_RESPAWN_MS);
       if (t.wanderer) wandererSlain(t); // a wanderer is gone a long while
+      if (t.wanderer) noteWandererSlain(player, t);
       grantXP(player, preset.xp);
       registerHuntKill(player);
       advanceQuestProgress(player, 'kill_mob', null);
@@ -4990,6 +4991,8 @@ function wardsPublic(key) {
     sator: !!w.sator,
     burn: !!w.burn,
     pentangle: !!w.pentangle,
+    // What she has brought up from the wanderers (data/dungeons.js): the models that stand on the cottage shelf.
+    keepsakes: Object.values(DUNGEON_LORE).map((l) => l.wanderer).filter((w) => w && key && accounts[key] && accounts[key].wanderers && accounts[key].wanderers[w.key]).map((w) => w.keepsake.model),
     // The Old Ways that show in the house: the besom by the door, the cream set out by the hearth.
     besom: !!(key && accounts[key] && accounts[key].oldWays && accounts[key].oldWays.besom && accounts[key].oldWays.besom.made),
     cream: !!(key && accounts[key] && accounts[key].oldWays && accounts[key].oldWays.brownie && accounts[key].oldWays.brownie.creamAt),
@@ -7198,6 +7201,8 @@ function publicPlayer(p) {
     // (the sit_state relay only reaches those present at the moment they sit).
     seated: p.seated || null,
     invisible: !!(p.invisibleUntil && p.invisibleUntil > Date.now()), // Nightwatch Cloak — hidden from other clients
+    // Coming in on the besom (lib/oldWays.js): how many ms of the ride are left, so others see her come down.
+    flying: p.flyingUntil > Date.now() ? p.flyingUntil - Date.now() : undefined,
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
     // state broadcast — the mask image itself is heavy (a data URL) and
@@ -8564,7 +8569,7 @@ setInterval(() => {
   }
   const P = {
     animals: hasOutside ? animals.map(a => ({ id: a.id, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: ANIMAL_MAX_HEALTH, dead: a.dead })) : EMPTY,
-    mobs: hasOutside ? mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
+    mobs: hasOutside ? mobs.map(m => ({ id: m.id, x: m.x, y: m.y, facing: m.facing, health: m.health, maxHealth: MOB_MAX_HEALTH, dead: m.dead, held: m.heldUntil > Date.now() || undefined, hasLoot: !!(m.pendingLoot && m.pendingLoot.length) })) : EMPTY,
     animals2: hasWilds ? animals2.map(a => ({ id: a.id, type: a.critterType, x: a.x, y: a.y, facing: a.facing, fleeing: a.fleeing, health: a.health, maxHealth: CRITTER2_TYPES[a.critterType].hp, dead: a.dead, hasLoot: !!(a.pendingLoot && a.pendingLoot.length) })) : EMPTY,
     mobs2: hasWilds ? mobs2.map(m => {
       const p = MOB2_TYPES[m.mobType];
@@ -8812,6 +8817,31 @@ function legendaryShopPayload(player) {
 // onWeekSettled crowns the champion coven of each closed week (hoisted below).
 const leaderboardsMod = require('./lib/leaderboards')({ dataDir: DATA_DIR, persistLoad, persistSave, persistSetKey, persistRegister, legendaryWeekIndex, accounts, ensureBankAccount, saveBankAccounts, findConnectionByAccountKey, send, onWeekSettled: (wk) => covenCrownWeek(wk) });
 const { leaderboards, lbBump, lbSetMax, lbTop, lbRankOf, lbSettleClosedWeeks, lbPurgeAccount, weekKey, LB_BOARDS } = leaderboardsMod;
+// A wanderer (data/dungeons.js) has fallen: everyone alive in the room has it
+// on their record, and the first time brings up its keepsake for the cottage.
+function wandererRecordOf(player) {
+  const a = player && player.accountKey && accounts[player.accountKey];
+  return (a && a.wanderers) || {};
+}
+function sendWandererRecord(player) { if (player && player.ws) send(player.ws, { type: 'wanderer_record', slain: wandererRecordOf(player) }); }
+function noteWandererSlain(killer, mob) {
+  const lore = Object.values(DUNGEON_LORE).map((l) => l.wanderer).find((w) => w && w.key === mob.mobType);
+  if (!lore) return;
+  for (const p of players.values()) {
+    if (p.room !== killer.room || (p.isDead && p.id !== killer.id)) continue;
+    const a = p.accountKey && accounts[p.accountKey];
+    if (!a) { send(p.ws, { type: 'toast', level: 'important', always: true, message: `🕯️ ${lore.name} is laid. Log into an account and you would have something to show for it.` }); continue; }
+    if (!a.wanderers) a.wanderers = {};
+    const rec = a.wanderers[lore.key] || (a.wanderers[lore.key] = { slain: 0, firstAt: Date.now() });
+    rec.slain++;
+    send(p.ws, { type: 'toast', level: 'important', always: true, message: rec.slain === 1
+      ? `🕯️ ${lore.name} is laid, for a while. You bring up ${lore.keepsake.name}. ${lore.keepsake.text} It is on the shelf in your cottage.`
+      : `🕯️ ${lore.name} is laid again (${rec.slain} times now, by your count).` });
+    sendWandererRecord(p);
+  }
+  saveAccounts();
+}
+
 function noteBossKill(player, mob) {
   lbBump('boss', player, 1);
   { const bp = getProgress(player); bp.bossKills = (bp.bossKills || 0) + 1; } // lifetime tally for the Boss-Breaker ladder
@@ -14955,6 +14985,7 @@ wss.on('connection', (ws, req) => {
       player.roomLockUntil = Date.now() + 1500;
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
       dungeonFinds.onEnter(player, { fresh: true });
+      for (const who of [player, ...partyMembers]) sendWandererRecord(who);
       { const w = wandererOf(room); if (w && !w.dead) for (const who of [player, ...partyMembers]) send(who.ws, { type: 'toast', level: 'important', always: true, message: wandererWarning(w) }); }
       noteMilestone(player, 'delve');
       for (const member of partyMembers) {

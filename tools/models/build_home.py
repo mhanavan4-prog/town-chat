@@ -1982,6 +1982,58 @@ def bee_skep():
     return m, '#ffd860'
 
 
+# ── The wanderers' keepsakes (data/dungeons.js): one from each, set on a shelf in the cottage ──
+def keep_shelf():
+    """A short oak shelf on two brackets, for what was brought up out of the dark."""
+    m = Model('keep_shelf')
+    m.add(trim(box(1.0, 0.2, 0.035, colors=('#3a2616', '#7a5630')).xf(None, (0, -0.1, 0.0))))
+    for sx in (-0.36, 0.36):
+        m.add(trim(tube([(sx, -0.17, -0.02), (sx, -0.03, -0.06), (sx, -0.01, -0.2)], 0.02, sides=4, colors=('#2e1e10', '#6a4a28'))))
+    return m, None
+
+
+def keep_bone():
+    """Rawhead's keepsake: one small bone from the heap he sat on."""
+    m = Model('keep_bone')
+    B = ('#b8ac90', '#f4ecd8')
+    m.add(trim(tube([(-0.38, 0, 0.07), (0, 0.01, 0.06), (0.38, 0, 0.07)], [0.06, 0.04, 0.06], sides=7, colors=B)))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            m.add(trim(blob(0.075, 0.06, 0.06, seg=6, rings=4, colors=B)).xf(None, (sx * 0.42, sy * 0.045, 0.07)))
+    return m, None
+
+
+def keep_bellrope():
+    """The Church Grim's keepsake: a hank of bell-rope with its woollen sally, red, white and blue."""
+    m = Model('keep_bellrope')
+    coil = [(0.2 * math.cos(a) * (1 - 0.04 * i / 12), 0.2 * math.sin(a) * (1 - 0.04 * i / 12), 0.03 + 0.012 * i / 6) for i, a in enumerate(np.linspace(0, TAU * 2.2, 30))]
+    m.add(trim(tube(coil, 0.028, sides=5, colors=ROPE)))
+    for k, col in enumerate((('#7a1818', '#d03030'), ('#c8c0b0', '#ffffff'), ('#1a2a6a', '#3858c0'), ('#c8c0b0', '#ffffff'), ('#7a1818', '#d03030'))):
+        x0 = -0.2 + k * 0.08
+        m.add(trim(tube([(x0, -0.02, 0.13), (x0 + 0.08, -0.02, 0.13)], 0.055, sides=7, colors=col, cap_base=True)))
+    return m, None
+
+
+def keep_cobalt():
+    """The mine demon's keepsake: a lump of cobalt ore, grey and worthless-looking, with the blue showing where it broke."""
+    m = Model('keep_cobalt')
+    m.add(trim(blob(0.3, 0.24, 0.2, seg=7, rings=4, colors=('#3a3c42', '#8a8e96'), jitter=0.22, seed=5)).xf(None, (0, 0, 0.17)))
+    r = np.random.default_rng(9)
+    for k in range(6):
+        a = r.uniform(0, TAU); el = r.uniform(0.2, 1.2)
+        m.add(glowing(blob(0.07, 0.05, 0.04, seg=5, rings=3, colors=('#1a2a9a', '#5a80ff'), jitter=0.2, seed=k)).xf(None, (0.24 * math.cos(a) * math.cos(el), 0.19 * math.sin(a) * math.cos(el), 0.17 + 0.17 * math.sin(el))))
+    return m, '#3050ff'
+
+
+def keep_claw():
+    """Black Annis's keepsake: one iron claw, long as a hand, hooked and pitted."""
+    m = Model('keep_claw')
+    arc = [(-0.36 + 0.72 * u, 0, 0.05 + 0.3 * math.sin(u * math.pi * 0.85)) for u in np.linspace(0, 1, 9)]
+    m.add(trim(tube(arc, lambda u: 0.075 * (1 - u) ** 0.8 + 0.006, sides=5, colors=IRON)))
+    m.add(trim(lathe([(0.0, 0.0), (0.1, 0.0), (0.1, 0.07), (0.0, 0.09)], sides=6, colors=('#2a2420', '#5a5048'))).xf(None, (-0.36, 0, 0.0)))
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -1999,7 +2051,8 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'headstone': headstone, 'notice_board': notice_board, 'megalith': megalith, 'altar_slab': altar_slab, 'pyre': pyre,
         'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
         'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
-        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep}
+        'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
+        'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

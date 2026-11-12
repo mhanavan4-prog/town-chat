@@ -247,6 +247,20 @@ function applyDungeonMobState(list) {
     v.targetX = m.x; v.targetY = m.y; v.targetFacing = m.facing; v.dead = !!m.dead;
     v.hasLoot = !!m.hasLoot;
     v.room = m.room; v.mobType = m.mobType;
+    // Held by a Hand of Glory (lib/oldWays.js): a mark over it while it stands.
+    if (!!m.held !== !!v.held) {
+      v.held = !!m.held;
+      let mark = v.mesh.getObjectByName('heldMark');
+      if (v.held && !mark) {
+        mark = makeNpcNameSprite('🕯️ held');
+        mark.name = 'heldMark';
+        const bar = v.mesh.getObjectByName('healthBar');
+        mark.position.set(0, (bar ? bar.position.y : 60) + 14, 0);
+        const inv = 1 / (v.mesh.scale.x || 1); mark.scale.multiplyScalar(inv * 0.7);
+        v.mesh.add(mark);
+      }
+      if (mark) mark.visible = v.held;
+    }
     // Stamp death (alive -> dead) for the collapse timer; clear + restore blob
     // scale on respawn (dead -> alive).
     if (m.dead && v._wasDead === false) v.deathAt = performance.now();

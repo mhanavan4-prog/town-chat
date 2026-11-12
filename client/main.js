@@ -462,6 +462,7 @@ const KK = (() => {
     dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
     dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
+    wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
     furn_vaultdoor: 'kk/home/vault_door.glb', furn_hoard: 'kk/home/coin_hoard.glb', furn_scrytable: 'kk/home/scry_table.glb', furn_altar: 'kk/home/stone_altar.glb',
@@ -1707,6 +1708,7 @@ function onWsMessage(ev) {
         existing.activeStatus = p.activeStatus || null;
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
+        if (p.flying && p.id !== myId) existing.flyDownAt = performance.now() + p.flying; // coming in on the besom
         // 🎃 Samhain guise + 🐈‍⬛ bonded familiar ride the 70ms state stream;
         // updateGuises()/updateFamiliars() read them off the player each frame
         // and (re)build the overlay/companion when they change.
@@ -3094,6 +3096,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
+  if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
@@ -4232,6 +4235,7 @@ let myWardrobe = { purchased: [], chaptersDone: 0, dyesPurchased: [] };
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 
 // ── Session L state ──────────────────────────────────────────────────────────
+let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
 let calendarState = null;           // { tourney, festival, bloodMoon, season, peddlerNextRotationAt }
 let weeklyDelveModsClient = [];     // [{ id, name, icon, desc }]
@@ -10574,6 +10578,30 @@ function broomFlight(msg) {
 // Only her own client flies the path, so nothing is sent while she is up.
 let broomRide = null;
 const BROOM_RIDE_ALT = 300, BROOM_RIDE_LEN = 2600, BROOM_RIDE_SWAY = 280;
+// Someone else coming in on the besom: the server has her at the landing
+// already, so what the rest of us see is the end of it, a witch on a broom
+// coming down out of the sky to where she will stand.
+const BROOM_SEEN_MS = 4500;
+function stepOthersOnBesoms() {
+  const now = performance.now();
+  for (const id in players) {
+    if (id === myId) continue;
+    const p = players[id], v = visuals[id];
+    if (!v || !v.group) continue;
+    const left = (p.flyDownAt || 0) - now;
+    if (left > 0) {
+      const u = Math.min(1, left / BROOM_SEEN_MS); // 1 high up, 0 down
+      v.flightY = Math.max(0.01, BROOM_RIDE_ALT * u * u * (3 - 2 * u));
+      if (!v.otherBesom && KK.staticInstance) {
+        const broom = KK.staticInstance('wd_besom', 96, 'height');
+        if (broom) { broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); v.otherBesom = broom; }
+      }
+    } else if (v.flightY || v.otherBesom) {
+      v.flightY = 0; p.flyDownAt = 0;
+      if (v.otherBesom) { const b = v.otherBesom; v.otherBesom = null; setTimeout(() => { if (b.parent) b.parent.remove(b); }, 1500); }
+    }
+  }
+}
 function startBroomRide(tx, ty, ms) {
   const v = visuals[myId];
   const W = (world && world.width) || 0, H = (world && world.height) || 0;
@@ -16665,6 +16693,8 @@ function openPlaqueModal() {
     add('div', w.lore);
     add('div', `${w.tier === 'record' ? 'In the record' : 'Folk tradition'} · ${w.source}`, 'opacity:.7;font-size:12px;margin-top:6px');
     add('div', w.note, 'opacity:.85;font-size:12px;margin-top:4px');
+    const rec = wandererRecord[w.key];
+    add('div', rec ? `You have laid it ${rec.slain === 1 ? 'once' : rec.slain + ' times'}. You brought up ${w.keepsake.name}: it is on the shelf in your cottage.` : `You have not laid it yet. Whoever does brings up ${w.keepsake.name}.`, 'margin-top:8px;font-weight:600');
   }
   document.getElementById('plaqueModal').classList.remove('hidden');
 }
@@ -20038,6 +20068,7 @@ function update(dt) {
   updateCottageDressing(dt);
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
+  stepOthersOnBesoms();
   if (riding) { /* no walking in the air */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
   } else {
