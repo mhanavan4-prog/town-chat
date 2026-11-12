@@ -21133,6 +21133,7 @@ if (location.search.includes('testdrive=1')) {
     mobs() { return Object.entries(mobVisuals).map(([id, m]) => ({ id, x: m.x, y: m.y, dead: !!m.dead })); },
     animals() { return Object.entries(animalVisuals).map(([id, a]) => ({ id, x: a.x, y: a.y, dead: !!a.dead })); },
     interact() { tryInteract(); },
+    walls() { return walls.map((w) => [Math.round(w.x), Math.round(w.y), Math.round(w.w), Math.round(w.h)]); }, // what is solid where she stands (for tools/wilds-solids)
     clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },
     face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },
     interiorKiosks() {

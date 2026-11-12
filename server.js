@@ -3223,6 +3223,7 @@ const ITEM_IDS = Object.keys(ITEM_CATALOG).filter(id => !STARTER_EXCLUDED.has(id
 // equipment is valued from its own stats (~40-50% of its combat worth); any
 // other non-equippable id is unsellable (0) — e.g. the Hard Drive, which holds
 // the player's own notes, and Moonstone-bought legendaries (not in ITEM_CATALOG).
+const wildsStep = require('./lib/wildsStep'); // how the Wilds' creatures go round what stands solid
 const SELL_VALUES = require('./data/sellValues'); // Tier 3.4 Phase A: extracted to data/
 function sellValueFor(itemId) {
   if (SELL_VALUES[itemId] != null) return SELL_VALUES[itemId];
@@ -8162,11 +8163,20 @@ function tickWildsNeutral(dt, now, margin) {
         vy = Math.cos(m.wanderAngle) * preset.wanderSpeed;
       }
     }
-    const nx = m.x + vx * dt, ny = m.y + vy * dt;
-    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
-    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
-    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
+    wildsWalk(m, vx, vy, dt, now, margin);
   }
+}
+
+// One step for a creature of the Wilds: round what stands solid (lib/wildsStep.js),
+// inside the edge of the map, and facing the way it actually went.
+function wildsWalk(m, vx, vy, dt, now, margin) {
+  if (vx === 0 && vy === 0) return;
+  const px = m.x, py = m.y;
+  wildsStep.step(m, vx, vy, dt, now);
+  if (!(m.x > margin && m.x < WORLD2.width - margin)) m.x = px;
+  if (!(m.y > margin && m.y < WORLD2.height - margin)) m.y = py;
+  const mx = m.x - px, my = m.y - py;
+  m.facing = (mx !== 0 || my !== 0) ? Math.atan2(mx, my) : Math.atan2(vx, vy);
 }
 
 function tickRespawns2(now) {
@@ -8284,12 +8294,9 @@ function tickWilds(dt) {
         vy = Math.cos(m.wanderAngle) * (preset.speed * 0.4);
       }
     }
-    const nx = m.x + vx * dt, ny = m.y + vy * dt;
-    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) m.x = nx;
-    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) m.y = ny;
+    wildsWalk(m, vx, vy, dt, now, margin);
     // the village's bound fires, when the round is closed, are not crossed (lib/villageWard.js)
     { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } }
-    if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
     // A caster keeps facing its quarry even while backpedalling.
     if (preset.ranged && nearestP && dist < preset.aggroRadius * MOB_AGGRO_MULT) m.facing = Math.atan2(nearestP.x - m.x, nearestP.y - m.y);
   }
