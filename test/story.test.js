@@ -37,7 +37,7 @@ setTimeout(() => {
 
   // --- Storyline data sanity for all 5 classes ---
   check('all 5 classes have a storyline', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c]));
-  check('every storyline has 9 chapters (6 base + Episode II)', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c].chapters.length === 9));
+  check('every storyline has 9 chapters (6 base + Episode II); the Knight has three more, at Ashminster', [0, 1, 2, 4].every(c => hooks.STORYLINES[c].chapters.length === 9) && hooks.STORYLINES[3].chapters.length === 12);
   let badChapters = 0;
   for (const line of Object.values(hooks.STORYLINES)) {
     for (const ch of line.chapters) {
@@ -153,9 +153,10 @@ setTimeout(() => {
   hooks.storyEvent(player, 'defeat_world_boss', { typeId: 'hollow_king' });
   complete = knight.lastOfType('story_chapter_complete');
   check('chapter 9 (Hold the Hollow) completes', complete && complete.chapterTitle === 'Hold the Hollow');
-  check('campaign completion is flagged', complete && complete.storyComplete === true);
+  // the Knight's story runs on past the World Boss now (Episode III, test/ashminster-story.test.js)
+  check('the Knight\'s campaign is not over at chapter 9', complete && complete.storyComplete !== true);
   st = knight.lastOfType('story_state');
-  check('story_state reports the campaign complete', st.storyline.complete === true);
+  check('story_state has more for him', st.storyline.complete !== true);
   check('the Episode II finale grants the Starforged Blade', inv.slots.some(s => s && s.itemId === 'starforged_blade'));
 
   // Progress is per-class: rejoining as a different class starts fresh.

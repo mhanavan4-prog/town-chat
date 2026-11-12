@@ -318,6 +318,25 @@ const QUEST_CATALOG = {
     type: 'pvp_defeat', target: 4, requiresQuestDone: 'ashblood_ascension',
     xpReward: 270, goldReward: 230, itemRewards: [{ itemId: 'bloodmoon_shard', qty: 1 }],
     description: '"Bigger stick, bigger tally." Kol grins without warmth. "Four this time, and I\'ll make it worth the ash in your lungs. The flats don\'t thin themselves." A heavier standing bounty: defeat four players out past the haven.'
+  },
+  // ── Ashminster (the Ember Wastes; data/emberTown.js) ────────────────────
+  // Dame Isolt, the anchoress in the minster, gives these through her squint
+  // to anyone, whatever their class. The first can be done again; the second
+  // is the long one, done once, and makes its doer a Keeper of the Frith.
+  isolt_field: {
+    npcId: 'npc_anchoress', npcName: 'Dame Isolt',
+    name: 'Lay the Field',
+    type: 'kill_mob', target: 10, requiresLevel: 6,
+    xpReward: 170, goldReward: 95, itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: '"What walks out there is not the enemy. The enemy went back under. Those are ours: the ones who fell on the field and were never brought in, knights and witches both, got up wrong by what soaked into the ground." A pause, and a cat\'s purr through the stone. "Ten of them. Put them down properly. It is the only burial they will get, and I say the office for each one from in here when I feel it go." Lay ten creatures to rest.'
+  },
+  isolt_watch: {
+    npcId: 'npc_anchoress', npcName: 'Dame Isolt',
+    name: 'The Long Watch',
+    type: 'kill_mob', target: 25, requiresLevel: 9, oneTime: true, requiresQuestDone: 'isolt_field',
+    grantsTitle: 'frith_keeper',
+    xpReward: 420, goldReward: 260, itemRewards: [{ itemId: 'enchanted_gem', qty: 1 }],
+    description: '"The first of us kept a tally on the wall of this cell, a scratch for every one laid. I can feel it with my hand. It stops at four hundred and something, where her eyes went." Her voice comes closer to the squint. "Twenty-five would be more than any of us has added since. Do that, and I will cut your name under the tally myself, with the same point I keep the marks sharp with. The frith has had knights to keep it, and witches. It has not had many who were asked." Lay twenty-five creatures to rest.'
   }
 };
 
@@ -491,7 +510,21 @@ const STORYLINES = {
       { id: 'k9', title: 'Hold the Hollow', objective: { type: 'defeat_world_boss', target: 1, label: 'Help bring down the World Boss in the Blighted Hollow' },
         intro: 'The general is finished, and it has taken the field — the Blighted Hollow, far north, where the Hollow\'s whole army answers to one risen thing. "This is the line, knight," Dorran says. "Not a wall — a FIELD, and every sword in town on it. Rally them. Hold. And when it falls, the Oath finally gets to rest."',
         outro: 'The line holds. The general falls under a hundred blows — yours land hardest where it counts — and when the dust settles the Oath is, at last, kept. In the churned ground gleams a star-forged blade, Order-pattern, perfect. Dorran salutes you with it before he hands it over. "Orders from no one," he says. "You gave them to yourself. That is what a knight is."',
-        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] }
+        requiresLevel: 17, xpReward: 520, goldReward: 400, itemRewards: [{ itemId: 'starforged_blade', qty: 1 }] },
+      // ── Episode III: The Mother-House (chapters 10–12) — the Knight's own
+      // story out in the Ember Wastes, at Ashminster (data/emberTown.js) ──
+      { id: 'k10', title: 'The Mother-House', objective: { type: 'visit_room', room: 'ashminster', target: 1, label: 'Find Ashminster, in the middle of the Ember Wastes', where: 'through the temple portal in town when its torches are lit, then straight north across the Ember Wastes to the church that is still standing' },
+        intro: 'Dorran has the chronicle open at a page you have not seen, and he is not reading it; he is looking at a gap. "Every order has a mother-house. Ours is not in the chronicle. A leaf was cut out, here, with a knife, and whoever cut it was careful." He turns the book to you. On the facing page, pressed into the paper by five hundred years of lying shut against it, is the ghost of a drawing: a great church with a tower. "The Wastes were not always the Wastes, knight. Go through the temple portal when the torches are lit and walk north until something is still standing."',
+        outro: 'It is still standing. The tower has lost its head and the spire lies in the yard where it came down, but the walls are up and there is a light behind the east window, and somebody has kept it there. On the door is a bronze ring worn bright by hands. You know the device cast into it. You wear it.',
+        requiresLevel: 17, xpReward: 180, goldReward: 110 },
+      { id: 'k11', title: 'The Ninth Anchoress', objective: { type: 'talk_npc', npcId: 'npc_anchoress', target: 1, label: 'Speak at the anchoress\'s squint, inside the minster', where: 'Ashminster, in the middle of the Ember Wastes — go in through the breach in the minster\'s wall; the squint is in the far wall of the nave' },
+        intro: 'There is a cell built against the nave with no door in it, and a slot in the wall the width of a hand, and a lamp behind the slot. Whoever is in there has been waiting, in one body or another, for someone wearing your crest to come and ask.',
+        outro: '"A knight. Good. I have a message for one, and it has had eight keepers before me." You hear her settle. "The Order did not seal the Hollow. It could not, and it knew it could not, and it sent to the five women it had been hunting and asked. They came. Think what that cost them. Your knights held this door for three nights while the five worked, and when it was done your Grand Master had the page cut out, because an Order that begged witches for help is an Order nobody pays tithe to." A dry sound that might be a laugh. "The witches cut the marks that still keep this church. Hazel cut the one over the door. The message is short. It is: we were not ashamed of you. Tell them that, the first one said, when they are ready to hear it."',
+        requiresLevel: 17, xpReward: 200, goldReward: 120 },
+      { id: 'k12', title: 'Stand the Watch', objective: { type: 'kill_mob', target: 15, label: 'Lay to rest 15 of those who still walk the field' },
+        intro: '"One thing more, and it is not from her, it is from me." The lamp moves behind the squint. "What walks the Wastes are the ones who fell and were left: your Order\'s dead and theirs. Nobody came back for them, because coming back meant admitting there had been a field. Fifteen, knight. You are the first of the Watch to stand on this ground since it burned. Lay them down, and say whose they were while you do it."',
+        outro: 'The fifteenth goes down the way the others did, like something being allowed to stop. When you come back under the tower there is fresh stone-dust on the sill of the squint, and beside the marks at the breach a new one has been cut, small and sharp: your Order\'s device, and round it, for the first time in five hundred years, a daisy wheel. "There," Isolt says. "Both hands on it. That is how it was always meant to be drawn." Dorran, when you tell him, says nothing for a long time, and then asks you to show him the way.',
+        requiresLevel: 17, xpReward: 460, goldReward: 300, itemRewards: [{ itemId: 'enchanted_gem', qty: 2 }] }
     ]
   },
   4: {

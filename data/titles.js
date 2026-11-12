@@ -44,6 +44,11 @@ const TITLES = {
     desc: 'Brought in the last sheaves and released what could not last the dark.',
     from: 'The Reckoning Harvest — Mabon'
   },
+  frith_keeper: {
+    id: 'frith_keeper', name: 'Keeper of the Frith', glyph: '🕯️',
+    desc: 'Laid twenty-five of the field\'s dead to rest for the anchoress of Ashminster, and had their name cut under the tally in her cell.',
+    from: 'The Long Watch — Ashminster, in the Ember Wastes'
+  },
   ember_warden: {
     id: 'ember_warden', name: 'Warden of the Ember Wastes', glyph: '🔥',
     desc: 'Proved themselves in open blood out on the ash flats, and walked back wearing the Wastes like a crown.',

@@ -45,7 +45,7 @@ at('anchoress'); sent.length = 0;
 const heard = []; for (let i = 0; i < ANCHORESS.says.length; i++) { ash.use(p, 'anchoress'); heard.push(sent[sent.length - 1].message); }
 check('the anchoress says her piece a line at a time, and the first word of it is marked for the story', heard.length === 4 && heard.every((m, i) => m.includes(ANCHORESS.says[i])) && spoke.join() === 'p');
 sent.length = 0;
-check('then pressing again reads of anchoresses, and she will begin again another time', ash.use(p, 'anchoress') === false && /Dame Isolt/.test(board().title) && board().lines.some((l) => /Julian of Norwich/.test(l)) && (ash.use(p, 'anchoress'), sent[sent.length - 1].message.includes(ANCHORESS.says[0])) && spoke.length === 1 + 1);
+check('then pressing again reads of anchoresses, once; and after that she has work to give', ash.use(p, 'anchoress') === false && /Dame Isolt/.test(board().title) && board().lines.some((l) => /Julian of Norwich/.test(l)) && (ash.use(p, 'anchoress'), sent[sent.length - 1].type === 'ash_quest' && sent[sent.length - 1].npcId === 'npc_anchoress') && (ash.use(p, 'anchoress'), sent[sent.length - 1].type === 'ash_quest') && spoke.length === 1);
 at('marks'); sent.length = 0; ash.use(p, 'marks');
 check('the marks are read at the breach', /marks at the breach/.test(board().title) && board().lines.some((l) => /daisy wheel/.test(l)));
 at('frith'); sent.length = 0; ash.use(p, 'frith');

@@ -26,7 +26,8 @@ setTimeout(() => {
 
   // ── Data integrity: every class gained chapters 7–9 ──
   const classes = Object.keys(LINES);
-  check('all five classes have 9 chapters now', classes.every(k => LINES[k].chapters.length === 9), classes.map(k => LINES[k].chapters.length));
+  // (the Knight has since gained a third episode, at Ashminster: test/ashminster-story.test.js)
+  check('every class has its nine chapters', classes.every(k => LINES[k].chapters.length >= 9 && LINES[k].chapters[8].objective.type === 'defeat_world_boss'), classes.map(k => LINES[k].chapters.length));
   let badReward = null, badGate = null, missingText = null, ep2Types = new Set();
   for (const k of classes) {
     const chs = LINES[k].chapters;
@@ -73,7 +74,7 @@ setTimeout(() => {
   check('forging 3 items at the Workshop completes ch8', chapterOf(B.p) === 8, chapterOf(B.p));
 
   // ch9 — defeat_world_boss, through the real boss kill ──────────────────────
-  const C = join('Vanquisher', 3); // Knight
+  const C = join('Vanquisher', 0); // Witch (the Knight's story now runs on past the World Boss, to Ashminster)
   setChapter(C.p, 8); // index 8 = chapter 9 (k9)
   const boss = h.worldBossMod._forceSpawn();
   C.p.room = 'wilds'; C.p.x = boss.x; C.p.y = boss.y; C.p.isDead = false;

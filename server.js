@@ -6455,7 +6455,8 @@ const NPC_WHEREABOUTS = {
   npc_noble: '👻 the Phantom Parlor (Town Pass building)',
   npc_knight: '🏛️ Town Hall — Sir Dorran on guard duty',
   npc_guard: '🏛️ Town Hall — Guard Petra by the door',
-  npc_warden: '🔥 the Ember Wastes — Warden Kol at the refuge haven'
+  npc_warden: '🔥 the Ember Wastes — Warden Kol at the refuge haven',
+  npc_anchoress: '⛪ Ashminster, in the middle of the Ember Wastes — Dame Isolt, at the squint inside the minster'
 };
 // Which room each named NPC stands in — 'outside' is the town square. Lets the
 // Journal's waypoint say "this person, in this building" so the client can aim
@@ -6480,6 +6481,9 @@ const NPC_ROOM = {
 // text instead.
 function objectiveGoal(obj) {
   if (!obj) return null;
+  // Ashminster is out in the Ember Wastes, where the waypoint cannot lead: it points at the town, where the
+  // temple portal is, and the objective's own words say the rest. (A wrong arrow is worse than none.)
+  if (obj.room === 'ashminster' || obj.npcId === 'npc_anchoress') return { kind: 'room', room: 'outside' };
   if (obj.type === 'talk_npc') return { kind: 'npc', npcId: obj.npcId, room: NPC_ROOM[obj.npcId] || null };
   if (obj.type === 'visit_room') return { kind: 'room', room: obj.room };
   if (obj.type === 'harvest_plant' || obj.type === 'harvest_specific') return { kind: 'room', room: 'wilds' };

@@ -3144,6 +3144,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
   if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
