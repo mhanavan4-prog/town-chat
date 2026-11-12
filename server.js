@@ -9108,6 +9108,31 @@ function mootBoardLines(player) {
   const call = oldWays.callOf(player);
   if (call) lines.push(`📯 ${call.by} has called your coven to the stones ${call.from > t ? 'at nightfall' : 'tonight'}.`);
   lines.push(isNightNow() ? '🌙 It is night: the besom will fly, and the reel can be danced.' : '☀️ It is day. Night is the time for the besom and the reel.');
+  lines.push(...tonightLines(player, t));
+  return lines;
+}
+// How tonight stands in the Wilds: the bound fires, the packman, the reel at
+// the stones, and whether a corpse candle has yet gone down the road for her.
+// By day, what the night will offer. (The moot board and the look-out read it.)
+function tonightLines(player, t) {
+  const { WARD } = require('./data/villageWard'), { stockFor } = require('./data/packman'), RD = require('./data/oldWays').REEL;
+  const lines = [];
+  if (!isNightNow()) {
+    lines.push('🔥 The bound stones are cold. After dark, fire carried to all four the way the sun goes (east, south, west, north) keeps the night out of this village till dawn.');
+    lines.push('🎒 A packman stops at the stall on nights the round is closed, and not otherwise.');
+    return lines;
+  }
+  const st = villageWard.state(), lit = villageWard.isWarded() ? WARD.stones.length : (st.lit || []).length;
+  const stoneName = (id) => WARD.stones.find((s) => s.id === id).name;
+  if (villageWard.isWarded()) lines.push('🔥 The round of bound fires is closed. Nothing that hunts by night will come inside the stones before dawn.');
+  else if (lit === 0) lines.push('🔥 No bound fire is lit tonight. The village lies open. Any of the four stones will begin the round.');
+  else { const order = WARD.stones.map((s) => s.id), next = order[(order.indexOf(st.lit[lit - 1]) + 1) % order.length]; lines.push(`🔥 ${lit} of ${order.length} bound fires are lit. The fire is wanted next at ${stoneName(next)}.`); }
+  if (villageWard.isWarded()) lines.push(`🎒 ${PACKMAN.name} is at the stall till morning, with ${stockFor(Math.floor(t / CYCLE_MS)).map((it) => (ITEM_CATALOG[it.id] || { name: it.id }).name.toLowerCase()).join(', ')}.`);
+  else lines.push('🎒 The stall is shuttered. The packman comes when the round is closed.');
+  const hands = oldWays._reel.hands.size, turning = oldWays._reel.endsAt > t;
+  lines.push(turning ? '💃 A reel is being danced at the stones by the Unbound Circle, now.' : hands ? `💃 ${hands} ${hands === 1 ? 'has' : 'have'} taken hands at the stones by the Unbound Circle. The reel wants ${RD.need}.` : `💃 Nobody is at the dancing ground. A reel wants ${RD.need} to take hands.`);
+  const seen = ((player.accountKey && accounts[player.accountKey]) || player).candleDay === Math.floor(t / 86400000);
+  lines.push(seen ? '🕯️ You have seen tonight\'s corpse candle.' : '🕯️ Nothing has gone down the road south yet that you have seen. Be at the coffin stone.');
   return lines;
 }
 const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
@@ -9119,7 +9144,12 @@ const villageWard = require('./lib/villageWard')({ send, grantXP, isNight: () =>
   tellWilds: (m) => broadcastRoom('wilds', m), playerById: (id) => players.get(id) || null,
   noteWard: (p) => { if (daybook.note(p, 'ward')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the bound fires, carried round.' }); },
   // whatever was inside when the round closed is put out to its edge
-  onClosed: () => { for (const m of mobs2) { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } } saveAccounts(); } });
+  onClosed: () => {
+    for (const m of mobs2) { const out = villageWard.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } }
+    saveAccounts();
+    // word of it reaches the town: a reason to come out
+    for (const p of players.values()) if (p.room !== 'wilds' && p.ws) send(p.ws, { type: 'toast', level: 'routine', message: '🔥 Word from the Wilds: the bound fires are carried round the Wildlands Village, and it is safe till dawn. The packman is at the stall.' });
+  } });
 // The packman (data/packman.js) is at the village stall only while the round of bound fires is closed, and only to someone standing at it.
 const { PACKMAN } = require('./data/packman');
 function packmanShut(player, npcId, tell) {
@@ -18562,7 +18592,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
