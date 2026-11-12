@@ -468,6 +468,8 @@ const KK = (() => {
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
+    em_house_a: 'kk/home/ash_house_a.glb', em_house_b: 'kk/home/ash_house_b.glb', em_house_c: 'kk/home/ash_house_c.glb',
+    em_ash_cross: 'kk/home/ash_cross.glb', em_barricade: 'kk/home/ash_barricade.glb', em_frith_cross: 'kk/home/frith_cross.glb',
     wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
@@ -3142,6 +3144,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
@@ -4285,6 +4288,7 @@ let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 // ── Session L state ──────────────────────────────────────────────────────────
 let rareRoomCatalog = {};         // kind -> { icon, name, how, tier, lore, source, note } (data/rareRooms.js)
 let lastRareRoom = null;          // the rare room of the dungeon or Delve floor you are in, from the last dungeon_finds
+let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster.js)
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
@@ -19141,6 +19145,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
+  if (kiosk && kiosk.npc === 'ash') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ash_use', id: kiosk.ashId })); return; }
   if (kiosk && kiosk.npc === 'packman') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'npc_shop_open', npcId: 'npc_packman' })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
@@ -19462,6 +19467,12 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'ash') {
+    // Ashminster, in the Ember Wastes (data/emberTown.js): the knocker, the squint, the marks, a frith cross
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${kiosk.ashId === 'knocker' && ashSanctuaryUntil > Date.now() ? 'read of sanctuary (you hold it)' : kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.npc === 'packman') {

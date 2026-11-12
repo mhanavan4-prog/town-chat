@@ -2341,12 +2341,115 @@ def minster():
     # ── the bell, where it came down
     bell = lathe([(0.0, 0.62), (0.16, 0.6), (0.24, 0.42), (0.3, 0.18), (0.4, 0.0)], sides=10, colors=('#3a2a14', '#8a6a2c'), close_top=True)
     m.add(bell.xf(rx(1.25) @ rz(0.6), (-3.6, -2.0, 0.28)))
+    # ── the anchorhold: a cell built against the nave's whole side, between two buttresses, with no door.
+    # Its squint looks into the nave, and there is a light behind it.
+    m.add(box(0.8, 0.85, 1.25, MIN_STONE, (0.9, S - 0.55, 0)))
+    v = [(0.48, S - 1.0, 1.25), (1.32, S - 1.0, 1.25), (1.32, S - 0.1, 1.75), (0.48, S - 0.1, 1.75), (0.48, S - 0.1, 1.25), (1.32, S - 0.1, 1.25)]
+    m.add(Part(v, [(0, 1, 2, 3), (0, 3, 4), (1, 5, 2), (0, 4, 5, 1)], [0, 0, 1, 1, 0, 0], MIN_SLATE, smooth=False))
+    m.add(glowing(box(0.16, 0.06, 0.3, ('#c8641e', '#ffd27a'), (0.9, S + 0.13, 0.62))))            # the squint, from inside the nave
+    m.add(box(0.3, 0.05, 0.05, MIN_STONE, (0.9, S + 0.15, 0.55)))                                     # its sill
+    m.add(glowing(box(0.1, 0.05, 0.22, ('#c8641e', '#ffd27a'), (0.9, S - 0.99, 0.7))))             # and the slit to the world outside
+    # ── the sanctuary knocker on the west door
+    kx = tx - TWd / 2 - 0.3
+    m.add(tube([(kx, 0.25 + 0.11 * math.cos(a), 0.85 + 0.11 * math.sin(a)) for a in np.linspace(0, TAU, 11)], 0.02, sides=5, colors=('#3a2a14', '#b08a3c')))
+    m.add(blob(0.04, 0.09, 0.09, seg=7, rings=4, colors=('#3a2a14', '#b08a3c')).xf(None, (kx + 0.02, 0.25, 0.97)))
     # ── the graveyard on the south side: stones at all angles, one cross standing
     for k in range(9):
         gx, gy = -2.2 + 0.75 * (k % 5) + r.uniform(-0.15, 0.15), -2.9 - 0.7 * (k // 5) + r.uniform(-0.12, 0.12)
         m.add(box(0.34, 0.08, r.uniform(0.4, 0.62), MIN_STONE, (0, 0, 0)).xf(rx(r.uniform(-0.3, 0.3)) @ ry(r.uniform(-0.22, 0.22)), (gx, gy, 0)))
     m.add(box(0.09, 0.09, 1.0, MIN_STONE, (1.35, -3.3, 0)))
     m.add(box(0.5, 0.09, 0.09, MIN_STONE, (1.35, -3.3, 0.68)))
+    return m, None
+
+
+def _ruin_house(seed, w=2.4, d=1.8, name='ash_house'):
+    """A house of Ashminster with the roof burnt off it: four walls shot down to different heights, a doorway,
+    the chimney-stack still up, and what fell lying inside and out. 1 unit = 100 world units."""
+    m = Model(name)
+    r = np.random.default_rng(seed)
+    H = 1.5
+
+    def tops(n, lo, hi, corner0=None, corner1=None):
+        hs = [float(r.uniform(lo, hi)) for _ in range(n)]
+        if corner0 is not None: hs[0] = corner0
+        if corner1 is not None: hs[-1] = corner1
+        return hs
+    c = [float(r.uniform(0.7, H)) for _ in range(4)]            # the four corners
+    n = 6
+    xs = list(np.linspace(-w / 2, w / 2, n)); ys = list(np.linspace(-d / 2, d / 2, n))
+    # front wall (-Y) in two lengths, either side of the door
+    door = float(r.uniform(-0.5, 0.5))
+    fx = [x for x in xs if x < door - 0.28] + [door - 0.28]
+    for p in _strip_wall(fx, tops(len(fx), 0.5, H, c[0]), 0.16, zmax=H): m.add(p.xf(None, (0, -d / 2, 0)))
+    fx2 = [door + 0.28] + [x for x in xs if x > door + 0.28]
+    for p in _strip_wall(fx2, tops(len(fx2), 0.5, H, None, c[1]), 0.16, zmax=H): m.add(p.xf(None, (0, -d / 2, 0)))
+    for p in _strip_wall(xs, tops(n, 0.25, H, c[3], c[2]), 0.16, zmax=H): m.add(p.xf(None, (0, d / 2, 0)))
+    for p in _strip_wall(ys, tops(n, 0.3, H, c[0], c[3]), 0.16, zmax=H): m.add(p.xf(rz(math.pi / 2), (-w / 2, 0, 0)))
+    for p in _strip_wall(ys, tops(n, 0.3, H, c[1], c[2]), 0.16, zmax=H): m.add(p.xf(rz(math.pi / 2), (w / 2, 0, 0)))
+    # the stack, at one gable, taller than anything left
+    side = 1 if r.random() < 0.5 else -1
+    m.add(box(0.42, 0.42, 2.3, MIN_STONE, (side * (w / 2 - 0.2), float(r.uniform(-0.3, 0.3)), 0)))
+    m.add(box(0.5, 0.5, 0.1, MIN_STONE, (side * (w / 2 - 0.2), m.parts[-1].v[:, 1].mean(), 2.3)))
+    m.add(box(w - 0.2, d - 0.2, 0.04, ('#120e0c', '#1e1814'), (0, 0, 0)))                               # the burnt floor
+    # a roof-timber or two fallen in, and rubble
+    for k in range(int(r.integers(1, 4))):
+        a0 = (float(r.uniform(-w / 2 + 0.2, w / 2 - 0.2)), float(r.uniform(-d / 2 + 0.2, d / 2 - 0.2)), 0.06)
+        a1 = (a0[0] + float(r.uniform(-0.9, 0.9)), a0[1] + float(r.uniform(-0.7, 0.7)), float(r.uniform(0.3, 1.0)))
+        m.add(tube([a0, a1], 0.045, sides=4, colors=MIN_CHAR))
+    for k in range(9):
+        s = float(r.uniform(0.1, 0.24))
+        out = r.random() < 0.5
+        px = float(r.uniform(-w / 2, w / 2)) * (1.25 if out else 0.8); py = float(r.uniform(-d / 2, d / 2)) * (1.35 if out else 0.8)
+        m.add(box(s * 1.4, s, s * 0.8, MIN_STONE, (0, 0, 0), jitter=0.18, seed=int(r.integers(1, 9999))).xf(rz(float(r.uniform(0, 3.1))), (px, py, 0)))
+    return m, None
+
+
+def ash_house_a(): return _ruin_house(11, 2.4, 1.8, 'ash_house_a')
+def ash_house_b(): return _ruin_house(23, 2.0, 2.0, 'ash_house_b')
+def ash_house_c(): return _ruin_house(37, 2.9, 1.7, 'ash_house_c')
+
+
+def ash_cross():
+    """The market cross of Ashminster: three steps and a shaft broken off short, the head lying at its foot."""
+    m = Model('ash_cross')
+    for i, (rad, z) in enumerate(((1.0, 0.0), (0.76, 0.18), (0.52, 0.36))):
+        m.add(lathe([(rad, 0), (rad, 0.18), (0, 0.18)], sides=8, colors=MIN_STONE, close_top=True).xf(None, (0, 0, z)))
+    m.add(tube([(0, 0, 0.54), (0.02, 0, 1.5), (0.05, 0.02, 1.95)], [0.13, 0.11, 0.1], sides=8, colors=MIN_STONE, cap_base=True))
+    m.add(blob(0.11, 0.1, 0.07, seg=6, rings=3, colors=MIN_STONE, jitter=0.3, seed=4).xf(None, (0.05, 0.02, 1.96)))     # the break
+    # the head, on the steps: a short length of shaft and the arms
+    m.add(tube([(0.75, -0.5, 0.1), (1.35, -0.75, 0.1)], 0.1, sides=8, colors=MIN_STONE, cap_base=True))
+    m.add(tube([(1.2, -0.95, 0.1), (1.34, -0.5, 0.1)], 0.085, sides=8, colors=MIN_STONE, cap_base=True))
+    return m, None
+
+
+def ash_barricade():
+    """A barricade thrown across a street in a hurry: a cart on its side, sharpened stakes, a door, sacks."""
+    m = Model('ash_barricade')
+    r = np.random.default_rng(88)
+    m.add(box(1.5, 0.12, 0.8, OAK_DK, (-0.3, 0, 0.1)).xf(rx(0.18), (0, 0, 0)))                         # the cart-bed, on edge
+    for sx in (-0.85, 0.3):                                                                             # its wheels, one in the air
+        ring = [(sx, 0.2 + 0.36 * math.cos(a) * 0.3, 0.55 + 0.36 * math.sin(a)) for a in np.linspace(0, TAU, 11)]
+        m.add(tube(ring, 0.035, sides=4, colors=MIN_CHAR))
+        for a in (0, 1.05, 2.1):
+            m.add(tube([(sx, 0.2 - 0.1 * math.cos(a), 0.55 - 0.34 * math.sin(a + 0.5)), (sx, 0.2 + 0.1 * math.cos(a), 0.55 + 0.34 * math.sin(a + 0.5))], 0.02, sides=4, colors=MIN_CHAR))
+    for k in range(7):                                                                                  # stakes, pointing out
+        x = -1.6 + k * 0.52 + float(r.uniform(-0.08, 0.08))
+        m.add(tube([(x, 0.25, 0.0), (x + float(r.uniform(-0.1, 0.1)), -0.75, float(r.uniform(0.6, 0.85)))], [0.05, 0.012], sides=5, colors=MIN_CHAR, cap_base=True))
+    m.add(box(0.75, 0.07, 1.3, OAK_DK, (1.25, 0.1, 0)).xf(rx(-0.3), (0, 0, 0)))                         # somebody's door
+    for (x, y) in ((0.9, 0.5), (1.3, 0.45), (1.1, 0.5)):
+        m.add(blob(0.24, 0.16, 0.13, seg=7, rings=4, colors=CANVAS, jitter=0.12, seed=int(x * 10)).xf(None, (x, y, 0.13 if x != 1.1 else 0.36)))
+    return m, None
+
+
+def frith_cross():
+    """A frith cross: a plain wayside cross on a block, marking where the minster's peace begins."""
+    m = Model('frith_cross')
+    m.add(box(0.6, 0.6, 0.3, MIN_STONE, (0, 0, 0)))
+    m.add(box(0.2, 0.16, 1.5, MIN_STONE, (0, 0, 0.3)))
+    m.add(box(0.7, 0.16, 0.18, MIN_STONE, (0, 0, 1.3)))
+    # a daisy-wheel cut into its face, picked out pale
+    ring = [(0.3 * 0 + 0.0 + 0.14 * math.cos(a), -0.09, 0.85 + 0.14 * math.sin(a)) for a in np.linspace(0, TAU, 13)]
+    m.add(tube(ring, 0.012, sides=4, colors=('#d8d0c0', '#fff8e8')))
     return m, None
 
 
@@ -2399,7 +2502,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
