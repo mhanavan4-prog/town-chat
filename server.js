@@ -8542,6 +8542,7 @@ setInterval(() => {
   tickDungeon(dt);
   tickDelves(dt);
   dungeonFinds.tick();
+  { const lit = corpseCandle.tick(players.values()); if (lit.length) saveAccounts(); } // the corpse candle on the road north
   { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
   tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
@@ -9102,6 +9103,10 @@ const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, ba
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
+// The corpse candle that goes down the same road by night (lib/corpseCandle.js).
+const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
+  acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  noteCandle: (p) => { if (daybook.note(p, 'candle')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: a corpse candle, followed.' }); } });
 const wayside = require('./lib/wayside')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
   noteRoad: (p) => { if (daybook.note(p, 'road')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the road north, walked.' }); } });

@@ -3129,6 +3129,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
@@ -10631,6 +10632,36 @@ const BROOM_RIDE_ALT = 300, BROOM_RIDE_LEN = 2600, BROOM_RIDE_SWAY = 280;
 // against the sun until it is danced out. Her moves go to the server as they
 // always do, which is how the others see the ring go round.
 let reelDance = null;
+// The corpse candle on the road north (lib/corpseCandle.js): a small light that
+// stands by the coffin stone and then goes down the road to the gibbet. The
+// server says when and how fast; where it is now is worked out here.
+let corpseCandle = null;
+function setCorpseCandle(msg) {
+  if (corpseCandle) { for (const o of corpseCandle.parts) { if (o.parent) o.parent.remove(o); o.material.dispose(); } corpseCandle = null; }
+  if (!msg.on || !wildsScene || !Array.isArray(msg.path) || msg.path.length < 2) return;
+  const mk = (color, opacity) => new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color, transparent: true, opacity, depthWrite: false, fog: false }));
+  const flame = mk(msg.colour || 0xdfe8ff, 0.95), halo = mk(msg.colour || 0xdfe8ff, 0.28), core = mk(0xffffff, 0.9);
+  const sz = msg.size || 30;
+  flame.scale.set(sz, sz * 1.5, 1); halo.scale.set(sz * 5, sz * 5, 1); core.scale.set(sz * 0.35, sz * 0.5, 1);
+  for (const o of [halo, flame, core]) wildsScene.add(o);
+  const segs = []; let total = 0;
+  for (let i = 0; i < msg.path.length - 1; i++) { const [ax, ay] = msg.path[i], [bx, by] = msg.path[i + 1]; const len = Math.hypot(bx - ax, by - ay); segs.push({ ax, ay, bx, by, len, at: total }); total += len; }
+  corpseCandle = { parts: [halo, flame, core], segs, total, speed: msg.speed || 80, standMs: msg.standMs || 0, t0: performance.now(), sz };
+}
+function stepCorpseCandle() {
+  const c = corpseCandle;
+  if (!c) return;
+  const t = performance.now() - c.t0;
+  const d = Math.min(c.total, Math.max(0, t - c.standMs) / 1000 * c.speed);
+  let x = c.segs[0].ax, y = c.segs[0].ay;
+  for (const s of c.segs) if (d >= s.at) { const u = Math.min(1, (d - s.at) / s.len); x = s.ax + (s.bx - s.ax) * u; y = s.ay + (s.by - s.ay) * u; }
+  const h = 24 + Math.sin(t * 0.0021) * 3;                       // a hand above the ground, and never quite still
+  const fl = 0.85 + Math.sin(t * 0.017) * 0.08 + Math.sin(t * 0.041) * 0.05;
+  const [halo, flame, core] = c.parts;
+  flame.position.set(x, h, y); core.position.set(x, h - c.sz * 0.2, y); halo.position.set(x, h, y);
+  flame.material.opacity = 0.95 * fl; halo.material.opacity = 0.28 * fl;
+  if (t > c.standMs + c.total / c.speed * 1000 + 8000) setCorpseCandle({ on: false }); // the server puts it out; this is only in case its word is lost
+}
 function setReelState(msg) {
   const v = visuals[myId];
   if (!msg.turning || !me) { reelDance = null; if (v) v.emoteYOff = 0; return; }
@@ -20222,6 +20253,7 @@ function update(dt) {
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
+  stepCorpseCandle();
   const reeling = !riding && stepReel(); // in the reel the ring carries her
   if (riding || reeling) { /* no walking in the air, or out of the ring */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
