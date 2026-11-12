@@ -373,6 +373,8 @@ function buildWildsScene(w2) {
   caveSign.position.set(CX, 185, CZ);
   scene.add(caveSign);
   WILDS_KIOSKS.push({ x: CX, z: CZ, portal: 'cave_enter' });
+  // The dancing ground by the Unbound Circle: where hands are taken for the reel (the Old Ways, data/oldWays.js REEL).
+  WILDS_KIOSKS.push({ x: 2200, z: 5240, npc: 'oldways', npcName: '💃 the dancing ground', hint: 'take hands for the reel, and the other old ways', radius: 90 });
 
   // The Nine-and-Twenty, a stone circle no one counts the same twice
   // (props-countless.js); the counting is done at a stone outside the ring.

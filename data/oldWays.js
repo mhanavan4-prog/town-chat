@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The Old Ways — ten things a witch (or a cunning man, or a horseman) was
+// The Old Ways — eleven things a witch (or a cunning man, or a horseman) was
 // said to do, each with a verb in the game and its tier and source named, as
 // with the practices (data/practices.js):
 //
@@ -13,6 +13,7 @@
 //   🐇 the hare       — go into a hare, and come out again
 //   🕯️ the Hand of Glory — light it, and the sleepers do not stir
 //   🌒 the new moon   — turn your silver when you first see her
+//   💃 the reel       — take hands at the stones, three or more, and dance it round
 //
 // Tiers: 'record' is in documents of the time; 'folk' was collected from
 // people who did it or remembered it done; 'revival' is modern practice.
@@ -90,6 +91,13 @@ const OLD_WAYS = [
     tier: 'folk',
     lore: 'Robert Hunt wrote in 1865 that in Cornwall people turned their money on first seeing the new moon, or showed her a piece of gold. In Shropshire a girl curtseyed to her three times, turning round between, and looked for a present before the next moon; in West Sussex in 1868 people still bowed or curtseyed to her. Camden wrote of the Irish in 1586 that when they first saw her after the change they "commonly bow the knee and say the Lord\'s Prayer", and Aubrey, a century on, of country women who knelt to her. The thought behind it is that what is in your pocket when she is new will grow as she grows, so it was unlucky to be caught with a pocket empty; and almost everywhere it was unlucky to see her first through a window. In the game the silver does grow by a little, which is more than the custom ever promised.',
     source: 'R. Hunt, Popular Romances of the West of England (1865); C. S. Burne, Shropshire Folk-Lore (1883); C. Latham, "Some West Sussex Superstitions Lingering in 1868", Folk-Lore Record 1 (1878); W. Camden, Britannia (1586); J. Aubrey, Remaines of Gentilisme and Judaisme (1686–87); S. Roud (2003).',
+  },
+  {
+    id: 'reel', icon: '💃', name: 'The reel at the stones',
+    how: 'By night, at the Unbound Circle in the Wilds, take hands. When three or more have hold, the reel goes round the stones against the sun. Stay in it to the end and blows land softer on every dancer for half an hour, the more so the more who danced.',
+    tier: 'record',
+    lore: 'The pamphlet Newes from Scotland (1591) tells how the witches of North Berwick, some two hundred of them, went to the kirk there on All Hallows\' Eve of 1590 and "took hands on the land and danced this reel or short dance, singing all with one voice: Commer goe ye before, commer goe ye; Gif ye will not goe before, commer let me". Geillis Duncan, a maidservant of Tranent, went before them playing it on a trump, the small harp held in the teeth, and King James, who sat in on the examinations, was so taken with the strangeness of it that he had her fetched to play the dance to him. One of the indictments says they went round the kirk withershins, the men nine times and the women six. Duncan was hanged on the Castlehill of Edinburgh in December 1591, saying at the last that what she had told of others was put into her mouth by those who tortured her. That stone circles are dancers is a different tale and a commoner one: the Merry Maidens in Cornwall are nineteen girls turned to stone for dancing on a Sunday. In the game the reel is danced at standing stones, not in a kirkyard, and it does the dancers good; the record says only that it was danced.',
+    source: 'Newes from Scotland (1591); R. Pitcairn, Ancient Criminal Trials in Scotland, vol. 1 (1833); L. Normand and G. Roberts, Witchcraft in Early Modern Scotland (2000); R. Hunt, Popular Romances of the West of England (1865), for the Merry Maidens.',
   },
 ];
 
@@ -194,4 +202,11 @@ const GLORY = { gold: 60, holdMs: 20 * 1000, range: 520, restMs: 20 * MIN };
 // bank comes back as luck, never less than `min` nor more than `max`.
 const MOON = { phase: 'waxing_crescent', share: 0.05, min: 8, max: 60, xp: 15 };
 
-module.exports = { HARE, GLORY, MOON, OLD_WAYS, BESOM_STEPS, BESOM_REST_MS, BESOM_RIDE_MS, BESOM_LANDINGS, BESOM_SIGHTS, POPPET, LEAD_SHAPES, LEAD_XP, BEES, BEE_NEWS, BROWNIE, BROWNIE_WORK, BROWNIE_GONE, SIN, TOAD };
+// ── The reel at the stones ───────────────────────────────────────────────────
+// Three or more take hands at the Unbound Circle by night and it goes round.
+// Each who stays to the end has `guardPer` for every dancer (up to `guardMax`)
+// for `boonMs`; a ring all of one coven has `covenGuard` more.
+const REEL = { at: { room: 'wilds', x: 2200, y: 5000 }, joinRange: 420, ringR: 190, need: 3, ms: 40 * 1000, turns: 3,
+  guardPer: 0.03, guardMax: 0.15, covenGuard: 0.03, boonMs: 30 * MIN, xp: 60, fullMoonXp: 2, restMs: 6 * HOUR };
+
+module.exports = { HARE, GLORY, MOON, REEL, OLD_WAYS, BESOM_STEPS, BESOM_REST_MS, BESOM_RIDE_MS, BESOM_LANDINGS, BESOM_SIGHTS, POPPET, LEAD_SHAPES, LEAD_XP, BEES, BEE_NEWS, BROWNIE, BROWNIE_WORK, BROWNIE_GONE, SIN, TOAD };
