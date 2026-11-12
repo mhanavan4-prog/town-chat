@@ -6922,6 +6922,9 @@ const joystickEl = document.getElementById('joystick');
 const stickEl = document.getElementById('stick');
 let joyVec = { x: 0, y: 0 };
 let joyActive = false, joyOrigin = { x: 0, y: 0 }, joyTouchId = null;
+// Pinching the world opens the map (see the pinch watcher after the camera's touch handlers).
+const PINCH_RATIO_IN = 0.62, PINCH_RATIO_OUT = 1.45;
+let pinch = null; // { a, b, d0 } while two fingers that came down together are on the world
 
 const JOY_BASE = MOBILE_UI ? 128 : 110;   // ring diameter (px)
 const JOY_KNOB = MOBILE_UI ? 56 : 46;
@@ -6959,6 +6962,7 @@ if (joyZone && MOBILE_UI) {
     e.preventDefault();
   }, { passive: false });
   joyZone.addEventListener('touchmove', (e) => {
+    if (pinch) return; // two fingers came down together: a pinch, not a walk
     for (const t of e.changedTouches) {
       if (t.identifier !== joyTouchId) continue;
       let dx = t.clientX - joyOrigin.x, dy = t.clientY - joyOrigin.y;
@@ -7581,6 +7585,7 @@ canvas.addEventListener('touchstart', (e) => {
   for (const t of e.changedTouches) {
     touchLooks.set(t.identifier, { startX: t.clientX, startY: t.clientY, lastX: t.clientX, lastY: t.clientY, moved: 0 });
   }
+
   camGlide.velYaw = 0; camGlide.velPitch = 0; // finger down = direct control again
 }, { passive: true });
 canvas.addEventListener('touchmove', (e) => {
@@ -7590,6 +7595,7 @@ canvas.addEventListener('touchmove', (e) => {
     const dx = t.clientX - tl.lastX, dy = t.clientY - tl.lastY;
     tl.moved += Math.abs(dx) + Math.abs(dy);
     tl.lastX = t.clientX; tl.lastY = t.clientY;
+    if (pinch) continue; // two fingers on the world: a pinch, not a turn of the camera (judged below)
     if (MOBILE_UI && tl.moved >= CLICK_DRAG_THRESHOLD) {
       // Faster than the first pass (+~50%) but fed through a short
       // smoothing buffer (see updateCameraGlide) so speed reads as
@@ -7625,6 +7631,38 @@ const touchLookEnd = (e) => {
   }
 };
 canvas.addEventListener('touchend', touchLookEnd, { passive: true });
+// The pinch watcher. Two fingers that come down on the world (the scene, or
+// the joystick's half of it) within a quarter of a second of each other and
+// are drawn together open the map; it reads as zooming out. A thumb already
+// holding the joystick when the camera finger lands is play, not a pinch.
+if (MOBILE_UI) {
+  const PINCH_TOGETHER_MS = 250;
+  const downs = new Map(); // id -> { x, y, t }
+  const onWorld = (el) => el === canvas || (el && el.closest && !!el.closest('#joyZone'));
+  const span = () => { const a = downs.get(pinch.a), b = downs.get(pinch.b); return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null; };
+  window.addEventListener('touchstart', (e) => {
+    for (const t of e.changedTouches) if (onWorld(t.target)) downs.set(t.identifier, { x: t.clientX, y: t.clientY, t: performance.now() });
+    pinch = null;
+    if (downs.size === 2 && !Modals.isOpen('mapModalOpen')) {
+      const [[a, A], [b, B]] = [...downs.entries()];
+      if (Math.abs(A.t - B.t) <= PINCH_TOGETHER_MS) { pinch = { a, b, d0: 0 }; pinch.d0 = span() || 0; }
+    }
+  }, { capture: true, passive: true });
+  window.addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) { const d = downs.get(t.identifier); if (d) { d.x = t.clientX; d.y = t.clientY; } }
+    if (!pinch || pinch.d0 < 60) return;
+    const d = span();
+    if (d != null && d < pinch.d0 * PINCH_RATIO_IN) {
+      pinch = null;
+      for (const tl of touchLooks.values()) tl.moved = CLICK_DRAG_THRESHOLD;   // neither finger is a tap on anything now
+      joyTouchId = null; joyActive = false; joyVec = { x: 0, y: 0 }; restJoystick();   // and she is not walking
+      if (typeof window.__openTownMap === 'function') window.__openTownMap();
+    }
+  }, { capture: true, passive: true });
+  const up = (e) => { for (const t of e.changedTouches) { downs.delete(t.identifier); if (pinch && (t.identifier === pinch.a || t.identifier === pinch.b)) pinch = null; } };
+  window.addEventListener('touchend', up, { capture: true, passive: true });
+  window.addEventListener('touchcancel', up, { capture: true, passive: true });
+}
 canvas.addEventListener('touchcancel', (e) => { for (const t of e.changedTouches) touchLooks.delete(t.identifier); }, { passive: true });
 
 // ── Touch camera feel ───────────────────────────────────────────────────────
@@ -17756,7 +17794,37 @@ const { openNotifModal } = _notif;
   function toggle() { Modals.isOpen('mapModalOpen') ? close() : open(); }
   window.__toggleTownMap = toggle;
   window.__closeTownMap = close;
-  const mi = document.getElementById('menuMap'); if (mi) mi.addEventListener('click', open);
+  window.__openTownMap = open;
+  // Three ways to it on a phone, none of which puts anything new on the
+  // screen: tap the health-and-level pill at the top left; pinch the world
+  // (fingers together) — and spread them on the map to put it away; or Map,
+  // first in the ☰ menu. Someone who takes the long way through the menu is
+  // told the short ways, once.
+  const tellShortWays = () => {
+    if (!MOBILE_UI) return;
+    try { if (localStorage.getItem('tc_map_ways_told')) return; localStorage.setItem('tc_map_ways_told', '1'); } catch (_) { return; }
+    setTimeout(() => setUnlockToast('🗺️ Next time: tap your health and level at the top left, or pinch the world, to open the map.', { always: true, level: 'important' }), 400);
+  };
+  const mi = document.getElementById('menuMap'); if (mi) mi.addEventListener('click', () => { open(); tellShortWays(); });
+  const pill = document.getElementById('mobileVitals');
+  if (pill) {
+    // touchstart, like the action buttons: a second finger's tap gets no click while the thumb holds the joystick
+    pill.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); toggle(); }, { passive: false });
+    pill.addEventListener('click', (e) => { e.preventDefault(); toggle(); });
+  }
+  if (MOBILE_UI) { const h = document.getElementById('mapHint'); if (h) h.textContent = 'spread two fingers, or tap Close, to put it away'; }
+  // Spread two fingers on the open map to put it away.
+  const mm = document.getElementById('mapModal');
+  if (mm) {
+    let spread = null;
+    mm.addEventListener('touchstart', (e) => { spread = e.touches.length === 2 ? Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) : null; }, { passive: true });
+    mm.addEventListener('touchmove', (e) => {
+      if (spread == null || e.touches.length !== 2) return;
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (d > spread * PINCH_RATIO_OUT) { spread = null; close(); }
+    }, { passive: true });
+    mm.addEventListener('touchend', () => { spread = null; }, { passive: true });
+  }
   const cb = document.getElementById('mapCloseBtn'); if (cb) cb.addEventListener('click', close);
   window.addEventListener('resize', () => { if (Modals.isOpen('mapModalOpen')) render(); });
 })();
