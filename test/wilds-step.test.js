@@ -36,7 +36,7 @@ const stuck = { x: VILLAGE.x, y: VILLAGE.y }; step(stuck, 50, 0, 0.1, 0);
 check('one that finds itself inside a wall is let walk out', stuck.x === VILLAGE.x + 5);
 
 const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-check('the night creatures and the neutral ones both walk this way, kept inside the map, and face the way they went', (server.match(/wildsWalk\(m, vx, vy, dt, now, margin\);/g) || []).length === 2 && /wildsStep\.step\(m, vx, vy, dt, now\);/.test(server) && /m\.facing = \(mx !== 0 \|\| my !== 0\) \? Math\.atan2\(mx, my\) : Math\.atan2\(vx, vy\);/.test(server));
+check('the night creatures, the neutral ones and the animals all walk this way, kept inside the map, and face the way they went', (server.match(/wildsWalk\(m, vx, vy, dt, now, margin\);/g) || []).length === 2 && /wildsWalk\(a, vx, vy, dt, Date\.now\(\), margin\);/.test(server) && /wildsStep\.step\(m, vx, vy, dt, now\);/.test(server) && /m\.facing = \(mx !== 0 \|\| my !== 0\) \? Math\.atan2\(mx, my\) : Math\.atan2\(vx, vy\);/.test(server));
 check('the copy can be taken again from the running client', /walls\(\) \{ return walls\.map/.test(fs.readFileSync(path.join(__dirname, '..', 'client/main.js'), 'utf8')) && R > 0);
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

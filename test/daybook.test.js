@@ -17,7 +17,7 @@ const ann = { id: 'a', accountKey: 'ann' }, old = { id: 'o', accountKey: 'old' }
 const find = (body, id) => body.leaves.flatMap((l) => l.entries).find((e) => e.id === id);
 
 const b0 = db.body(ann);
-check('the book has five leaves and a line for every Old Way, wanderer, rare room and village door, the balefires, and the three old sites', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds,village' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 7 + Object.keys(require('../data/villageHouses').VILLAGE_HOUSES).length && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
+check('the book has five leaves and a line for every Old Way, wanderer, rare room and village door, the balefires, and the three old sites', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds,village' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 8 + Object.keys(require('../data/villageHouses').VILLAGE_HOUSES).length && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
 check('what is not done says how to come by it, in a line', b0.leaves.flatMap((l) => l.entries).every((e) => !e.done && e.hint.length > 15 && e.hint.length < 140 && e.first === null && e.times === 0) && OLD_WAYS.every((w) => db.WAY_HINT[w.id]));
 check('a guest keeps no daybook, and nothing can be written in one', db.body(guest).isGuest === true && db.note(guest, 'balefires') === false && db.noteWay(guest, 'lead') === false);
 
@@ -55,5 +55,7 @@ check('the page is a second leaf of the Old Ways panel, with its own row in the 
 check('going in at a village door writes it down the first time, and a count with no day reads as a count', /villageHouses\.enter\(player, String\(msg\.id \|\| ''\)\) && daybook\.note\(player, 'house:' \+ String\(msg\.id\)\)/.test(server) && /e\.times > 0 \? \(e\.times === 1 \? 'Once\.' : `\$\{e\.times\} times\.`\)/.test(panel));
 check('on a phone what can be done now is listed first', /const ordered = \[\.\.\.state\.ways\]\.sort\(\(x, y\) => \(isReady\(y\) \? 1 : 0\) - \(isReady\(x\) \? 1 : 0\)\);/.test(panel));
 
+{ const d2 = require('../lib/daybook')({ accounts: { c: { callers: { byId: { clootie: 3 } } }, n: {} } }); const e = (k) => d2.body({ accountKey: k }).leaves.find((l) => l.id === 'wilds').entries.find((x) => x.id === 'clootie');
+  check('a cloot tied at the well is read from the callers\' own count', e('c').done && e('c').times === 3 && !e('n').done); }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
