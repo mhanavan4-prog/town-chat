@@ -300,7 +300,9 @@ function buildDungeonCaveScene(theme, layout) {
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
       const rx = horiz ? (w.x + t * w.w) : w.x + w.w / 2, rz = horiz ? w.y + w.h / 2 : (w.y + t * w.h);
-      rock('dg_wall', rx, rz, seg * 1.1, 'fit', (horiz ? 0 : Math.PI / 2) + (((i + k0) % 2) ? Math.PI : 0));
+      // each length is turned a hair off the line, one way then the other, so where two lengths
+      // overlap their faces cross cleanly instead of lying in one another (which saw-tooths)
+      rock('dg_wall', rx, rz, seg * 1.08, 'fit', (horiz ? 0 : Math.PI / 2) + (((i + k0) % 2) ? Math.PI : 0) + ((i % 2) ? 0.07 : -0.07));
     }
   };
   if (caveRock) {
