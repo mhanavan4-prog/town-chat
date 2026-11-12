@@ -179,11 +179,16 @@ try {
       await page.waitForFunction(() => !!(history.state && history.state.thornreachMenu), null, { timeout: 2000 }).catch(() => {});
       await page.evaluate(() => document.getElementById('menuSettings').click());
       await page.waitForSelector('#settingsModal:not(.hidden)', { timeout: 3000 });
-      await sleep(400);
+      // Wait for what the checks below depend on, not for a fixed time: on a
+      // loaded CI runner the history entries can lag the taps by more than a
+      // fixed sleep, which failed all three of these together once.
+      await page.waitForFunction(() => ((history.state && history.state.thornreachMenu) | 0) >= 2, null, { timeout: 5000 }).catch(() => {});
+      await sleep(200);
       const len0 = await page.evaluate(() => history.length);
       const depth0 = await page.evaluate(() => (history.state && history.state.thornreachMenu) | 0);
       await back();
-      await sleep(500);
+      await page.waitForFunction(() => document.getElementById('settingsModal').classList.contains('hidden') && !document.getElementById('menuSheet').classList.contains('hidden'), null, { timeout: 5000 }).catch(() => {});
+      await sleep(200);
       check('[char 0] back from a panel opened from the menu goes back to the menu', !(await shown('#settingsModal')) && await shown('#menuSheet'));
       // Phone browsers skip, on a back gesture, history entries a page adds
       // without a tap: so the menu's entry must already be there, pushed at the
@@ -191,7 +196,8 @@ try {
       check('[char 0] …with nothing added to the history after the back (its entry was laid down at the tap)', depth0 >= 2 && (await page.evaluate(() => history.length)) === len0 && (await page.evaluate(() => (history.state && history.state.thornreachMenu) | 0)) === depth0 - 1);
       await sleep(100);
       await back();
-      await sleep(300);
+      await page.waitForFunction(() => document.getElementById('menuSheet').classList.contains('hidden'), null, { timeout: 5000 }).catch(() => {});
+      await sleep(200);
       check('[char 0] …and back again closes the menu, still in the game', !(await shown('#menuSheet')) && page.url() === url0 && await shown('#hud'));
       // Closed with its own button: the extra history entry is taken back off.
       await page.evaluate(() => document.getElementById('journalBtn').click());

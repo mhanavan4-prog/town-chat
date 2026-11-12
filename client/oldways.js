@@ -112,7 +112,7 @@ export default function createOldWays({ send, place }) {
         row.appendChild(el('span', 'dbTick', e.done ? '✓' : '·'));
         const text = el('div', 'dbText');
         text.appendChild(el('div', 'dbName', `${e.icon} ${e.name}`));
-        text.appendChild(el('div', 'dbNote', e.done ? (e.first ? `First on ${day(e.first)}${e.times > 1 ? ` · ${e.times} times` : ''}` : 'Done before this book was kept.') : e.hint));
+        text.appendChild(el('div', 'dbNote', e.done ? (e.first ? `First on ${day(e.first)}${e.times > 1 ? ` · ${e.times} times` : ''}` : e.times > 0 ? (e.times === 1 ? 'Once.' : `${e.times} times.`) : 'Done before this book was kept.') : e.hint));
         row.appendChild(text);
         card.appendChild(row);
       }
