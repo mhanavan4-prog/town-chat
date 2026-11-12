@@ -2040,11 +2040,26 @@
   body.touchMode #hud, body.touchMode #leftHudButtons, body.touchMode #hotbar,
   body.touchMode #unlockBar, body.touchMode #leaveBtn, body.touchMode #healthHud,
   body.touchMode #peopleTag, body.touchMode #cmPrompt { display:none !important; }
+  /* The door/portal/NPC prompt sits in the hollow of the action wheel: the
+     space the strike button, the bottom row and the fan of quick slots leave
+     in the middle (see the wheel geometry above: strike/jump end at 86px and
+     70px up, the fan starts at 96px across and 188px up). Above the wheel it
+     lay under the top of the fan and could not be read. */
   body.touchMode #interactHint {
-    left:auto; right:max(14px, env(safe-area-inset-right)); bottom:236px; transform:none;
-    animation:cmPulse 1.2s ease-in-out infinite alternate; border-radius:18px;
+    left:auto; transform:none; z-index:9;
+    right:calc(max(14px, env(safe-area-inset-right)) + 96px);
+    bottom:calc(max(16px, env(safe-area-inset-bottom)) + 76px);
+    width:118px; height:108px;
+    animation:cmPulse 1.2s ease-in-out infinite alternate; border-radius:34px;
   }
-  body.touchMode #interactHint span { font-size:16px; font-weight:800; padding:16px 22px; display:inline-block; max-width:62vw; }
+  body.touchMode #interactHint span {
+    box-sizing:border-box; width:100%; height:100%; padding:6px 8px; border-radius:34px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:14px; line-height:1.15; font-weight:800; overflow:hidden; overflow-wrap:anywhere;
+    background:rgba(20,10,8,0.9); border-color:rgba(255,207,107,0.75);
+  }
+  body.touchMode #interactHint.long span { font-size:12px; }
+  body.touchMode #interactHint.longer span { font-size:10.5px; line-height:1.1; }
   body.touchMode #questTracker, body.touchMode #storyTracker { transform:scale(0.86); transform-origin:top right; }
   /* The panel handle already says the story title — don't say it twice on a small screen */
   body.touchMode #journalModal .journalStoryTitle { display:none; }
