@@ -29,6 +29,12 @@
       "v": "99fbfb09"
     }
   ],
+  "besom_ride": [
+    {
+      "f": "besom_ride.mp3",
+      "v": "62351bdd"
+    }
+  ],
   "blood_frenzy": [
     {
       "f": "blood_frenzy.mp3",
@@ -109,6 +115,12 @@
     {
       "f": "curse.mp3",
       "v": "6ca11045"
+    }
+  ],
+  "daybook": [
+    {
+      "f": "daybook.mp3",
+      "v": "b9a45357"
     }
   ],
   "death": [
@@ -225,6 +237,12 @@
       "v": "12ec9e6b"
     }
   ],
+  "glory_light": [
+    {
+      "f": "glory_light.mp3",
+      "v": "b8850721"
+    }
+  ],
   "gourd_ward": [
     {
       "f": "gourd_ward.mp3",
@@ -253,6 +271,12 @@
     {
       "f": "guardians_veil.mp3",
       "v": "3c51b1ad"
+    }
+  ],
+  "hare_go": [
+    {
+      "f": "hare_go.mp3",
+      "v": "b4f58899"
     }
   ],
   "harvest": [
@@ -405,6 +429,12 @@
       "v": "0f53ea37"
     }
   ],
+  "moon_silver": [
+    {
+      "f": "moon_silver.mp3",
+      "v": "3ffb889d"
+    }
+  ],
   "moonlit_mending": [
     {
       "f": "moonlit_mending.mp3",
@@ -489,10 +519,34 @@
       "v": "21ca5d6c"
     }
   ],
+  "rare_hoard": [
+    {
+      "f": "rare_hoard.mp3",
+      "v": "e93b1417"
+    }
+  ],
+  "rare_marked": [
+    {
+      "f": "rare_marked.mp3",
+      "v": "f55818e0"
+    }
+  ],
+  "rare_well": [
+    {
+      "f": "rare_well.mp3",
+      "v": "1d3c02db"
+    }
+  ],
   "ravens_cloak": [
     {
       "f": "ravens_cloak.mp3",
       "v": "08b4937d"
+    }
+  ],
+  "reel_trump": [
+    {
+      "f": "reel_trump.mp3",
+      "v": "da854721"
     }
   ],
   "rend": [
@@ -683,6 +737,30 @@
     {
       "f": "ui_click.mp3",
       "v": "dae3296d"
+    }
+  ],
+  "wander_black_annis": [
+    {
+      "f": "wander_black_annis.mp3",
+      "v": "dab3fbbf"
+    }
+  ],
+  "wander_church_grim": [
+    {
+      "f": "wander_church_grim.mp3",
+      "v": "7490bad4"
+    }
+  ],
+  "wander_mine_demon": [
+    {
+      "f": "wander_mine_demon.mp3",
+      "v": "4519f6bd"
+    }
+  ],
+  "wander_rawhead": [
+    {
+      "f": "wander_rawhead.mp3",
+      "v": "9a5ec1ec"
     }
   ],
   "wanderlust": [
