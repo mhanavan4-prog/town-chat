@@ -83,6 +83,7 @@ function buildWildsScene(w2) {
     }
   }
   const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex, vertexColors: tinted }));
+  ground.name = 'wildsGround'; // the season dyes it (client/wilds-season.js)
   ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
