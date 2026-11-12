@@ -2125,6 +2125,58 @@ def rare_well():
     return m, '#a0e8f0'
 
 
+# ── The road north (data/wayside.js): three things by the wayside ──
+def gibbet():
+    """A gibbet at a crossroads: a tall tarred post, braced, with an arm and an iron cage hung from it on a chain. The cage is empty."""
+    m = Model('gibbet')
+    T = ('#1c1612', '#4a3a2c')
+    m.add(trim(tube([(0, 0, 0), (0.01, 0, 1.6), (0, 0, 3.2)], [0.11, 0.095, 0.08], sides=6, colors=T)))
+    m.add(trim(tube([(0, 0, 3.05), (0.95, 0, 3.1)], 0.06, sides=5, colors=T)))
+    m.add(trim(tube([(0, 0, 2.35), (0.6, 0, 3.05)], 0.045, sides=5, colors=T)))
+    for a in (0.6, 2.7, 4.6):   # stones wedged round the foot
+        m.add(blob(0.2, 0.17, 0.13, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=int(a * 10)).xf(None, (0.24 * math.cos(a), 0.24 * math.sin(a), 0.07)))
+    cx = 0.82
+    m.add(trim(tube([(cx, 0, 3.06), (cx, 0, 2.72)], 0.014, sides=4, colors=IRON)))   # the chain
+    for z, r in ((2.7, 0.06), (2.52, 0.2), (2.1, 0.24), (1.62, 0.2), (1.34, 0.1)):   # the hoops of the cage
+        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 11)], 0.014, sides=4, colors=IRON)))
+    for a in np.linspace(0, TAU, 7)[:-1]:   # its straps, head to foot
+        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for z, r in ((2.7, 0.06), (2.52, 0.2), (2.1, 0.24), (1.62, 0.2), (1.34, 0.1))], 0.012, sides=4, colors=IRON)))
+    m.add(trim(tube([(0, -0.1, 1.5), (0, -0.115, 1.2)], 0.035, sides=4, colors=('#5a4a36', '#b09a70'))))   # where splinters have been cut: pale wood
+    return m, None
+
+
+def cointree():
+    """A coin tree: a fallen oak trunk lying beside the path, its bark studded all along with coins knocked in edgeways."""
+    m = Model('cointree')
+    B = ('#2e2218', '#6a5238')
+    m.add(trim(tube([(-0.95, 0.05, 0.2), (-0.3, 0, 0.22), (0.4, -0.03, 0.2), (1.0, 0.04, 0.17)], [0.24, 0.22, 0.2, 0.15], sides=8, colors=B, cap_base=True)))
+    m.add(trim(tube([(-0.95, 0.05, 0.2), (-1.12, 0.3, 0.26), (-1.25, 0.5, 0.42)], [0.1, 0.07, 0.03], sides=5, colors=B)))   # a root
+    m.add(trim(tube([(-0.95, 0.05, 0.2), (-1.15, -0.25, 0.2), (-1.3, -0.45, 0.3)], [0.1, 0.06, 0.03], sides=5, colors=B)))
+    m.add(trim(tube([(0.5, -0.02, 0.3), (0.62, 0.02, 0.62), (0.7, 0.1, 0.8)], [0.06, 0.04, 0.02], sides=5, colors=B)))    # a broken branch
+    r = np.random.default_rng(77)
+    for k in range(46):   # the coins: thin discs standing in the top and sides of the trunk
+        x = r.uniform(-0.85, 0.9); a = r.uniform(0.25, math.pi - 0.25)
+        rad = 0.24 - 0.045 * (x + 0.95)
+        col = (('#7a6a1c', '#e8d058') if r.random() < 0.3 else ('#3a5a48', '#8ac0a0'))   # a few still bright, most gone green
+        d = lathe([(0.0, 0.0), (0.03, 0.0), (0.03, 0.006), (0.0, 0.006)], sides=7, colors=col)
+        m.add(glowing(d).xf(rx(-a) @ rz(r.uniform(0, math.pi)) @ ry(math.pi / 2), (x, rad * math.cos(a), 0.2 + rad * math.sin(a))))
+    m.add(blob(0.16, 0.13, 0.1, seg=6, rings=4, colors=ROCKP, jitter=0.2, seed=4).xf(None, (0.2, -0.42, 0.05)))   # the stone people knock them in with
+    return m, '#c8b060'
+
+
+def coffinstone():
+    """A coffin stone: a long flat slab on two rough stubs beside the corpse road, worn smooth on top, with a small cross cut in one end."""
+    m = Model('coffinstone')
+    m.add(crag(1.9, 0.72, 0.16, seed=41, nx=6, nz=2).xf(None, (0, 0, 0.42)))
+    for sx in (-0.62, 0.62):
+        m.add(crag(0.42, 0.6, 0.44, seed=42 + int(sx * 10), nx=3, nz=3).xf(None, (sx, 0, 0)))
+    # the cross, cut shallow in the top at the head end
+    for pts in ([(-0.72, -0.12, 0.6), (-0.72, 0.12, 0.6)], [(-0.8, 0, 0.6), (-0.6, 0, 0.6)]):
+        m.add(trim(tube(pts, 0.014, sides=4, colors=('#1a1a1c', '#2c2c30'))))
+    m.add(trim(blob(0.2, 0.14, 0.03, seg=6, rings=3, colors=('#4a5a30', '#8a9a58'), jitter=0.25, seed=9)).xf(None, (0.5, 0.2, 0.585)))   # moss
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -2144,7 +2196,8 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
-        'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well}
+        'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
