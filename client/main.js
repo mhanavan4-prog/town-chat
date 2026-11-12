@@ -670,6 +670,7 @@ const KK = (() => {
   const store = (key) => (gltf) => {
     const box = new THREE.Box3().setFromObject(gltf.scene);
     models[key] = { scene: gltf.scene, animations: gltf.animations || [],
+      bare: !(gltf.animations && gltf.animations.length), // shipped with no clips of its own: a borrower (see borrowAnims)
       size: { x: box.max.x - box.min.x, y: box.max.y - box.min.y, z: box.max.z - box.min.z },
       minY: box.min.y };
   };
@@ -797,7 +798,16 @@ const KK = (() => {
     for (const k of Object.keys(models)) {
       // Only rigged (skinned) models borrow clips — a static prop like the
       // staff has no bones and must stay animation-less.
-      if (models[k].animations && models[k].animations.length === 0 && skinned(models[k])) models[k].animations = clipsFor(models[k]);
+      // A body that shipped with no clips borrows the Mage's, once. Not "has
+      // none now": if the extra-motion donors (attachExtraAnims) arrive before
+      // the Mage does, a skeleton already holds Hit/Death/Jump by the time this
+      // runs, and testing for an empty list left it without Idle or Walk for
+      // the whole session, standing in its bind pose with its arms out.
+      const m = models[k];
+      if (!m.bare || m._borrowed || !m.animations || !skinned(m)) continue;
+      const have = new Set(m.animations.map((c) => c.name));
+      for (const clip of clipsFor(m)) if (!have.has(clip.name)) m.animations.push(clip);
+      m._borrowed = true;
     }
   }
 
@@ -19141,6 +19151,16 @@ function tryInteract() {
 function interactVerb() {
   return isTouchDevice() ? 'Tap to' : 'Press F to';
 }
+// On touch the prompt sits in the hollow of the action wheel (index.html), a
+// small space: the longer the words, the smaller they are set.
+{
+  const hintEl = document.getElementById('interactHint'), hintText = document.getElementById('interactHintText');
+  if (hintEl && hintText && typeof MutationObserver === 'function') {
+    const fit = () => { const n = (hintText.textContent || '').length; hintEl.classList.toggle('long', n > 30 && n <= 52); hintEl.classList.toggle('longer', n > 52); };
+    new MutationObserver(fit).observe(hintText, { childList: true, characterData: true, subtree: true });
+    fit();
+  }
+}
 
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
@@ -21103,6 +21123,7 @@ if (location.search.includes('testdrive=1')) {
     mobs() { return Object.entries(mobVisuals).map(([id, m]) => ({ id, x: m.x, y: m.y, dead: !!m.dead })); },
     animals() { return Object.entries(animalVisuals).map(([id, a]) => ({ id, x: a.x, y: a.y, dead: !!a.dead })); },
     interact() { tryInteract(); },
+    clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },
     face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },
     interiorKiosks() {
       if (!currentInterior || !me) return [];
