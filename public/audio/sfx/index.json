@@ -17,6 +17,18 @@
       "v": "0596f266"
     }
   ],
+  "balefire_light": [
+    {
+      "f": "balefire_light.mp3",
+      "v": "52c7af6e"
+    }
+  ],
+  "balefire_round": [
+    {
+      "f": "balefire_round.mp3",
+      "v": "0b9bc138"
+    }
+  ],
   "banner_of_dread": [
     {
       "f": "banner_of_dread.mp3",
@@ -27,6 +39,18 @@
     {
       "f": "banshee_wail.mp3",
       "v": "99fbfb09"
+    }
+  ],
+  "bees_tell": [
+    {
+      "f": "bees_tell.mp3",
+      "v": "aa73ce25"
+    }
+  ],
+  "besom_bind": [
+    {
+      "f": "besom_bind.mp3",
+      "v": "72cc0c96"
     }
   ],
   "besom_ride": [
@@ -65,16 +89,46 @@
       "v": "b21613a5"
     }
   ],
+  "brownie_cream": [
+    {
+      "f": "brownie_cream.mp3",
+      "v": "374b3be3"
+    }
+  ],
   "buff": [
     {
       "f": "buff.mp3",
       "v": "0dc201b0"
     }
   ],
+  "cairn_open": [
+    {
+      "f": "cairn_open.mp3",
+      "v": "89b30d3d"
+    }
+  ],
   "campfire_tale": [
     {
       "f": "campfire_tale.mp3",
       "v": "6ae8655e"
+    }
+  ],
+  "candle_out": [
+    {
+      "f": "candle_out.mp3",
+      "v": "0dc07a71"
+    }
+  ],
+  "candle_rise": [
+    {
+      "f": "candle_rise.mp3",
+      "v": "2b03af64"
+    }
+  ],
+  "candle_struck": [
+    {
+      "f": "candle_struck.mp3",
+      "v": "eccac590"
     }
   ],
   "cast": [
@@ -87,6 +141,18 @@
     {
       "f": "challenge.mp3",
       "v": "b62dc352"
+    }
+  ],
+  "cloot_tie": [
+    {
+      "f": "cloot_tie.mp3",
+      "v": "5e44a3b0"
+    }
+  ],
+  "coffin_rest": [
+    {
+      "f": "coffin_rest.mp3",
+      "v": "5204380c"
     }
   ],
   "coin": [
@@ -109,6 +175,12 @@
     {
       "f": "coven_crown.mp3",
       "v": "bc257f01"
+    }
+  ],
+  "crick_done": [
+    {
+      "f": "crick_done.mp3",
+      "v": "f1df4064"
     }
   ],
   "curse": [
@@ -237,6 +309,12 @@
       "v": "12ec9e6b"
     }
   ],
+  "gibbet_splinter": [
+    {
+      "f": "gibbet_splinter.mp3",
+      "v": "a8acb3dc"
+    }
+  ],
   "glory_light": [
     {
       "f": "glory_light.mp3",
@@ -271,6 +349,12 @@
     {
       "f": "guardians_veil.mp3",
       "v": "3c51b1ad"
+    }
+  ],
+  "hare_back": [
+    {
+      "f": "hare_back.mp3",
+      "v": "a1fe0593"
     }
   ],
   "hare_go": [
@@ -383,6 +467,12 @@
       "v": "b7c07624"
     }
   ],
+  "lead_pour": [
+    {
+      "f": "lead_pour.mp3",
+      "v": "144de8b8"
+    }
+  ],
   "leech_hex": [
     {
       "f": "leech_hex.mp3",
@@ -415,6 +505,18 @@
     {
       "f": "lunar_howl.mp3",
       "v": "69cf52c5"
+    }
+  ],
+  "lyke_bed": [
+    {
+      "f": "lyke_bed.mp3",
+      "v": "4ba66b50"
+    }
+  ],
+  "lyke_wake": [
+    {
+      "f": "lyke_wake.mp3",
+      "v": "5789e392"
     }
   ],
   "mending_spirits": [
@@ -469,6 +571,18 @@
     {
       "f": "packmule_guard.mp3",
       "v": "20a145d9"
+    }
+  ],
+  "page_turn": [
+    {
+      "f": "page_turn.mp3",
+      "v": "60c8d458"
+    }
+  ],
+  "poppet_bind": [
+    {
+      "f": "poppet_bind.mp3",
+      "v": "0bd48448"
     }
   ],
   "portal": [
@@ -543,6 +657,12 @@
       "v": "08b4937d"
     }
   ],
+  "reel_done": [
+    {
+      "f": "reel_done.mp3",
+      "v": "3f5d781e"
+    }
+  ],
   "reel_trump": [
     {
       "f": "reel_trump.mp3",
@@ -611,6 +731,12 @@
     {
       "f": "shield_bash.mp3",
       "v": "b927870e"
+    }
+  ],
+  "sin_eat": [
+    {
+      "f": "sin_eat.mp3",
+      "v": "3250c5ef"
     }
   ],
   "siphon": [
@@ -683,6 +809,12 @@
       "v": "e8109d3d"
     }
   ],
+  "stones_counted": [
+    {
+      "f": "stones_counted.mp3",
+      "v": "7e384fe7"
+    }
+  ],
   "stumble_hex": [
     {
       "f": "stumble_hex.mp3",
@@ -721,6 +853,12 @@
       "v": "e5ddb9db"
     }
   ],
+  "toad_bone": [
+    {
+      "f": "toad_bone.mp3",
+      "v": "91798859"
+    }
+  ],
   "toads_tongue": [
     {
       "f": "toads_tongue.mp3",
@@ -733,10 +871,22 @@
       "v": "fc6bbb1f"
     }
   ],
+  "troy_done": [
+    {
+      "f": "troy_done.mp3",
+      "v": "229589d3"
+    }
+  ],
   "ui_click": [
     {
       "f": "ui_click.mp3",
       "v": "dae3296d"
+    }
+  ],
+  "unwitch": [
+    {
+      "f": "unwitch.mp3",
+      "v": "39ce6c53"
     }
   ],
   "wander_black_annis": [
@@ -761,6 +911,12 @@
     {
       "f": "wander_rawhead.mp3",
       "v": "9a5ec1ec"
+    }
+  ],
+  "wanderer_laid": [
+    {
+      "f": "wanderer_laid.mp3",
+      "v": "7fe70094"
     }
   ],
   "wanderlust": [
