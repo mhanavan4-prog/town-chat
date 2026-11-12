@@ -3104,6 +3104,7 @@ function onWsMessage(ev) {
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
+    if (msg.sfx && typeof playSfx === 'function') playSfx(msg.sfx); // a message may bring its own sound (tools/audio/sfx.manifest.json)
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
     return;
   }
@@ -10595,6 +10596,7 @@ function setReelState(msg) {
   const v = visuals[myId];
   if (!msg.turning || !me) { reelDance = null; if (v) v.emoteYOff = 0; return; }
   _oldWays.close();
+  if (typeof playSfx === 'function') playSfx('reel_trump'); // somebody has a trump between her teeth
   reelDance = { t0: performance.now(), done: msg.total - msg.ms, total: msg.total, x: msg.x, y: msg.y, r: msg.r, turns: msg.turns, a0: (msg.place / Math.max(1, msg.of)) * Math.PI * 2 };
 }
 function stepReel() {
@@ -10606,6 +10608,9 @@ function stepReel() {
   const px = r.x + Math.cos(a) * r.r, py = r.y + Math.sin(a) * r.r;
   if (px !== me.x || py !== me.y) me.facing = Math.atan2(px - me.x, py - me.y);
   me.x = px; me.y = py;
+  // the tune comes round again for as long as the ring does
+  const bar = Math.floor((r.done + performance.now() - r.t0) / 9000);
+  if (bar !== (r.bar || 0) && u < 0.9) { r.bar = bar; if (typeof playSfx === 'function') playSfx('reel_trump'); }
   const v = visuals[myId];
   if (v) v.emoteYOff = Math.abs(Math.sin(performance.now() * 0.011)) * 6; // a skipping step
   return true;
@@ -10647,6 +10652,7 @@ function startBroomRide(tx, ty, ms) {
   const broom = KK.staticInstance ? KK.staticInstance('wd_besom', 96, 'height') : null;
   if (broom) { broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); }
   broomRide = { t0: performance.now(), ms, fx, fy, tx, ty, broom, side: Math.random() < 0.5 ? -1 : 1 };
+  if (typeof playSfx === 'function') playSfx('besom_ride');
   cameraYawOffset = 0;
   me.x = fx; me.y = fy; me.facing = Math.atan2(tx - fx, ty - fy);
   stepBroomRide();

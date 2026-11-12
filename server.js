@@ -9076,11 +9076,11 @@ const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, coun
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
 const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload,
-  noteRound: (p) => { if (daybook.note(p, 'balefires')) send(p.ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook: the round of the balefires.' }); saveAccounts(); } });
+  noteRound: (p) => { if (daybook.note(p, 'balefires')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the round of the balefires.' }); saveAccounts(); } });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
 // the two side goals): lib/dungeonFinds.js. Nothing of it is saved.
 const dungeonFinds = require('./lib/dungeonFinds')({ players, send, grantLoot, grantXP, rollPendingLoot, LOOT_TABLES, inventoryStatePayload, absorbIncomingDamage, noteAttacked,
-  noteRare: (p, kind) => { if (daybook.note(p, 'rare:' + kind)) { send(p.ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook.' }); } saveAccounts(); },
+  noteRare: (p, kind) => { if (daybook.note(p, 'rare:' + kind)) { send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook.' }); } saveAccounts(); },
   delveRunsByRoom: delveMod.delveRunsByRoom, delveFloorTier: delveMod.delveFloorTier, playerMaxHealth });
 const { delveRuns, delveRunsByRoom, weeklyDelveMods, delveBoonContrib, delveTakenMult, delveMendingBonus, delveStart, delveLeave, tickDelves, noteDelveKill, delveMenuPayload, delveRunOf, allDelveMobs, delveSpawnFloor, delveStatePayloadFor, delveBroadcast, DELVE_MODS, DELVE_BOONS } = delveMod;
 
@@ -14995,7 +14995,7 @@ wss.on('connection', (ws, req) => {
       send(ws, { type: 'dungeon_entered', tier, room, spawn: { x: sp.x, y: sp.y }, level: prog.level, affixes: dungeonAffixPublic() });
       dungeonFinds.onEnter(player, { fresh: true });
       for (const who of [player, ...partyMembers]) sendWandererRecord(who);
-      { const w = wandererOf(room); if (w && !w.dead) for (const who of [player, ...partyMembers]) send(who.ws, { type: 'toast', level: 'important', always: true, message: wandererWarning(w) }); }
+      { const w = wandererOf(room); if (w && !w.dead) for (const who of [player, ...partyMembers]) send(who.ws, { type: 'toast', level: 'important', always: true, sfx: w.mobType, message: wandererWarning(w) }); }
       noteMilestone(player, 'delve');
       for (const member of partyMembers) {
         member.dungeonReturnRoom = member.room || 'outside';
@@ -16570,8 +16570,8 @@ wss.on('connection', (ws, req) => {
       const firstTime = msg.way !== 'reel' && !['back', 'shed'].includes(String(msg.action)) && daybook.noteWay(player, String(msg.way || ''));
       saveAccounts(); saveInventories(); saveBankAccounts();
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'toast', level: 'important', always: true, message: out.toast });
-      if (firstTime) send(ws, { type: 'toast', level: 'routine', message: '📖 Written in your daybook.' });
+      send(ws, { type: 'toast', level: 'important', always: true, message: out.toast, ...(out.sfx ? { sfx: out.sfx } : {}) });
+      if (firstTime) send(ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook.' });
       if (out.touched && out.touched.ws) send(out.touched.ws, { type: 'toast', level: 'important', always: true, message: out.touchedToast });
       if (out.flight) {
         // The broom carries her: the server moves her and tells her client where it set her down.
