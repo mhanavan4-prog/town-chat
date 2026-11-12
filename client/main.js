@@ -461,6 +461,7 @@ const KK = (() => {
     dg_wall: 'kk/home/cave_wall.glb', dg_stalag: 'kk/home/stalagmites.glb', dg_column: 'kk/home/rock_column.glb', dg_door: 'kk/home/door_props.glb',
     dg_chest: 'kk/home/chest.glb', dg_chest_open: 'kk/home/chest_open.glb', dg_cache: 'kk/home/cache.glb', dg_ore: 'kk/home/ore_vein.glb',
     dg_spikes: 'kk/home/spike_plate.glb', dg_vent: 'kk/home/gas_vent.glb', dg_rockfall: 'kk/home/rockfall.glb', dg_brazier: 'kk/home/brazier.glb', dg_seal: 'kk/home/seal_stone.glb',
+    dg_rare_marks: 'kk/home/rare_marks.glb', dg_rare_vault: 'kk/home/rare_vault.glb', dg_rare_vault_open: 'kk/home/rare_vault_open.glb', dg_rare_well: 'kk/home/rare_well.glb', // the rare rooms (data/rareRooms.js)
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
@@ -1443,6 +1444,7 @@ function onWsMessage(ev) {
     refreshMsUI();
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
+    if (msg.rareRooms) rareRoomCatalog = msg.rareRooms;
     if (msg.dungeonLayouts) {
       for (const k of Object.keys(msg.dungeonLayouts)) DUNGEON_LAYOUTS[k] = msg.dungeonLayouts[k];
       const one = DUNGEON_LAYOUTS[1];
@@ -3095,7 +3097,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest();
     return;
   }
-  if (msg.type === 'dungeon_finds') { applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
+  if (msg.type === 'dungeon_finds') { lastRareRoom = msg.rare || null; applyDungeonFinds(msg); showDungeonFindsHud(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
@@ -4235,6 +4237,8 @@ let myWardrobe = { purchased: [], chaptersDone: 0, dyesPurchased: [] };
 let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 
 // ── Session L state ──────────────────────────────────────────────────────────
+let rareRoomCatalog = {};         // kind -> { icon, name, how, tier, lore, source, note } (data/rareRooms.js)
+let lastRareRoom = null;          // the rare room of the dungeon or Delve floor you are in, from the last dungeon_finds
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
 let calendarState = null;           // { tourney, festival, bloodMoon, season, peddlerNextRotationAt }
@@ -10402,7 +10406,8 @@ function showDungeonFindsHud(msg) {
   const under = !!(me && String(me.room || '').startsWith('dungeon_'));
   if (!msg || !under) { el.classList.add('hidden'); document.body.classList.remove('findsHudUp'); return; }
   const g = msg.goals || {}, part = (icon, name, x) => (x && x.total ? `<span class="${x.complete ? 'dfDone' : ''}">${icon} ${name} ${x.complete ? '✓' : `${x.done}/${x.total}`}</span>` : '');
-  el.innerHTML = `<span>🗝️ ${msg.keys || 0}</span>${part('🔥', 'Braziers', g.braziers)}${part('💥', 'Seals', g.seals)}`;
+  const rr = msg.rare && rareRoomCatalog[msg.rare.kind];
+  el.innerHTML = `<span>🗝️ ${msg.keys || 0}</span>${part('🔥', 'Braziers', g.braziers)}${part('💥', 'Seals', g.seals)}${rr ? `<span class="${msg.rare.used ? 'dfDone' : ''}">${rr.icon} ${rr.name}</span>` : ''}`;
   el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
 }
 // Out in the Wilds the same line counts the day's balefires.
@@ -16654,6 +16659,21 @@ const _covenVoice = createCovenVoice({
 });
 
 // ── Dungeon lore plaques ─────────────────────────────────────────────────────
+// The rare room that is down here for now, if one is: what it is, and where it
+// comes from in the record (data/rareRooms.js).
+function plaqueRareRoom() {
+  let el = document.getElementById('plaqueRare');
+  if (!el) { el = document.createElement('div'); el.id = 'plaqueRare'; el.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14);text-align:left;font-size:13px;line-height:1.5'; document.getElementById('plaqueCloseBtn').before(el); }
+  el.textContent = '';
+  const r = lastRareRoom && rareRoomCatalog[lastRareRoom.kind];
+  if (!r) return;
+  const add = (text, css) => { const e = document.createElement('div'); e.textContent = text; if (css) e.style.cssText = css; el.appendChild(e); };
+  add(`${r.icon} For now, somewhere down here: ${r.name}`, 'font-weight:700;margin-bottom:4px');
+  add(r.how, 'opacity:.9;font-style:italic;margin-bottom:6px');
+  add(r.lore);
+  add(`${r.tier === 'record' ? 'In the record' : 'Folk tradition'} · ${r.source}`, 'opacity:.7;font-size:12px;margin-top:6px');
+  add(r.note, 'opacity:.85;font-size:12px;margin-top:4px');
+}
 function openPlaqueModal() {
   // The Weekly Delve is an instanced room (dungeon_delve_<n>) with no fixed
   // lore or boss — its plaque records this week's modifiers instead, so the
@@ -16668,6 +16688,8 @@ function openPlaqueModal() {
       ? "This week the dark bends to:\n\n" + mods.map(md => `${md.icon} ${md.name} — ${md.desc}`).join('\n')
       : 'No curse binds the dark this week — a clean descent.';
     document.getElementById('plaqueBoss').textContent = '';
+    { const w0 = document.getElementById('plaqueWanderer'); if (w0) w0.textContent = ''; }
+    plaqueRareRoom();
     document.getElementById('plaqueModal').classList.remove('hidden');
     return;
   }
@@ -16696,6 +16718,7 @@ function openPlaqueModal() {
     const rec = wandererRecord[w.key];
     add('div', rec ? `You have laid it ${rec.slain === 1 ? 'once' : rec.slain + ' times'}. You brought up ${w.keepsake.name}: it is on the shelf in your cottage.` : `You have not laid it yet. Whoever does brings up ${w.keepsake.name}.`, 'margin-top:8px;font-weight:600');
   }
+  plaqueRareRoom();
   document.getElementById('plaqueModal').classList.remove('hidden');
 }
 (function () {

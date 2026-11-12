@@ -2034,6 +2034,93 @@ def keep_claw():
     return m, None
 
 
+# ── Rare rooms (data/rareRooms.js): what stands in the middle of the chamber ──
+def _scratch(m, pts, y, glow=('#c8b070', '#fff0b0'), rad=0.012):
+    """A scratched line on the front face (y) of a slab, lit so it can be read in the dark."""
+    m.add(glowing(tube([(x, y, z) for (x, z) in pts], rad, sides=3, colors=glow)))
+
+
+def rare_marks():
+    """The Marked Chamber's stone: a standing slab cut all over with protection marks, doubled Vs, crossed lines, a box, a little maze, a daisy wheel."""
+    m = Model('rare_marks')
+    m.add(crag(1.0, 0.34, 1.5, seed=71, nx=6, nz=5))
+    m.add(blob(0.62, 0.36, 0.1, seg=8, rings=3, colors=ROCKP, jitter=0.2, seed=3).xf(None, (0, 0, 0.05)))
+    y = -0.2
+    # VV, twice
+    for (cx, cz, k) in ((-0.22, 1.08, 0.11), (0.2, 0.62, 0.09)):
+        _scratch(m, [(cx - 2 * k, cz + k), (cx - k, cz - k), (cx, cz + k), (cx + k, cz - k), (cx + 2 * k, cz + k)], y)
+    # crossed lines in a box
+    bx, bz, k = 0.2, 1.05, 0.1
+    _scratch(m, [(bx - k, bz - k), (bx + k, bz - k), (bx + k, bz + k), (bx - k, bz + k), (bx - k, bz - k)], y)
+    _scratch(m, [(bx - k, bz - k), (bx + k, bz + k)], y); _scratch(m, [(bx - k, bz + k), (bx + k, bz - k)], y)
+    # a daisy wheel: a ring and six petals
+    wx, wz, r = -0.2, 0.6, 0.13
+    _scratch(m, [(wx + r * math.cos(a), wz + r * math.sin(a)) for a in np.linspace(0, TAU, 13)], y, rad=0.009)
+    for i in range(3):
+        a = i * math.pi / 3
+        _scratch(m, [(wx + r * math.cos(a), wz + r * math.sin(a)), (wx - r * math.cos(a), wz - r * math.sin(a))], y, rad=0.008)
+    # a little maze: a squared spiral
+    sx, sz = 0.0, 0.28
+    _scratch(m, [(sx - 0.14, sz - 0.1), (sx + 0.14, sz - 0.1), (sx + 0.14, sz + 0.1), (sx - 0.1, sz + 0.1), (sx - 0.1, sz - 0.05), (sx + 0.09, sz - 0.05), (sx + 0.09, sz + 0.05), (sx - 0.04, sz + 0.05)], y, rad=0.009)
+    return m, '#ffe8a0'
+
+
+def _vault_stones(m, seed, skip_front):
+    r = np.random.default_rng(seed)
+    for ring, (rad, z, n) in enumerate(((0.4, 0.09, 9), (0.36, 0.25, 8), (0.28, 0.4, 7), (0.17, 0.53, 5), (0.0, 0.62, 1))):
+        for k in range(n):
+            a = TAU * k / n + ring * 0.4
+            if skip_front and ring < 3 and abs(((a + math.pi / 2 + math.pi) % TAU) - math.pi) < 0.75:
+                continue  # the stones of the front (-Y) are down
+            s = r.uniform(0.11, 0.15)
+            m.add(blob(s, s * 0.9, s * 0.62, seg=5, rings=3, colors=ROCKP, jitter=0.22, seed=seed + ring * 10 + k).xf(rz(a), (rad * math.cos(a), rad * math.sin(a), z)))
+
+
+def rare_vault():
+    """The Walled-Up Hoard, shut: a low beehive of piled stone, mortared with clay, sealed in a hurry."""
+    m = Model('rare_vault')
+    _vault_stones(m, 11, False)
+    m.add(trim(lathe([(0.0, 0.0), (0.3, 0.0), (0.26, 0.3), (0.12, 0.5), (0.0, 0.52)], sides=8, colors=('#3a3026', '#6a5a48'))))
+    return m, None
+
+
+def rare_vault_open():
+    """The Walled-Up Hoard, broken into: the front stones down, and inside a rotten cloth of green coin, a spoon and a ring."""
+    m = Model('rare_vault_open')
+    _vault_stones(m, 11, True)
+    m.add(trim(lathe([(0.0, 0.0), (0.27, 0.0), (0.2, 0.02), (0.0, 0.05)], sides=8, colors=('#1a1410', '#2e261e'))))
+    r = np.random.default_rng(5)
+    for k in range(5):   # the stones that came down, out in front
+        s = r.uniform(0.09, 0.13)
+        m.add(blob(s, s * 0.9, s * 0.6, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=90 + k).xf(rz(r.uniform(0, TAU)), (r.uniform(-0.35, 0.35), -0.5 - r.uniform(0, 0.25), s * 0.5)))
+    m.add(trim(blob(0.2, 0.16, 0.05, seg=7, rings=3, colors=('#4a3a2a', '#8a7458'), jitter=0.2)).xf(None, (0, -0.12, 0.05)))   # the cloth
+    for k in range(14):
+        a = r.uniform(0, TAU); d = r.uniform(0, 0.13)
+        m.add(glowing(lathe([(0.0, 0.0), (0.028, 0.0), (0.028, 0.008), (0.0, 0.008)], sides=7, colors=('#8a7a20', '#f0d860'))).xf(rz(a) @ ry(r.uniform(-0.5, 0.5)), (d * math.cos(a), -0.12 + d * math.sin(a), 0.09 + r.uniform(0, 0.04))))
+    m.add(trim(tube([(-0.12, -0.26, 0.09), (0.0, -0.27, 0.085), (0.07, -0.28, 0.09)], lambda u: 0.008 + 0.02 * max(0, u - 0.7) * 3, sides=5, colors=('#8a8a90', '#e0e0e8'))))   # the spoon
+    return m, '#ffe060'
+
+
+def rare_well():
+    """The Pin Well: a spring in a rough stone basin, its floor bright with bent pins, a rag or two on a stick beside it."""
+    m = Model('rare_well')
+    r = np.random.default_rng(31)
+    for k in range(11):
+        a = TAU * k / 11
+        s = r.uniform(0.12, 0.16)
+        m.add(blob(s, s * 0.85, s * 0.7, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=200 + k).xf(rz(a), (0.46 * math.cos(a), 0.46 * math.sin(a), 0.1)))
+    m.add(trim(lathe([(0.0, 0.03), (0.4, 0.03)], sides=12, colors=('#141c1c', '#24302e'), close_top=False)))
+    m.add(glowing(lathe([(0.0, 0.12), (0.38, 0.12)], sides=12, colors=('#3a6a78', '#a8e0e8'), close_top=False)))   # the water
+    for k in range(16):   # the pins, bent
+        a = r.uniform(0, TAU); d = r.uniform(0.02, 0.3); b = r.uniform(0, TAU)
+        x, y = d * math.cos(a), d * math.sin(a)
+        m.add(trim(tube([(x, y, 0.125), (x + 0.035 * math.cos(b), y + 0.035 * math.sin(b), 0.125), (x + 0.05 * math.cos(b + 1.1), y + 0.05 * math.sin(b + 1.1), 0.125)], 0.004, sides=3, colors=('#c0c0c8', '#ffffff'))))
+    m.add(trim(tube([(0.56, 0.2, 0.0), (0.58, 0.22, 0.5), (0.52, 0.2, 0.86)], 0.014, sides=5, colors=('#3a2a1a', '#7a5a3a'))))   # a thorn stick
+    for (z, col) in ((0.8, ('#8a2a2a', '#d05050')), (0.64, ('#c8c0a8', '#f8f0d8'))):
+        m.add(trim(tube([(0.53, 0.2, z), (0.5, 0.14, z - 0.06), (0.5, 0.1, z - 0.16)], lambda u: 0.02 - 0.012 * u, sides=4, colors=col)))
+    return m, '#a0e8f0'
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -2052,7 +2139,8 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'cave_wall': cave_wall, 'stalagmites': stalagmites, 'rock_column': rock_column, 'door_props': door_props, 'chest': chest_shut, 'chest_open': chest_open,
         'cache': cache, 'ore_vein': ore_vein, 'spike_plate': spike_plate, 'gas_vent': gas_vent, 'rockfall': rockfall, 'brazier': brazier, 'seal_stone': seal_stone,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
-        'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw}
+        'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
+        'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

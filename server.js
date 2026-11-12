@@ -8383,7 +8383,9 @@ const DUNGEON_RESPAWN_MS = 60 * 1000;
 const DUNGEON_ROOMS = { 1: 'dungeon_t1', 2: 'dungeon_t2', 3: 'dungeon_t3', 4: 'dungeon_t4' };
 
 // Dungeon engine (Session L) — extracted to lib/dungeons.js (Tier 3.4 Phase B).
-const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE, dungeonAffix });
+// In the Marked Chamber (data/rareRooms.js) nothing of the dungeon comes at you: to its creatures you are not there.
+const dungeonUnseen = (p) => isEvading(p) || dungeonFinds.sheltered(p);
+const dungeonsMod = require('./lib/dungeons')({ players, send, isEvading: dungeonUnseen, absorbIncomingDamage, noteAttacked, DUNGEON_ROOMS, DUNGEON_SIZE, dungeonAffix });
 const { dungeonTierForLevel, dungeonMobs, dungeonMobMaxHealth, nearestDungeonPlayer, resetDungeonRoom, tickDungeon, bossEngagedScale, bossEnrageMult, playersInRoom, DUNGEON_ENTRY_BY_TIER, DUNGEON_BOSS_RESPAWN_MS, PARTY_BOSS_HP_PER_ALLY, wandererOf, wandererSlain, wandererWarning } = dungeonsMod;
 
 // ── Weekly dungeon affixes / "keystones" (depth lever #1) ────────────────────
@@ -9056,7 +9058,7 @@ setInterval(() => {
 const parties = new Map();
 const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
-const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth,
+const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading: dungeonUnseen, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth,
   noteDelveFloor: (run, fresh) => { for (const pid of run.members.keys()) { const p = players.get(pid); if (p) dungeonFinds.onEnter(p, { fresh }); } } });
 // The Old Ways (data/oldWays.js, lib/oldWays.js): the besom, the poppet,
 // lead-pouring, the bees, the brownie, sin-eating, the toad-bone.
@@ -11866,6 +11868,7 @@ wss.on('connection', (ws, req) => {
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
+        rareRooms: require('./data/rareRooms').RARE_ROOMS,
         dungeonLayouts: DUNGEON_LAYOUTS,
         calendar: calendarPublicState(),
         delveMods: weeklyDelveMods(Date.now()).map(mid => ({ id: mid, ...DELVE_MODS[mid] })),
