@@ -407,6 +407,22 @@
  "new": true,
  "duration_seconds": 0.7,
  "prompt": "One thick page of an old handmade paper book turned over: a single soft dry rustle and the page settling flat. Very close and quiet. No music, no voice."
+},
+{
+ "id": "candle_follow",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 4.0,
+ "prompt": "Following a small ghostly light down a lonely road at night: a very quiet steady high glassy shimmer, like a wet fingertip circling the rim of a wine glass, wavering slightly, with a faint cold breath of wind under it and nothing else. Soft, thin, hushed, even from start to finish so it can repeat. No music, no voice, no bells, no footsteps."
+},
+{
+ "id": "glory_out",
+ "category": "dungeon",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 1.6,
+ "prompt": "A tallow candle held in a dead hand guttering out underground: the flame sputters twice with small wet crackles, goes out with a soft puff, a thin hiss of greasy smoke, and then somewhere close several things shift and scrape on stone as they begin to move again. Cold stone room. No music, no voice."
 }
  ],
   "_optional_candidates": [

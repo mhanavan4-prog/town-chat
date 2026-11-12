@@ -21,9 +21,10 @@ const WHERE = {
   besom_bind: 'lib/oldWays.js', poppet_bind: 'lib/oldWays.js', lead_pour: 'lib/oldWays.js', bees_tell: 'lib/oldWays.js', brownie_cream: 'lib/oldWays.js',
   sin_eat: 'lib/oldWays.js', toad_bone: 'lib/oldWays.js', hare_back: 'lib/oldWays.js', reel_done: 'lib/oldWays.js',
   wanderer_laid: 'server.js', page_turn: 'client/oldways.js',
+  candle_follow: 'client/main.js', glory_out: 'lib/oldWays.js',
 };
 const IDS = Object.keys(WHERE);
-check('twenty-six more, each with a prompt and a length, and each saying no music', IDS.length === 26 && IDS.every((id) => byId[id] && byId[id].prompt.length > 80 && byId[id].duration_seconds >= 0.5 && byId[id].duration_seconds <= 4 && /No music|no voice|No other instruments/i.test(byId[id].prompt)), IDS.filter((id) => !byId[id]));
+check('twenty-eight more, each with a prompt and a length, and each saying no music', IDS.length === 28 && IDS.every((id) => byId[id] && byId[id].prompt.length > 80 && byId[id].duration_seconds >= 0.5 && byId[id].duration_seconds <= 4 && /No music|no voice|No other instruments/i.test(byId[id].prompt)), IDS.filter((id) => !byId[id]));
 check('no id is in the manifest twice', new Set(manifest.sfx.map((e) => e.id)).size === manifest.sfx.length);
 const missing = IDS.filter((id) => !new RegExp("'" + id + "'").test(read(WHERE[id])));
 check('each is played from where the thing happens', missing.length === 0, missing);

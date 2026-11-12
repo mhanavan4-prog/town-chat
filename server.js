@@ -8232,10 +8232,7 @@ function tickWilds(dt) {
         vy = Math.cos(a.wanderAngle) * ANIMAL_WANDER_SPEED;
       }
     }
-    const nx = a.x + vx * dt, ny = a.y + vy * dt;
-    if (vx !== 0 && nx > margin && nx < WORLD2.width - margin) a.x = nx;
-    if (vy !== 0 && ny > margin && ny < WORLD2.height - margin) a.y = ny;
-    if (vx !== 0 || vy !== 0) a.facing = Math.atan2(vx, vy);
+    wildsWalk(a, vx, vy, dt, Date.now(), margin); // round houses and stones, like everything else out here
   }
 
   const now = Date.now();
