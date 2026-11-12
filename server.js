@@ -1821,6 +1821,8 @@ setInterval(() => {
 
 const ROOM_IDS = new Set(['outside', 'wilds', ...WORLD.buildings.map(b => b.id)]);
 ['dungeon_t1', 'dungeon_t2', 'dungeon_t3', 'dungeon_t4', 'witch_cave', 'bank_vault', 'ember_wastes', 'ember_refuge', 'manor', 'cottage', 'crypt'].forEach(r => ROOM_IDS.add(r));
+// the Wildlands Village's opened buildings (data/villageHouses.js): one room each
+Object.keys(require('./data/villageHouses').HOUSE_BY_ROOM).forEach(r => ROOM_IDS.add(r));
 // Open-air areas share the global WORLD channel; every other room is an
 // interior with its own private, occupants-only chat tab (see the 'chat'
 // handler + room backlog replay). A "building room" is any known room that
@@ -9077,6 +9079,24 @@ const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, coun
   findBoss: (p, range) => [...dungeonMobs, ...allDelveMobs()].find((m) => m.boss && !m.dead && m.room === p.room && Math.hypot(m.x - p.x, m.y - p.y) <= range) || null,
   bossName: (m) => (DUNGEON_MOB_TYPES[m.mobType] ? DUNGEON_MOB_TYPES[m.mobType].name : 'the boss') });
 // Out in the Wilds: caches under cairns, and six balefires to light in a day (lib/wildsFinds.js).
+// The Wildlands Village's opened buildings (data/villageHouses.js, lib/villageHouses.js).
+// What the moot board says is gathered here, from the things that know it.
+function mootBoardLines(player) {
+  const lines = [], t = Date.now();
+  const walking = [1, 2, 3, 4].map((n) => wandererOf(DUNGEON_ROOMS[n])).filter((w) => w && !w.dead);
+  lines.push(walking.length ? walking.map((w) => `🕯️ ${DUNGEON_MOB_TYPES[w.mobType].name} is walking ${DUNGEON_LORE[w.tier].name.replace(/^The /, 'the ')}.`).join('\n') : '🕯️ Nothing is walking under the hills that anybody here has seen.');
+  const rooms = [1, 2, 3, 4].map((n) => ({ n, r: dungeonFinds.rareOf(dungeonFinds.placeOf(DUNGEON_ROOMS[n])) })).filter((x) => x.r);
+  const RR = require('./data/rareRooms').RARE_ROOMS;
+  lines.push(rooms.length ? rooms.map((x) => `${RR[x.r.kind].icon} ${RR[x.r.kind].name} is open in ${DUNGEON_LORE[x.n].name.replace(/^The /, 'the ')}, for ${Math.max(1, Math.ceil((x.r.until - t) / 60000))} minutes more.`).join('\n') : '✴️ No rare room is open below just now.');
+  try { const m = moonPhaseWindow(t); lines.push(`${m.glyph} The moon: ${m.name}${m.key === 'waxing_crescent' ? '. A night to turn your silver.' : m.isFull ? '. A reel danced tonight counts double.' : '.'}`); } catch (e) { /* no moon, no line */ }
+  try { const s = seasonWindow(t); if (s && s.name) lines.push(`${s.glyph || '🎡'} The season: ${s.name}${s.epithet ? ', ' + s.epithet : ''}.`); } catch (e) { /* noop */ }
+  const call = oldWays.callOf(player);
+  if (call) lines.push(`📯 ${call.by} has called your coven to the stones ${call.from > t ? 'at nightfall' : 'tonight'}.`);
+  lines.push(isNightNow() ? '🌙 It is night: the besom will fly, and the reel can be danced.' : '☀️ It is day. Night is the time for the besom and the reel.');
+  return lines;
+}
+const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
+
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
 const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload,
@@ -11008,6 +11028,7 @@ function roomBounds(room) {
   if (room === 'wilds') return WORLD2;
   if (room === 'witch_cave') return { width: 800, height: 700 };
   if (room === 'crypt') return { width: 640, height: 560 };
+  { const vh = require('./data/villageHouses').HOUSE_BY_ROOM[room]; if (vh) return { width: vh.width, height: vh.height }; }
   if (room === 'manor') return MANOR_INTERIOR;
   if (room === 'cottage') return COTTAGE_INTERIOR;
   if (room === 'bank_vault') return VAULT_WORLD_DIMS;
@@ -11896,6 +11917,7 @@ wss.on('connection', (ws, req) => {
         // Session L: the named dungeons' lore, the event calendar, this
         // week's Delve twists, and whether web push is available here.
         dungeonLore: DUNGEON_LORE,
+        villageHouses: require('./data/villageHouses').VILLAGE_HOUSES,
         rareRooms: require('./data/rareRooms').RARE_ROOMS,
         dungeonLayouts: DUNGEON_LAYOUTS,
         calendar: calendarPublicState(),
@@ -12536,7 +12558,8 @@ wss.on('connection', (ws, req) => {
       // account requires actually being in the Bank — a crafted client can't
       // bank from the far side of town. (Buildings you're already inside are
       // the server's proximity truth; movement itself stays client-trusted.)
-      if (player.room !== 'bank') {
+      // …or in the Tithe Barn out in the Wilds, whose ledger is the bank's own (data/villageHouses.js)
+      if (player.room !== 'bank' && player.room !== 'vh_barn') {
         send(ws, { type: 'bank_error', message: 'Step up to the teller inside the Bank to open your account.' });
         return;
       }
@@ -15866,6 +15889,11 @@ wss.on('connection', (ws, req) => {
     // ── Crypts — step into any Wilds tomb and you're in the shared crypt room;
     // step out and you're back where you went in. The client gates the door to a
     // crypt's doorstep, so validation here is light (must be out in the Wilds).
+    // ── The village's opened buildings (data/villageHouses.js) ──
+    if (msg.type === 'vh_enter') { villageHouses.enter(player, String(msg.id || '')); return; }
+    if (msg.type === 'vh_exit') { villageHouses.exit(player); return; }
+    if (msg.type === 'vh_use') { villageHouses.use(player, String(msg.spot || '')); return; }
+
     if (msg.type === 'enter_crypt') {
       if (player.room !== 'wilds' || player.isDead) return;
       player.cryptReturnX = player.x;

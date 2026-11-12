@@ -34,6 +34,7 @@ import createPractices from './practices.js';
 import createOldWays from './oldways.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createWildsSeason, { wildsSeasonFor } from './wilds-season.js';
+import createVillageHouse from './village-house.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -1446,6 +1447,7 @@ function onWsMessage(ev) {
     // ── Session L: dungeon lore, the calendar, delve twists, push ──
     if (msg.dungeonLore) dungeonLoreCatalog = msg.dungeonLore;
     if (msg.rareRooms) rareRoomCatalog = msg.rareRooms;
+    if (msg.villageHouses) { villageHouseCatalog = msg.villageHouses; for (const h of Object.values(villageHouseCatalog)) VH_WORLDS[h.id] = { width: h.width, height: h.height, buildings: [], spawn: h.spawn }; }
     if (msg.dungeonLayouts) {
       for (const k of Object.keys(msg.dungeonLayouts)) DUNGEON_LAYOUTS[k] = msg.dungeonLayouts[k];
       const one = DUNGEON_LAYOUTS[1];
@@ -1504,7 +1506,7 @@ function onWsMessage(ev) {
       // Reconnect: scene is already built. Reset the view to the town map
       // first — a resumed player gets swapped back into their restored
       // room just below, and a plain rejoin really is back at the spawn.
-      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === refugeScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene || activeScene === cottageScene || activeScene === cryptScene) {
+      if (mode === 'indoor' || activeScene === wildsScene || activeScene === dungeonScene || activeScene === emberScene || activeScene === refugeScene || activeScene === caveScene || activeScene === vaultScene || activeScene === manorScene || activeScene === cottageScene || activeScene === cryptScene || activeScene === vhScene) {
         mode = 'outdoor';
         currentRoom = 'outside';
         swapToTownMap();
@@ -2967,6 +2969,29 @@ function onWsMessage(ev) {
     if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
     swapToWildsMap();
     setUnlockToast('You leave the Witch\'s cave.');
+    return;
+  }
+
+  // ── The village's opened buildings (data/villageHouses.js) ──
+  if (msg.type === 'vh_entered') {
+    const h = villageHouseCatalog[msg.id];
+    if (me && h) { me.room = h.room; me.x = msg.spawn.x; me.y = msg.spawn.y; me.facing = Math.PI; swapToVillageHouse(h.id); setUnlockToast(`${h.icon} ${h.name}. ${h.blurb}`); }
+    return;
+  }
+  if (msg.type === 'vh_exited') {
+    if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; me.facing = 0; }
+    swapToWildsMap();
+    return;
+  }
+  if (msg.type === 'vh_board') {
+    // the moot board and the look-out both speak through the plaque's frame
+    document.getElementById('plaqueTitle').textContent = msg.title || '';
+    document.getElementById('plaqueEpithet').textContent = msg.epithet || '';
+    const txt = document.getElementById('plaqueText');
+    txt.style.whiteSpace = 'pre-line'; txt.textContent = (msg.lines || []).join('\n\n');
+    document.getElementById('plaqueBoss').textContent = '';
+    for (const id of ['plaqueWanderer', 'plaqueRare']) { const e = document.getElementById(id); if (e) e.textContent = ''; }
+    document.getElementById('plaqueModal').classList.remove('hidden');
     return;
   }
 
@@ -7315,7 +7340,7 @@ function raycastGroundAt(clientX, clientY) {
 // for whatever room the player is currently in, so a ground click can be
 // sent to the server in the same coordinate space player.x/y already use.
 function sceneToWorldPos(room, sceneX, sceneZ) {
-  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'ember_refuge' || room === 'manor' || room === 'cottage' || room === 'crypt' || !world) {
+  if (room === 'outside' || room === 'wilds' || (typeof room === 'string' && room.startsWith('dungeon_')) || room === 'witch_cave' || room === 'bank_vault' || room === 'ember_wastes' || room === 'ember_refuge' || room === 'manor' || room === 'cottage' || room === 'crypt' || isVHRoom(room) || !world) {
     return { x: sceneX, y: sceneZ };
   }
   const b = world.buildings.find(bb => bb.id === room);
@@ -7368,6 +7393,7 @@ function sceneForRoom(room) {
   if (room === 'wilds') return wildsScene || null;
   if (room === 'witch_cave') return caveScene || null;
   if (room === 'crypt') return cryptScene || null;
+  if (isVHRoom(room)) { const b = _villageHouse.built[vhIdOf(room)]; return b ? b.scene : null; }
   if (room === 'manor') return manorScene || null;
   if (room === 'cottage') return cottageScene || null;
   if (room === 'bank_vault') return vaultScene || null;
@@ -9241,7 +9267,7 @@ function setActiveContext(sceneObj, cameraObj, interiorRecord) {
 }
 
 function getRenderPos(p) {
-  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'ember_refuge' || p.room === 'manor' || p.room === 'cottage' || p.room === 'crypt' || !world) return { x: p.x, z: p.y };
+  if (p.room === 'outside' || p.room === 'wilds' || (p.room && p.room.startsWith('dungeon_')) || p.room === 'witch_cave' || p.room === 'bank_vault' || p.room === 'ember_wastes' || p.room === 'ember_refuge' || p.room === 'manor' || p.room === 'cottage' || p.room === 'crypt' || isVHRoom(p.room) || !world) return { x: p.x, z: p.y };
   const b = world.buildings.find(bb => bb.id === p.room);
   if (!b) return { x: p.x, z: p.y };
   return { x: (p.x - b.x) * INDOOR_SCALE, z: (p.y - b.y) * INDOOR_SCALE };
@@ -9253,6 +9279,7 @@ function contextMatches(room) {
   if (activeScene === wildsScene) return room === 'wilds';
   if (activeScene === caveScene) return room === 'witch_cave';
   if (activeScene === cryptScene) return room === 'crypt';
+  if (vhScene && activeScene === vhScene) return !!me && room === me.room;
   if (activeScene === manorScene) return room === 'manor';
   if (activeScene === cottageScene) return room === 'cottage';
   if (activeScene === vaultScene) return room === 'bank_vault';
@@ -11489,6 +11516,33 @@ function enterCrypt() {
 
 function exitCrypt() {
   ws.send(JSON.stringify({ type: 'exit_crypt' }));
+}
+
+// ── The Wildlands Village's opened buildings (client/village-house.js). One
+// room each; vhScene is whichever you are in. What they are comes from the
+// server on joining (data/villageHouses.js).
+let villageHouseCatalog = {};     // id -> { room, name, door, width, height, spawn, spots, … }
+const VH_WORLDS = {};             // id -> { width, height, buildings: [], spawn }
+let vhScene = null, vhId = null;
+const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture });
+function isVHRoom(room) { return typeof room === 'string' && room.startsWith('vh_'); }
+function vhIdOf(room) { for (const h of Object.values(villageHouseCatalog)) if (h.room === room) return h.id; return null; }
+function vhKiosks() {
+  const h = villageHouseCatalog[vhId];
+  if (!h) return [];
+  return [{ x: h.width / 2, z: h.height - 40, portal: 'vh_exit', radius: 80 }, ...h.spots.map((s) => ({ x: s.x, z: s.y, vhSpot: s.id, hint: s.hint, radius: 110 }))];
+}
+function swapToVillageHouse(id) {
+  const h = villageHouseCatalog[id];
+  if (!h) return;
+  let b = null;
+  try { b = _villageHouse.build(h); } catch (e) { console.error('village house build failed:', e); }
+  if (!b) return;
+  vhScene = b.scene; vhId = id;
+  world = VH_WORLDS[id];
+  walls = [];
+  cameraYawOffset = 0; cameraPitchOffset = 0;
+  setActiveContext(vhScene, b.camera, null);
 }
 
 // A small room behind the Bank's vault door — piles of coins, gold bars,
@@ -14065,6 +14119,7 @@ function exitRefuge() {
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
 const { buildWildsScene, applyWildsFinds } = createWildsScene({
+  getVillageHouses: () => villageHouseCatalog,
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
@@ -16039,7 +16094,7 @@ function updateCamera(dt) {
   // Cave uses indoor camera params — the room is small enough that outdoor back=165 clips through the south wall.
   const cam = (activeScene === manorScene && !seatedAt) ? MANOR_CAM
             : (activeScene === cottageScene && !seatedAt) ? COTTAGE_CAM
-            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene && activeScene !== cottageScene && activeScene !== cryptScene) ? OUTDOOR_CAM
+            : (mode === 'outdoor' && activeScene !== caveScene && activeScene !== vaultScene && activeScene !== manorScene && activeScene !== cottageScene && activeScene !== cryptScene && activeScene !== vhScene) ? OUTDOOR_CAM
             : (seatedAt ? INDOOR_SEATED_CAM : INDOOR_CAM);
   const dirX = -Math.sin(f), dirZ = -Math.cos(f); // unit vector pointing from the player back toward the camera
 
@@ -16064,6 +16119,7 @@ function updateCamera(dt) {
   else if (activeScene === cottageScene) { roomW = COTTAGE_WORLD.width; roomD = COTTAGE_WORLD.height; }
   else if (activeScene === caveScene)  { roomW = CAVE_WORLD.width;  roomD = CAVE_WORLD.height; }
   else if (activeScene === cryptScene) { roomW = CRYPT_WORLD.width; roomD = CRYPT_WORLD.height; }
+  else if (vhScene && activeScene === vhScene && VH_WORLDS[vhId]) { roomW = VH_WORLDS[vhId].width; roomD = VH_WORLDS[vhId].height; }
   else if (activeScene === vaultScene) { roomW = VAULT_WORLD.width; roomD = VAULT_WORLD.height; }
   if (roomW) {
     const margin = 16;
@@ -16228,6 +16284,7 @@ function findNearestKiosk() {
   // activeScene !== caveScene, but me.room is already 'witch_cave'.
   if (me.room === 'witch_cave') return nearestKioskIn(CAVE_KIOSKS, me.x, me.y);
   if (me.room === 'crypt') return nearestKioskIn(CRYPT_KIOSKS, me.x, me.y);
+  if (isVHRoom(me.room)) return nearestKioskIn(vhKiosks(), me.x, me.y);
   if (me.room === 'bank_vault') return nearestKioskIn(VAULT_KIOSKS, me.x, me.y);
   if (me.room === 'ember_wastes') return nearestKioskIn(EMBER_KIOSKS, me.x, me.y);
   if (me.room === 'ember_refuge') return nearestKioskIn(REFUGE_KIOSKS, me.x, me.y);
@@ -18980,6 +19037,9 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
   if (kiosk && kiosk.portal === 'crypt_enter') { enterCrypt(); return; }
   if (kiosk && kiosk.portal === 'crypt_exit') { exitCrypt(); return; }
+  if (kiosk && kiosk.portal === 'vh_enter') { ws.send(JSON.stringify({ type: 'vh_enter', id: kiosk.vhId })); return; }
+  if (kiosk && kiosk.portal === 'vh_exit') { ws.send(JSON.stringify({ type: 'vh_exit' })); return; }
+  if (kiosk && kiosk.vhSpot) { if (kiosk.vhSpot === 'store') openBankModal(); else ws.send(JSON.stringify({ type: 'vh_use', spot: kiosk.vhSpot })); return; }
   if (kiosk && kiosk.portal === 'manor_enter') { enterManor(); return; }
   if (kiosk && kiosk.portal === 'manor_exit') { exitManor(); return; }
   if (kiosk && kiosk.portal === 'cottage_exit') { exitCottage(); return; }
@@ -19190,6 +19250,11 @@ function updateInteractHint() {
   if (kiosk && kiosk.portal === 'crypt_enter') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} enter the crypt`;
+    return;
+  }
+  if (kiosk && (kiosk.portal === 'vh_enter' || kiosk.portal === 'vh_exit' || kiosk.vhSpot)) {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${kiosk.portal === 'vh_enter' ? 'go into ' + kiosk.npcName : kiosk.portal === 'vh_exit' ? 'go out to the village' : kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.portal === 'crypt_exit') {
@@ -19818,7 +19883,7 @@ function updateOutdoor(stepX, stepY) {
   // nothing useful (world.buildings is empty there) and at worst stomp
   // me.room back to 'outside' every frame via the unconditional set at the
   // bottom of the town path.
-  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || world === COTTAGE_WORLD || world === CRYPT_WORLD || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor' || me.room === 'cottage' || me.room === 'crypt') {
+  if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || world === COTTAGE_WORLD || world === CRYPT_WORLD || isVHRoom(me.room) || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor' || me.room === 'cottage' || me.room === 'crypt') {
     // If you're already overlapping a collider (e.g. you placed furniture right
     // where you stand), don't lock up — let the move through so you can walk out.
     const stuck = collides(me.x, me.y);
@@ -19834,8 +19899,9 @@ function updateOutdoor(stepX, stepY) {
     const inManor = world === MANOR_WORLD || me.room === 'manor';
     const inCottage = world === COTTAGE_WORLD || me.room === 'cottage';
     const inCrypt = world === CRYPT_WORLD || me.room === 'crypt';
-    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inRefuge ? REFUGE_WORLD.width : inManor ? MANOR_WORLD.width : inCottage ? COTTAGE_WORLD.width : inCrypt ? CRYPT_WORLD.width : world.width;
-    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : inCottage ? COTTAGE_WORLD.height : inCrypt ? CRYPT_WORLD.height : world.height;
+    const inVH = isVHRoom(me.room) && VH_WORLDS[vhId];
+    const boundsW = inCave ? CAVE_WORLD.width : inVault ? VAULT_WORLD.width : inEmber ? EMBER_WORLD.width : inRefuge ? REFUGE_WORLD.width : inManor ? MANOR_WORLD.width : inCottage ? COTTAGE_WORLD.width : inCrypt ? CRYPT_WORLD.width : inVH ? VH_WORLDS[vhId].width : world.width;
+    const boundsH = inCave ? CAVE_WORLD.height : inVault ? VAULT_WORLD.height : inEmber ? EMBER_WORLD.height : inRefuge ? REFUGE_WORLD.height : inManor ? MANOR_WORLD.height : inCottage ? COTTAGE_WORLD.height : inCrypt ? CRYPT_WORLD.height : inVH ? VH_WORLDS[vhId].height : world.height;
     me.x = Math.max(PLAYER_R, Math.min(boundsW - PLAYER_R, me.x));
     me.y = Math.max(PLAYER_R, Math.min(boundsH - PLAYER_R, me.y));
     // One mutually-exclusive chain: each sub-room claims me.room, and the final
@@ -19846,6 +19912,7 @@ function updateOutdoor(stepX, stepY) {
     // hid the player's own body (contextMatches read room 'wilds' in caveScene).
     if (inCave) { me.room = 'witch_cave'; }
     else if (inCrypt) { me.room = 'crypt'; }
+    else if (inVH) { /* a village room: me.room is already its own */ }
     else if (inVault) { me.room = 'bank_vault'; }
     else if (inEmber) { me.room = 'ember_wastes'; }
     else if (inRefuge) { me.room = 'ember_refuge'; }
@@ -20485,6 +20552,7 @@ function restoreSceneForRoom(room) {
   if (room === 'wilds') { swapToWildsMap(); maybeUpdateRoomUI('wilds'); return; }
   if (room === 'witch_cave') { swapToCaveMap(); maybeUpdateRoomUI(room); return; }
   if (room === 'crypt') { swapToCryptMap(); maybeUpdateRoomUI(room); return; }
+  if (isVHRoom(room)) { const id = vhIdOf(room); if (id) swapToVillageHouse(id); maybeUpdateRoomUI(room); return; }
   if (room === 'bank_vault') { swapToVaultMap(); maybeUpdateRoomUI(room); return; }
   if (room === 'ember_wastes') { swapToEmberMap(); maybeUpdateRoomUI(room); return; }
   if (room === 'ember_refuge') { swapToRefugeMap(); maybeUpdateRoomUI(room); return; }

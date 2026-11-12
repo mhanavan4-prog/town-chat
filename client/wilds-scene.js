@@ -11,7 +11,7 @@ import { makeCountlessRing } from './props-countless.js';
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 
-export default function createWildsScene({ KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
 let wildsFinds = {}, lastWildsFinds = null;
 function applyWildsFinds(msg) {
@@ -544,6 +544,12 @@ function addVillageBuildings(scene) {
   placeSolid('bld_arcade', VX + 640, VZ + 560, 375, -0.35, 'fit');        // Cottage B (red, far SE)
   placeSolid('prop_stall', VX + 330, VZ + 330, 220, -Math.PI / 2, 'fit', 0.7); // Market stall (semi-open; tighter collider so you can step to the counter)
   placeSolid('prop_well', VX, VZ + 360, 60, 0, 'fit');                    // Village well (front courtyard)
+  // The opened buildings (data/villageHouses.js): a door to stand at for each, and its name over it.
+  for (const h of Object.values(getVillageHouses ? getVillageHouses() : {})) {
+    WILDS_KIOSKS.push({ x: h.door.x, z: h.door.y, portal: 'vh_enter', vhId: h.id, npcName: h.name.replace(/^The /, 'the '), radius: 110 });
+    const s = makeSignSprite(`${h.icon} ${h.sign} — Press F`);
+    s.position.set(h.door.x, 96, h.door.y); scene.add(s);
+  }
 
   // ── The Artificer's forge-tower — the vampire lord now has a structure of his
   // own on a dedicated plot at the far east of the commons, instead of a throne
