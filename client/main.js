@@ -468,7 +468,7 @@ const KK = (() => {
     dg_rare_marks: 'kk/home/rare_marks.glb', dg_rare_vault: 'kk/home/rare_vault.glb', dg_rare_vault_open: 'kk/home/rare_vault_open.glb', dg_rare_well: 'kk/home/rare_well.glb', // the rare rooms (data/rareRooms.js)
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
-    wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', // the drove road east (data/droveRoad.js)
+    wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', wd_ghost_ox: 'kk/home/ghost_ox.glb', // the drove road east (data/droveRoad.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
     em_house_a: 'kk/home/ash_house_a.glb', em_house_b: 'kk/home/ash_house_b.glb', em_house_c: 'kk/home/ash_house_c.glb',
@@ -3152,6 +3152,7 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'drove_herd') { setDroveHerd(msg); return; }
   if (msg.type === 'drove_state') { droveDone = new Set(msg.done || []); return; }
   if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
@@ -10879,6 +10880,48 @@ function setCorpseCandle(msg) {
   const segs = []; let total = 0;
   for (let i = 0; i < msg.path.length - 1; i++) { const [ax, ay] = msg.path[i], [bx, by] = msg.path[i + 1]; const len = Math.hypot(bx - ax, by - ay); segs.push({ ax, ay, bx, by, len, at: total }); total += len; }
   corpseCandle = { parts: [halo, flame, core], segs, total, speed: msg.speed || 80, standMs: msg.standMs || 0, t0: performance.now(), sz };
+}
+// The last drove (lib/ghostDrove.js): pale cattle and their drover going west down the drove road
+// from the March gate. Drawn only for her who woke it; the server says where they go and how fast.
+let droveHerd = null;
+function setDroveHerd(msg) {
+  if (droveHerd) { for (const o of droveHerd.parts) if (o.parent) o.parent.remove(o); droveHerd = null; }
+  if (!msg.on || !wildsScene || !Array.isArray(msg.path) || msg.path.length < 2) return;
+  const ghost = (g) => { g.traverse((o) => { if (o.isMesh && !(o.material && o.material.userData && o.material.userData.ghost)) { const m = new THREE.MeshBasicMaterial({ color: 0xd8e8ff, transparent: true, opacity: 0.5, depthWrite: false, fog: false }); m.userData.ghost = true; o.material = m; o.castShadow = false; } }); return g; };
+  const parts = [], beasts = [];
+  for (let i = 0; i < (msg.beasts || 8); i++) {
+    let g = KK && KK.has && KK.has('wd_ghost_ox') ? KK.staticInstance('wd_ghost_ox', 105 + (i % 3) * 8, 'height') : null;
+    if (g) ghost(g);
+    else { g = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xcfe4ff, transparent: true, opacity: 0.5, depthWrite: false, fog: false })); g.scale.set(110, 70, 1); }
+    wildsScene.add(g); parts.push(g); beasts.push({ g, side: ((i * 37) % 5 - 2) * 18, bob: i * 1.7 });
+  }
+  let drover = null;
+  // the drover stands in a holder, since his body is swapped for the KayKit one when it loads (createStaticNpc)
+  try { const d = createStaticNpc(4); if (d && d.group) { drover = new THREE.Group(); drover.add(ghost(d.group)); wildsScene.add(drover); parts.push(drover); } } catch (e) { /* the herd goes without him */ }
+  const segs = []; let total = 0;
+  for (let i = 0; i < msg.path.length - 1; i++) { const [ax, ay] = msg.path[i], [bx, by] = msg.path[i + 1]; const len = Math.hypot(bx - ax, by - ay); segs.push({ ax, ay, bx, by, len, at: total }); total += len; }
+  droveHerd = { parts, beasts, drover, ghost, segs, total, speed: msg.speed || 100, standMs: msg.standMs || 0, spacing: msg.spacing || 70, t0: performance.now() };
+}
+function stepDroveHerd() {
+  const h = droveHerd;
+  if (!h) return;
+  const t = performance.now() - h.t0, lead = Math.max(0, t - h.standMs) / 1000 * h.speed;
+  const at = (d) => { const dd = Math.max(0, Math.min(h.total, d)); for (const s of h.segs) if (dd <= s.at + s.len) { const u = (dd - s.at) / s.len; return { x: s.ax + (s.bx - s.ax) * u, y: s.ay + (s.by - s.ay) * u, dx: (s.bx - s.ax) / s.len, dy: (s.by - s.ay) / s.len }; } const l = h.segs[h.segs.length - 1]; return { x: l.bx, y: l.by, dx: (l.bx - l.ax) / l.len, dy: (l.by - l.ay) / l.len }; };
+  const fade = Math.max(0, Math.min(1, t / 1500)) * Math.max(0, Math.min(1, (h.total + h.spacing * h.beasts.length - lead) / 200));
+  h.beasts.forEach((b, i) => {
+    const d = lead - i * h.spacing, p = at(d), hy = wildsHeightAt ? wildsHeightAt(p.x, p.y) : 0;
+    b.g.visible = d <= h.total + 40;
+    b.g.position.set(p.x - p.dy * b.side, hy + 4 + Math.sin(t * 0.004 + b.bob) * 3, p.y + p.dx * b.side);
+    if (!b.g.isSprite) b.g.rotation.y = Math.atan2(p.dx, p.dy) - Math.PI / 2;
+    b.g.traverse((o) => { if (o.material && o.material.opacity != null) o.material.opacity = 0.5 * fade; });
+  });
+  if (h.drover) {
+    const p = at(lead - h.beasts.length * h.spacing - 40), hy = wildsHeightAt ? wildsHeightAt(p.x, p.y) : 0;
+    h.drover.position.set(p.x, hy, p.y); h.drover.rotation.y = Math.atan2(p.dx, p.dy);
+    h.ghost(h.drover);   // a swapped-in body is made pale too
+    h.drover.traverse((o) => { if (o.material && o.material.opacity != null) o.material.opacity = 0.5 * fade; });
+  }
+  if (t > h.standMs + (h.total + h.spacing * h.beasts.length + 200) / h.speed * 1000 + 8000) setDroveHerd({ on: false }); // the server ends it; this is only in case its word is lost
 }
 function stepCorpseCandle() {
   const c = corpseCandle;
@@ -20612,6 +20655,7 @@ function update(dt) {
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
   stepCorpseCandle();
+  stepDroveHerd();
   const reeling = !riding && stepReel(); // in the reel the ring carries her
   if (riding || reeling) { /* no walking in the air, or out of the ring */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
@@ -21466,6 +21510,7 @@ if (location.search.includes('testdrive=1')) {
     // QA: hold the camera at (x, height, y) looking at (tx, theight, ty), in world coordinates; view() lets it go.
     view(x, h, y, tx, th, ty) { qaView = x == null ? null : [x, h, y, tx, th, ty]; return true; },
     ember() { enterEmberWastes(); },
+    herd() { const h = droveHerd; return h ? { beasts: h.beasts.length, sprites: h.beasts.filter((b) => b.g.isSprite).length, drover: !!h.drover, first: h.beasts[0].g.position.toArray().map(Math.round), visible: h.beasts[0].g.visible } : null; }, // QA: the last drove as drawn
     storm(settle) { if (settle) { _emberStorm.settle(); _emberStorm.settleNight(); } return { night: _emberStorm.night(), phase: _emberStorm.phase(), strength: _emberStorm.strength(), fogFar: emberScene && emberScene.fog ? emberScene.fog.far : null }; }, // QA: the ash storm as drawn // QA: through the temple portal (the server still decides whether it is open)
     walls() { return walls.map((w) => [Math.round(w.x), Math.round(w.y), Math.round(w.w), Math.round(w.h)]); }, // what is solid where she stands (for tools/wilds-solids)
     clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },

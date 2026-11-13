@@ -75,4 +75,29 @@ const STOPS = [
 ];
 const STOPS_BY_ID = Object.fromEntries(STOPS.map((s) => [s.id, s]));
 
-module.exports = { ROAD, GATE, STOPS, STOPS_BY_ID };
+// The last drove (lib/ghostDrove.js): some nights, when someone comes to the
+// March gate in the dark, a herd that is not there comes through it and goes
+// west down the road to the crossroads, pale beasts and a drover behind them.
+// Keep behind it and see it to the crossroads; get in among them and you are
+// knocked down; fall too far back and it is gone. Once a night each.
+const HERD = {
+  tier: 'folk',
+  path: [...ROAD.pts].reverse(),   // from the gate west to the crossroads
+  beasts: 8,
+  speed: 105,
+  standMs: 6000,       // they stand at the gate first: time to get off the road
+  wake: 260,           // how near the gate, by night, before they come
+  lose: 480, loseMs: 5000,
+  cross: 75,           // nearer than this to a beast is in among them
+  ahead: 110, beside: 120,
+  struck: 0.2,
+  xp: 70,
+  lore: [
+    'The best known herd that was not of this world is the one that went into Llyn y Fan Fach, a lake under the Black Mountain in Carmarthenshire. A young man of Blaensawdde married a woman who came out of the lake, and she brought her cattle with her out of the water. She warned him that if he struck her three times without cause she would go. When the third causeless blow fell she called her cattle by name, every one, and they rose and followed her back into the lake: the cows, the calves, the bull, and the four grey oxen that were ploughing, dragging the plough behind them. The furrow it cut up the hillside to the water was shown to visitors.',
+    'Her sons stayed, and she came back to teach them the use of herbs. They were said to be the Physicians of Myddfai, a line of real healers whose book of remedies survives from the fourteenth century.',
+  ],
+  source: 'W. Rees, The Physicians of Myddvai (1861), and John Rhys, Celtic Folklore, Welsh and Manx (1901), who took down the tale; the remedies are in the Red Book of Hergest.',
+  note: 'The story of the lake cattle is well recorded. A ghost drove going down a drove road is the game\'s own.',
+};
+
+module.exports = { ROAD, GATE, STOPS, STOPS_BY_ID, HERD };

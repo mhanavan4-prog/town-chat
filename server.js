@@ -8577,6 +8577,7 @@ setInterval(() => {
   ashminster.tick(players.values()); // sanctuary runs out, or is walked out of
   ashFolk.watch(players.values());   // someone has come back to Ashminster
   { const lit = corpseCandle.tick(players.values()); if (lit.length) saveAccounts(); } // the corpse candle on the road north
+  { const saw = ghostDrove.tick(players.values()); if (saw.length) saveAccounts(); } // the last drove, down the drove road from the March gate
   { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
   tickPactDots(now, dt); // pact damage-over-time (Cinderburn etc.)
@@ -9231,6 +9232,10 @@ const ashminster = require('./lib/ashminster')({ send,
 // Ashminster, living in (lib/ashFolk.js): the people who come back to the town as your own story there goes on.
 const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth, hasQuest: (p, npcId) => !!questForNpc(p, npcId),
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null });
+// The last drove: by night a pale herd comes through the March gate and down the drove road (lib/ghostDrove.js).
+const ghostDrove = require('./lib/ghostDrove')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
+  acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  noteHerd: (p) => { if (daybook.note(p, 'herd')) { const { HERD } = require('./data/droveRoad'); send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the last drove, seen to the crossroads.' }); send(p.ws, { type: 'vh_board', title: '🐄 The cattle that went into the lake', epithet: 'Folk tradition', lines: [...HERD.lore, `Source: ${HERD.source}`, HERD.note] }); } } });
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -18785,7 +18790,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad, ashFolk,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad, ashFolk, ghostDrove,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
