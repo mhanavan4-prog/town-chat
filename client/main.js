@@ -936,6 +936,7 @@ const ITEM_CATALOG = {
   flower_bloom:   { name: 'Flower',         icon: '🌸', slot: null, desc: 'It turns to face you when you look away.' },
   // Witchcraft reagents (Tier 3.5) — mirrored from server.js
   glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null, desc: 'Empty and waiting. Fill it and set it under a full moon, and the water remembers the light.' },
+  wind_knot:      { name: 'Knot of Wind',   icon: '🪢', slot: null, desc: 'A knot in a cord from Kirsty Halcrow at Ashminster, with a wind tied up in it. Loose it in an ash storm and the ash blows back off you for a minute.' },
   moon_water:     { name: 'Moon Water',     icon: '💧', slot: null, desc: 'Water charged under the full moon. Cool to the touch and faintly bright — the base of the strongest brews.' },
   moonwell_draught: { name: 'Moonwell Draught', icon: '💙', slot: null, desc: 'Moon water drawn through healing herb. The deepest mending a cauldron can hold (heals 120 HP).' },
   salt: { name: 'Salt', icon: '🧂', slot: null, desc: 'Blessed salt for a protective circle. Use it to lift any curse on you and turn aside the next for a time.' },
@@ -3158,6 +3159,13 @@ function onWsMessage(ev) {
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
   if (msg.type === 'ring_state') { ringState = msg; return; }
   if (msg.type === 'ember_storm') { _emberStorm.apply(msg); return; }
+  if (msg.type === 'wind_knot') { _emberStorm.clear(msg.ms || 60000); return; }
+  if (msg.type === 'ash_folk') {   // who has come back to Ashminster, for you (lib/ashFolk.js)
+    ashFolkBack = new Set(msg.back || []);
+    const folk = emberScene && emberScene.userData && emberScene.userData.folk;
+    if (folk) for (const id in folk) folk[id].visible = ashFolkBack.has(id);
+    return;
+  }
   if (msg.type === 'field_state') { fieldDone = new Set(msg.done || []); return; }
   if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
@@ -4311,6 +4319,7 @@ let ringState = { heard: [], elder: false }; // the five heard tonight at the wi
 let fieldDone = new Set(); // the field's finds searched today (lib/emberField.js)
 let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster.js)
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
+let ashFolkBack = new Set();      // who has come back to Ashminster for you (lib/ashFolk.js)
 let droveDone = new Set();        // which of the drove road's four you have used today (data/droveRoad.js)
 let needfireUntil = 0;             // the need-fire's smoke on you until (lib/droveRoad.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
@@ -19376,6 +19385,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
   if (kiosk && kiosk.npc === 'drove') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'drove_use', id: kiosk.droveId })); return; }
+  if (kiosk && kiosk.npc === 'folk') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(kiosk.folkId === 'kirsty' && ashFolkBack.has('kirsty') ? { type: 'npc_shop_open', npcId: 'npc_windseller' } : { type: 'ash_folk_use', id: kiosk.folkId })); return; }
   if (kiosk && kiosk.npc === 'march') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'march_gate' })); return; }
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
   if (kiosk && kiosk.npc === 'ash') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ash_use', id: kiosk.ashId })); return; }
@@ -19739,6 +19749,14 @@ function updateInteractHint() {
     // the drove road east (data/droveRoad.js): done for today, pressing again reads its history
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} ${droveDone.has(kiosk.droveId) ? 'read what this is' : kiosk.hint}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'folk') {
+    // Ashminster's people (data/ashFolk.js): what they do once back; before that, the empty place
+    const back = ashFolkBack.has(kiosk.folkId);
+    const say = { kirsty: back ? 'see what Kirsty has' : 'look at the empty stall', wat: back ? 'ring the passing bell with Wat' : 'look at the bell-rope', nan: back ? 'drink from the dressed well' : 'look at the well' }[kiosk.folkId];
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${say}`;
     return;
   }
   if (kiosk && kiosk.npc === 'march') {

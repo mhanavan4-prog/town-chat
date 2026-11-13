@@ -8571,6 +8571,7 @@ setInterval(() => {
   dungeonFinds.tick();
   villageWard.tick(); // at dawn the bound fires are out
   ashminster.tick(players.values()); // sanctuary runs out, or is walked out of
+  ashFolk.watch(players.values());   // someone has come back to Ashminster
   { const lit = corpseCandle.tick(players.values()); if (lit.length) saveAccounts(); } // the corpse candle on the road north
   { const danced = oldWays.tick(); if (danced) { for (const p of danced) daybook.noteWay(p, 'reel'); saveAccounts(); } } // the reel at the stones
   tickPlayerStatusHealth(now, dt);
@@ -9220,8 +9221,11 @@ const emberField = require('./lib/emberField')({ send, grantXP,
   noteWalked: (p) => { daybook.note(p, 'field'); } });
 // Ashminster in the Ember Wastes (lib/ashminster.js): the frith no creature enters, sanctuary at the knocker, the anchoress.
 const ashminster = require('./lib/ashminster')({ send,
-  onArrive: (p) => storyEvent(p, 'visit_room', { room: 'ashminster' }),
-  onSpoke: (p) => storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }) });
+  onArrive: (p) => { ashFolk.mark(p, 'arrived'); storyEvent(p, 'visit_room', { room: 'ashminster' }); },
+  onSpoke: (p) => { ashFolk.mark(p, 'spoke'); storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }); } });
+// Ashminster, living in (lib/ashFolk.js): the people who come back to the town as your own story there goes on.
+const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth,
+  acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null });
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -9761,6 +9765,8 @@ const NPC_SHOPS = {
   // The wise-woman of the Wildlands Village (data/villageHouses.js): remedies, and somewhere to sell out in the Wilds.
   // the packman at the Wildlands Village's stall (data/packman.js): there only while the bound fires are closed, with four things from his pack each night
   npc_packman: { name: require('./data/packman').PACKMAN.name, items: require('./data/packman').PACKMAN.pool, stock: () => require('./data/packman').stockFor(Math.floor(Date.now() / CYCLE_MS)) },
+  // Kirsty Halcrow's stall by the market cross at Ashminster (data/ashFolk.js): open once she has come back, for you
+  npc_windseller: { name: 'Kirsty Halcrow, the wind-seller', items: [{ id: 'wind_knot', price: require('./data/ashFolk').ASH_FOLK.knotPrice }, { id: 'healing_potion', price: 16 }, { id: 'red_thread', price: 5 }] },
   npc_averil: { name: 'Dame Averil, the wise-woman', items: [
     { id: 'healing_potion', price: 14 }, { id: 'cleansing_clover', price: 16 },
     { id: 'regen_root', price: 18 }, { id: 'healing_herb', price: 10 }, { id: 'glass_vial', price: 6 }
@@ -12050,7 +12056,7 @@ wss.on('connection', (ws, req) => {
         // entry resolves an effect in the use_item handler. The client merges this
         // into its PLANT_EFFECTS set so any consumable shows a Use button with no
         // hand-sync (this is what kept the flora brews from being "un-equippable").
-        usableItems: [...Object.keys(PLANT_CATALOG), 'tome_insight'], // the Tome is read from the pack like a consumable
+        usableItems: [...Object.keys(PLANT_CATALOG), 'tome_insight', 'wind_knot'], // the Tome is read from the pack like a consumable
         // Premium currency + the Peddler's catalog (Session I). The client
         // merges legendaryCatalog into its own ITEM_CATALOG at init — one
         // authoritative copy, no hand-sync.
@@ -14658,6 +14664,17 @@ wss.on('connection', (ws, req) => {
           message: `🎒 You shoulder the ${meta ? meta.name : 'bag'}. Your pack now holds ${packCapacity(player)} — ${have ? `up from ${PACK_BASE_SLOTS + have}` : `${gain} more than before`}.` });
         return;
       }
+      // 🪢 A knot of Kirsty Halcrow's wind (data/ashFolk.js): loosed in an ash storm, it blows the ash back off you for a minute.
+      if (stack && stack.itemId === 'wind_knot') {
+        if (player.room !== 'ember_wastes' || emberStorm.state().phase === 'calm') { send(ws, { type: 'use_result', message: '🪢 There is nothing here for the wind to blow away. You leave the knot tied.' }); return; }
+        removeItemFromAccount(inv, 'wind_knot', 1);
+        if (player.accountKey) saveInventories();
+        const ms = require('./data/ashFolk').ASH_FOLK.knotMs;
+        send(ws, { type: 'wind_knot', ms });
+        send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+        send(ws, { type: 'use_result', level: 'important', message: '🪢 You loose one knot of the cord. A wind out of nowhere, Kirsty\'s wind, goes round you and blows the ash back, and for a minute you can see.' });
+        return;
+      }
       if (stack && stack.itemId === 'tome_insight') {
         removeItemFromAccount(inv, 'tome_insight', 1);
         const tprog = getProgress(player);
@@ -15264,6 +15281,7 @@ wss.on('connection', (ws, req) => {
     // Use a thing in a dungeon or the Delve: a chest, a cache, a vein, a brazier, a seal.
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'ash_folk_use') { if (ashFolk.use(player, String(msg.id || ''))) { saveAccounts(); } return; }
     if (msg.type === 'drove_use') { if (droveRoad.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     // The March gate (data/droveRoad.js): open at any hour, both ways, between the east edge of the Wilds and the west edge of the Ember Wastes.
     if (msg.type === 'march_gate') {
@@ -15298,7 +15316,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
     if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
-    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); return; }
+    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); send(ws, ashFolk.payload(player)); return; }
     if (msg.type === 'ring_use') { if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
     if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
@@ -15584,6 +15602,7 @@ wss.on('connection', (ws, req) => {
       const shop = NPC_SHOPS[npcId];
       if (!shop) return;
       if (packmanShut(player, npcId, true)) return;
+      if (ashFolk.shopShut(player, npcId, true)) return;
       if (npcId === PACKMAN.npcId && daybook.note(player, 'packman')) send(ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the packman, met.' });
       // Browsing a shopkeeper is talking to them, as far as the story cares
       // — Scholar Elior (the Mystic's chapter-1 contact) is a shop NPC.
@@ -15620,6 +15639,7 @@ wss.on('connection', (ws, req) => {
       const shop = NPC_SHOPS[npcId];
       if (!shop) return;
       if (packmanShut(player, npcId)) return;
+      if (ashFolk.shopShut(player, npcId)) return;
       const shopItem = (shop.stock ? shop.stock() : shop.items).find(s => s.id === itemId);
       if (!shopItem) { send(ws, { type: 'shop_error', message: "That item isn't sold here." }); return; }
       // Same discount logic the shop window showed — the till agrees with
@@ -15657,6 +15677,7 @@ wss.on('connection', (ws, req) => {
       const npcId = String(msg.npcId || '');
       if (!NPC_SHOPS[npcId]) return; // must actually be at a shopkeeper
       if (packmanShut(player, npcId)) return;
+      if (ashFolk.shopShut(player, npcId)) return;
       const itemId = String(msg.itemId || '');
       const meta = ITEM_CATALOG[itemId];
       const unit = shopTrade.unitFor(npcId, itemId); // the till agrees with the Sell tab: over the odds for goods from the other side
@@ -18752,7 +18773,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad, ashFolk,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

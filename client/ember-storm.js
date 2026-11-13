@@ -10,7 +10,7 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
   const TARGET = { calm: 0, gathering: 0.3, storm: 1 };
   const CALM = { near: 900, far: 5200, color: new THREE.Color(0x2a0f0a) };
   const THICK = { near: 60, far: 820, color: new THREE.Color(0x4b403a) };
-  let phase = 'calm', strength = 0, built = null, wind = false;
+  let phase = 'calm', strength = 0, built = null, wind = false, clearUntil = 0;
   const tmp = new THREE.Color();
 
   function build(scene) {
@@ -50,7 +50,8 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
   function update(dt) {
     const scene = getScene();
     const here = !!(scene && isActive());
-    const goal = here ? TARGET[phase] : 0;
+    // a loosed knot of wind (data/ashFolk.js) blows the ash back off you for a while
+    const goal = here && performance.now() >= clearUntil ? TARGET[phase] : 0;
     strength += Math.max(-dt * 0.12, Math.min(dt * 0.12, goal - strength));
     setWind(here && phase !== 'calm' && strength > 0.15);
     if (!scene) return;
@@ -84,5 +85,6 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
 
   // QA: jump to how thick it will be (a slow headless frame rate would take minutes to get there)
   const settle = () => { strength = TARGET[phase] || 0; };
-  return { apply, update, settle, phase: () => phase, strength: () => strength };
+  const clear = (ms) => { clearUntil = performance.now() + ms; };
+  return { apply, update, settle, clear, phase: () => phase, strength: () => strength };
 }

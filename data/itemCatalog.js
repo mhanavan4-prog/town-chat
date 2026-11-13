@@ -34,6 +34,7 @@ module.exports = {
   // when filled and charged under the full moon at Hazel's cauldron. Moon water
   // is a potent brewing reagent and a sellable good gathered on full-moon nights.
   glass_vial:     { name: 'Glass Vial',     icon: '⚗️', slot: null },
+  wind_knot:      { name: 'Knot of Wind',   icon: '🪢', slot: null },
   moon_water:     { name: 'Moon Water',     icon: '💧', slot: null },
   // ---- Threshold & Hearth (blueprint B): the makings of a witch bottle ----
   bellarmine_jug: { name: 'Bellarmine Jug', icon: '🏺', slot: null },
