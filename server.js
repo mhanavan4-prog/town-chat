@@ -9181,6 +9181,13 @@ const online = require('./lib/online')({ players, send, sanitizeText,
   buildings: WORLD.buildings, villageHouses: require('./data/villageHouses').VILLAGE_HOUSES,
   levelOf: (p) => (getProgress(p).level || 1), classOf: (p) => CLASS_NAMES[p.charId] || '',
   covenNameOf: (p) => { const cv = p.accountKey && covenOf(p.accountKey); return cv ? cv.name : null; } });
+// The witches' ring in the west of the Wastes (lib/witchRing.js): five voices by night, the elder, and the ring that sings for five.
+const witchRing = require('./lib/witchRing')({ send, grantXP, players, isNight: () => isNightNow(), cycleId: () => Math.floor(Date.now() / CYCLE_MS),
+  acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null),
+  tellWastes: (m) => broadcastRoom('ember_wastes', m),
+  noteRing: (p) => { if (daybook.note(p, 'ring')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the five, heard at the ring.' }); },
+  noteSung: (p) => { daybook.note(p, 'ring_sung'); } });
 // The field in the Ember Wastes (lib/emberField.js): twelve things the war left along the track.
 const emberField = require('./lib/emberField')({ send, grantXP,
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -10550,9 +10557,11 @@ const EMBER_LANDMARKS = [
 ];
 // Ashminster (data/emberTown.js): the town in the middle of the Wastes. Named to the player like a landmark, but it anchors no spawns and no veins.
 const { EMBER_TOWN } = require('./data/emberTown');
+const { RING: WITCH_RING } = require('./data/witchRing'); // the witches' ring in the west of the Wastes
 function emberLandmarksPublic() {
   return [...EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb })),
-    { id: EMBER_TOWN.id, name: EMBER_TOWN.name, x: EMBER_TOWN.x, y: EMBER_TOWN.y, radius: EMBER_TOWN.radius, warlord: false, town: true, blurb: EMBER_TOWN.blurb }];
+    { id: EMBER_TOWN.id, name: EMBER_TOWN.name, x: EMBER_TOWN.x, y: EMBER_TOWN.y, radius: EMBER_TOWN.radius, warlord: false, town: true, blurb: EMBER_TOWN.blurb },
+    { id: 'witch_ring', name: WITCH_RING.name, x: WITCH_RING.x, y: WITCH_RING.y, radius: WITCH_RING.radius, warlord: false, ring: true, blurb: WITCH_RING.blurb }];
 }
 
 const EMBER_MOB_TYPES = {
@@ -10620,7 +10629,7 @@ const EMBER_MOB_SPAWNS = (() => {
     for (let i = clustered; i < n; i++) scatter(type);
   }
   // Nothing rises inside Ashminster: a spawn that fell there is put out to its edge, on its own bearing.
-  for (let pass = 0; pass < 3; pass++) for (const sp of out) for (const g of EMBER_TOWN.ground) {
+  for (let pass = 0; pass < 3; pass++) for (const sp of out) for (const g of [...EMBER_TOWN.ground, { x: WITCH_RING.x, y: WITCH_RING.y, r: 1000 }]) {
     const dx = sp.x - g.x, dy = sp.y - g.y, d = Math.hypot(dx, dy);
     if (d < g.r) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = g.x + u[0] * (g.r + 1); sp.y = g.y + u[1] * (g.r + 1); }
   }
@@ -15184,7 +15193,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
     if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
-    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); return; }
+    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); return; }
+    if (msg.type === 'ring_use') { if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
     if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
     if (msg.type === 'dungeon_exit') {
@@ -18636,7 +18646,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

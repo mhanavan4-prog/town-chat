@@ -473,6 +473,7 @@ const KK = (() => {
     // the field along the Wastes' track (data/emberField.js)
     em_standard: 'kk/home/field_standard.glb', em_barrow: 'kk/home/field_barrow.glb', em_trench: 'kk/home/field_trench.glb', em_chapel: 'kk/home/field_chapel.glb',
     em_bottle: 'kk/home/field_bottle.glb', em_bell: 'kk/home/field_bell.glb', em_rowan: 'kk/home/rowan_post.glb', em_fingerpost: 'kk/home/fingerpost.glb',
+    em_ring_stone: 'kk/home/ring_stone.glb', // the witches' ring (data/witchRing.js)
     wd_kshelf: 'kk/home/keep_shelf.glb', wd_kbone: 'kk/home/keep_bone.glb', wd_krope: 'kk/home/keep_bellrope.glb', wd_kcobalt: 'kk/home/keep_cobalt.glb', wd_kclaw: 'kk/home/keep_claw.glb',
     wd_besom: 'kk/home/besom.glb', wd_cream: 'kk/home/cream_bowl.glb', tw_skep: 'kk/home/bee_skep.glb',
     wd_kern: 'kk/home/kern_baby.glb', wd_sheaf: 'kk/home/sheaf_hung.glb',
@@ -3151,6 +3152,7 @@ function onWsMessage(ev) {
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
   if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
+  if (msg.type === 'ring_state') { ringState = msg; return; }
   if (msg.type === 'field_state') { fieldDone = new Set(msg.done || []); return; }
   if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
@@ -4298,6 +4300,7 @@ let msPacksCatalog = null;    // packId -> { ms, cents, name } from init
 // ── Session L state ──────────────────────────────────────────────────────────
 let rareRoomCatalog = {};         // kind -> { icon, name, how, tier, lore, source, note } (data/rareRooms.js)
 let lastRareRoom = null;          // the rare room of the dungeon or Delve floor you are in, from the last dungeon_finds
+let ringState = { heard: [], elder: false }; // the five heard tonight at the witches' ring (lib/witchRing.js)
 let fieldDone = new Set(); // the field's finds searched today (lib/emberField.js)
 let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster.js)
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
@@ -14233,7 +14236,7 @@ function checkEmberLandmarkDiscovery() {
     if (emberDiscovered[lm.id]) continue;
     if (Math.hypot(me.x - lm.x, me.y - lm.y) > lm.radius) continue;
     emberDiscovered[lm.id] = true;
-    const icon = lm.warlord ? '⚔️' : lm.town ? '⛪' : '📍';
+    const icon = lm.warlord ? '⚔️' : lm.town ? '⛪' : lm.ring ? '🌿' : '📍';
     // Center popup only — no top banner (matches the entry greeting).
     showChapterCeremony(`${icon} ${lm.name}`, lm.blurb || (lm.warlord ? 'The warlord of the wastes holds this place.' : ''));
   }
@@ -19357,6 +19360,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
   if (kiosk && kiosk.npc === 'ash') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ash_use', id: kiosk.ashId })); return; }
   if (kiosk && kiosk.npc === 'field') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'field_use', id: kiosk.fieldId })); return; }
+  if (kiosk && kiosk.npc === 'ring') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ring_use', id: kiosk.ringId })); return; }
   if (kiosk && kiosk.npc === 'packman') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'npc_shop_open', npcId: 'npc_packman' })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
   if (kiosk && kiosk.npc === 'hint') { openNpcHintTalk(kiosk.npcId); return; }
@@ -19678,6 +19682,13 @@ function updateInteractHint() {
   if (kiosk && kiosk.npc === 'plaque') {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} read the plaque`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'ring') {
+    // the witches' ring (data/witchRing.js): by night the places speak; the elder once all five have
+    hint.classList.remove('hidden');
+    const heard = ringState.heard && ringState.heard.includes(kiosk.ringId);
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${heard ? 'read of the ring' : kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.npc === 'field') {

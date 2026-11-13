@@ -45,7 +45,7 @@ setTimeout(() => {
   const h = global.__testHooks;
   const lms = h.emberLandmarksPublic();
   const town = lms.find((l) => l.id === T.id);
-  check('the town is named to a traveller like a landmark, and marked as a town', town && town.town === true && town.name === 'Ashminster' && town.x === T.x && town.blurb.length > 60 && lms.length === h.EMBER_LANDMARKS.length + 1);
+  check('the town is named to a traveller like a landmark, and marked as a town', town && town.town === true && town.name === 'Ashminster' && town.x === T.x && town.blurb.length > 60 && lms.length === h.EMBER_LANDMARKS.length + 2 && lms.some((l) => l.ring === true));
   check('it anchors no spawns and no veins: the four old landmarks are as they were', h.EMBER_LANDMARKS.length === 4 && !h.EMBER_LANDMARKS.some((l) => l.id === T.id));
   const near = [...h.emberMobs.values ? h.emberMobs.values() : h.emberMobs].filter((m) => !m.boss && T.ground.some((g) => Math.hypot(m.spawnX - g.x, m.spawnY - g.y) < g.r - 1));
   check('nothing rises anywhere on the town\'s ground', near.length === 0, near.length);

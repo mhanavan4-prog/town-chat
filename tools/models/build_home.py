@@ -2552,6 +2552,16 @@ def field_bell():
     return m, None
 
 
+def ring_stone():
+    """A stone of the witches' ring: a rough, leaning upright, blackened on the side the fire came from."""
+    m = Model('ring_stone')
+    m.add(crag(0.42, 0.3, 1.3, seed=77, colors=('#1e1a18', '#8a8278'), nx=4, nz=5, lean=0.06).xf(None, (0, 0, 0)))
+    for k in range(4):
+        a = TAU * k / 4 + 0.4
+        m.add(blob(0.12, 0.1, 0.07, seg=6, rings=3, colors=('#1e1a18', '#6a645c'), jitter=0.25, seed=k + 40).xf(None, (0.28 * math.cos(a), 0.22 * math.sin(a), 0.03)))
+    return m, None
+
+
 def fingerpost():
     """A fingerpost at a fork in the Wastes' track: a charred post with three arms, one snapped."""
     m = Model('fingerpost')
@@ -2623,7 +2633,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
