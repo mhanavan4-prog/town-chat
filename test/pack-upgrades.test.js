@@ -132,9 +132,11 @@ setTimeout(() => {
     // A half-finished campaign gets nothing.
     const g2 = join('Midway', 'pack_mid');
     const p2 = h.getProgress(g2.p);
-    p2.story = { [charId]: { chapter: Math.max(0, lines[charId].chapters.length - 1), progress: 0, active: true } };
+    p2.story = { [charId]: { chapter: 8, progress: 0, active: true } };   // eight of the campaign's nine
     delete p2.packCapstone;
     check('an unfinished campaign gets nothing', h.backfillPackCapstone(g2.p) === false && h.countItemQty(h.getInventory(g2.p), 'pack_witchwoven') === 0);
+    p2.story[charId].chapter = 9; delete p2.packCapstone;
+    check('nine chapters is the campaign finished, whether or not Episode III is', h.backfillPackCapstone(g2.p) === true && h.countItemQty(h.getInventory(g2.p), 'pack_witchwoven') === 1);
 
     // A full pack must not eat it: a bag with nowhere to go applies itself.
     const g3 = join('Stuffed', 'pack_stuffed');

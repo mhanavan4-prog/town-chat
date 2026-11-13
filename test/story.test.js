@@ -37,7 +37,7 @@ setTimeout(() => {
 
   // --- Storyline data sanity for all 5 classes ---
   check('all 5 classes have a storyline', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c]));
-  check('every storyline has 9 chapters (6 base + Episode II); the Knight has three more, at Ashminster', [0, 1, 2, 4].every(c => hooks.STORYLINES[c].chapters.length === 9) && hooks.STORYLINES[3].chapters.length === 12);
+  check('every storyline has 12 chapters: 6 base, Episode II, and Episode III out in the Ember Wastes', [0, 1, 2, 3, 4].every(c => hooks.STORYLINES[c].chapters.length === 12));
   let badChapters = 0;
   for (const line of Object.values(hooks.STORYLINES)) {
     for (const ch of line.chapters) {

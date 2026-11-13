@@ -82,7 +82,7 @@ setTimeout(() => {
   check('the killing blow registers', res && res.dead, res);
   check('slaying the World Boss completes the campaign (ch9)', chapterOf(C.p) === 9, chapterOf(C.p));
   const done = C.s.lastOfType('story_chapter_complete');
-  check('the finale fires a story-complete ceremony', done && done.storyComplete === true, done && done.storyComplete);
+  check('the ninth chapter is no longer the end of the story: Episode III waits (test/episode-three.test.js)', done && done.storyComplete === false, done && done.storyComplete);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

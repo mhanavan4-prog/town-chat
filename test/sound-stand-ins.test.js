@@ -16,5 +16,7 @@ check('every stand-in has a recorded file today', Object.values(STAND).every((id
 check('messages and the knot play through the stand-in', /playSfx\(sfxOrStandIn\(msg\.sfx\)\)/.test(main) && /playSfx\(sfxOrStandIn\('wind_knot'\)\)/.test(main));
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8'), folk = fs.readFileSync(path.join(root, 'lib/ashFolk.js'), 'utf8'), drove = fs.readFileSync(path.join(root, 'lib/droveRoad.js'), 'utf8');
 check('the bell, the well, the need-fire, the stance and the gate name their own sounds', /'passing_bell'\)/.test(folk) && /'well_drink'\)/.test(folk) && /'needfire_kindle'/.test(drove) && /'stance_rest'/.test(drove) && (server.match(/sfx: 'march_gate'/g) || []).length === 2);
+const storm = fs.readFileSync(path.join(root, 'client/ember-storm.js'), 'utf8');
+check('the dead rising at dusk, the ring\'s glow going out and one of the folk coming home each have a sound', /playSfx\('dead_rise'\)/.test(storm) && /playSfx\('ring_dim'\)/.test(storm) && /f\.back, 'folk_return'\)/.test(folk) && ['dead_rise', 'ring_dim', 'folk_return'].every((id) => STAND[id] && ids.has(id)) && /playSfx: \(id\) => playSfx\(sfxOrStandIn\(id\)\)/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
