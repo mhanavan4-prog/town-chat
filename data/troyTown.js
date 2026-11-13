@@ -16,7 +16,9 @@
 // ---------------------------------------------------------------------------
 const { TROY_ENDS } = require('./troy');
 
-const TROY_TOWN = { x: 7000, y: 7900, unit: 44 }; // the cross's centre in the Wilds, and one seed unit in world units
+// (Moved south from y 7900 when the drove road was bent round the tombs at (7000, 7000): the road now passes at
+// y 7480, and the figure's outer wall, 422 out, must keep well clear of it.)
+const TROY_TOWN = { x: 7000, y: 8350, unit: 44 }; // the cross's centre in the Wilds, and one seed unit in world units
 const RING = (k) => 2.6 + k;                      // the k-th wall's ring, about a centre half a unit right of the cross
 const C = [0.5, 0];
 const OUTER = RING(7);

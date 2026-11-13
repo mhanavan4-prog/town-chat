@@ -13,14 +13,16 @@ function makeMockSocket(label) {
 }
 const { ROAD, GATE, STOPS } = require('../data/droveRoad');
 const { WAYSIDE } = require('../data/wayside');
+const { TROY_TOWN, troyTownGeometry } = require('../data/troyTown');
 const { WORLD2 } = require('../data/world');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 const gibbet = WAYSIDE.find((w) => w.id === 'gibbet');
 check('the road leaves from the gibbet crossroads and runs east to the gate at the edge of the Wilds', Math.hypot(ROAD.pts[0][0] - gibbet.x, ROAD.pts[0][1] - gibbet.y) < 250 && ROAD.pts.every((p, i) => !i || p[0] > ROAD.pts[i - 1][0]) && Math.hypot(ROAD.pts.at(-1)[0] - GATE.wilds.x, ROAD.pts.at(-1)[1] - GATE.wilds.y) < 120 && GATE.wilds.x < WORLD2.width - 150);
 check('four stops, each named for the record or for folk tradition, with a source and a note on where the game goes beyond it', STOPS.length === 4 && STOPS.every((s) => (s.tier === 'record' || s.tier === 'folk') && s.lore.length >= 2 && s.source && s.note && s.says));
-check('the stops stand clear of Troy Town and the Countless Stones', STOPS.every((s) => Math.hypot(s.x - 7000, s.y - 7900) > 500 && Math.hypot(s.x - 8600, s.y - 6600) > 500));
+check('the stops stand clear of Troy Town and the Countless Stones', STOPS.every((s) => Math.hypot(s.x - TROY_TOWN.x, s.y - TROY_TOWN.y) > 500 && Math.hypot(s.x - 8600, s.y - 6600) > 500));
 check('the road and the stance keep clear of the tombs at (7000, 7000)', (() => { const d = (px, py) => { let b = 1e9; for (let i = 0; i < ROAD.pts.length - 1; i++) { const [ax, ay] = ROAD.pts[i], [bx, by] = ROAD.pts[i + 1], L2 = (bx - ax) ** 2 + (by - ay) ** 2, t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / L2)); b = Math.min(b, Math.hypot(px - ax - t * (bx - ax), py - ay - t * (by - ay))); } return b; }; return d(7000, 7000) > 340 + ROAD.width / 2 && Math.hypot(STOPS.find((s) => s.id === 'pines').x - 7000, STOPS.find((s) => s.id === 'pines').y - 7000) > 700; })());
+check('and the road keeps clear of the Shepherd\'s Race, by more than its own width', (() => { const R = troyTownGeometry().radius; let b = 1e9; for (let i = 0; i < ROAD.pts.length - 1; i++) { const [ax, ay] = ROAD.pts[i], [bx, by] = ROAD.pts[i + 1], L2 = (bx - ax) ** 2 + (by - ay) ** 2, t = Math.max(0, Math.min(1, ((TROY_TOWN.x - ax) * (bx - ax) + (TROY_TOWN.y - ay) * (by - ay)) / L2)); b = Math.min(b, Math.hypot(TROY_TOWN.x - ax - t * (bx - ax), TROY_TOWN.y - ay - t * (by - ay))); } return b > R + ROAD.width / 2 + ROAD.width; })());
 check('the three pines are told as folk tradition, not record', STOPS.find((s) => s.id === 'pines').tier === 'folk');
 
 require('../server.js');

@@ -123,7 +123,7 @@ const BESOM_LANDINGS = [
   { id: 'severance', room: 'wilds', name: 'The Severance waymark', x: 3800, y: 7380 },
   { id: 'clootie', room: 'wilds', name: 'The clootie well', x: 2900, y: 8620 },
   { id: 'crick', room: 'wilds', name: 'The Crick-stone', x: 3700, y: 6240 },
-  { id: 'troy', room: 'wilds', name: 'The Shepherd\'s Race', x: 7000, y: 8470 },
+  { id: 'troy', room: 'wilds', name: 'The Shepherd\'s Race', x: 7000, y: 8920 },
   { id: 'countless', room: 'wilds', name: 'The Nine-and-Twenty', x: 8600, y: 6880 },
 ];
 const BESOM_SIGHTS = [
