@@ -17,10 +17,12 @@ const TRACK = [
   { id: 'east', to: 'the Great Ossuary', pts: [[11700, 10800], [12900, 9900], [13900, 8900]] },
   { id: 'southeast', to: 'Emberfall Caldera', pts: [[10500, 18250], [12800, 17600], [14700, 16700], [15300, 16300]] },
   { id: 'ring', to: 'the witches\' ring', pts: [[8300, 11200], [6500, 12100], [4800, 12800], [3950, 13200]] },
+  { id: 'march', to: 'the March gate', pts: [[3950, 13200], [2900, 12400], [1800, 12650], [900, 13100]] },
 ];
 
 // Fingerposts where the track forks, and what their arms say.
 const POSTS = [
+  { x: 4050, y: 13420, arms: ['the March gate ↖', 'the witches\' ring ↙', 'Ashminster →'] },
   { x: 10260, y: 18200, arms: ['Ashminster ↑', 'Emberfall ↗'] },
   { x: 10180, y: 14420, arms: ['Ashminster ↑', 'the portal ↓'] },
   { x: 8250, y: 11050, arms: ['Charhold ↖', 'the witches\' ring ←'] },

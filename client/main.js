@@ -467,6 +467,7 @@ const KK = (() => {
     dg_rare_marks: 'kk/home/rare_marks.glb', dg_rare_vault: 'kk/home/rare_vault.glb', dg_rare_vault_open: 'kk/home/rare_vault_open.glb', dg_rare_well: 'kk/home/rare_well.glb', // the rare rooms (data/rareRooms.js)
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
+    wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', // the drove road east (data/droveRoad.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
     em_house_a: 'kk/home/ash_house_a.glb', em_house_b: 'kk/home/ash_house_b.glb', em_house_c: 'kk/home/ash_house_c.glb',
@@ -3149,6 +3150,8 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'drove_state') { droveDone = new Set(msg.done || []); return; }
+  if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
   if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
@@ -3299,9 +3302,11 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'ember_wastes_exited') {
-    if (me) { me.room = 'outside'; me.x = msg.x; me.y = msg.y; }
-    swapToTownMap();
-    setUnlockToast('You step back through the portal into town.');
+    // back through the portal into town, or through the March gate into the Wilds (data/droveRoad.js)
+    const toWilds = msg.room === 'wilds';
+    if (me) { me.room = toWilds ? 'wilds' : 'outside'; me.x = msg.x; me.y = msg.y; }
+    if (toWilds) swapToWildsMap(); else swapToTownMap();
+    setUnlockToast(toWilds ? '🚧 You come back through the March gate. Grass under your feet again, and the Wilds.' : 'You step back through the portal into town.');
     return;
   }
 
@@ -4306,6 +4311,8 @@ let ringState = { heard: [], elder: false }; // the five heard tonight at the wi
 let fieldDone = new Set(); // the field's finds searched today (lib/emberField.js)
 let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster.js)
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
+let droveDone = new Set();        // which of the drove road's four you have used today (data/droveRoad.js)
+let needfireUntil = 0;             // the need-fire's smoke on you until (lib/droveRoad.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
 let dungeonLoreCatalog = null;      // tier -> { name, epithet, bossKey, plaque } from init
@@ -16706,6 +16713,7 @@ function renderStatusEffects() {
     fx.push({ icon: v ? v.emoji : '🕯️', label: (v ? v.name : 'Ancestor') + '’s blessing', desc: (v && (v.line || v.desc)) || "A forebear's blessing.", cls: 'buff', kind: 'Ancestor', until: lastAncestorState.active.until });
   }
   if (myWardUntil && myWardUntil > now) fx.push({ icon: '🧂', ikey: 'salt', label: 'Circle of Salt', desc: 'A ring of salt holds hostile magic at bay.', cls: 'ward', kind: 'Ward', until: myWardUntil });
+  if (needfireUntil && needfireUntil > now) fx.push({ icon: '🔥', label: 'Need-fire smoke', desc: 'The smoke of the need-fire on the drove road is still on you: the creatures of the Ember Wastes bite you less.', cls: 'ward', kind: 'Blessing', until: needfireUntil });
   const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   bar.innerHTML = fx.map((f) => {
     const t = fxTimeLabel(f.until - now);
@@ -19367,6 +19375,8 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'dfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'dungeon_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
+  if (kiosk && kiosk.npc === 'drove') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'drove_use', id: kiosk.droveId })); return; }
+  if (kiosk && kiosk.npc === 'march') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'march_gate' })); return; }
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
   if (kiosk && kiosk.npc === 'ash') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ash_use', id: kiosk.ashId })); return; }
   if (kiosk && kiosk.npc === 'field') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'field_use', id: kiosk.fieldId })); return; }
@@ -19723,6 +19733,17 @@ function updateInteractHint() {
     // the village's bound fires (data/villageWard.js): lit, or the round closed, pressing reads their history
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} ${wardState.warded || (wardState.lit || []).includes(kiosk.wardId) ? 'read about the bound fires' : 'put fire to the bound stone'}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'drove') {
+    // the drove road east (data/droveRoad.js): done for today, pressing again reads its history
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${droveDone.has(kiosk.droveId) ? 'read what this is' : kiosk.hint}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'march') {
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.npc === 'wayside') {

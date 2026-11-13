@@ -419,6 +419,61 @@ function buildWildsScene(w2) {
     lbl.position.set(w.x, w.id === 'gibbet' ? 205 : 120, w.y); scene.add(lbl);
     WILDS_KIOSKS.push({ x: w.x, z: w.y + (w.id === 'gibbet' ? 40 : 60), npc: 'wayside', waysideId: w.id, hint: w.hint, radius: 120 });
   }
+  // The drove road east (data/droveRoad.js): a worn green way from the crossroads to the March gate, a
+  // milestone, three pines at the stance, a need-fire hearth, and the gate through into the Ember Wastes.
+  if (w2.drove) {
+    const H = (x, z) => (typeof wildsHeightAt === 'function' ? wildsHeightAt(x, z) : 0);
+    const ribbon = (pts, half, color, lift) => {
+      const pos = [], idx = [];
+      const step = 60;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[i + 1], len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len;
+        const n = Math.ceil(len / step);
+        for (let k = (i ? 1 : 0); k <= n; k++) {
+          const x = ax + (bx - ax) * k / n, y = ay + (by - ay) * k / n;
+          for (const sd of [-1, 1]) { const px = x - uy * sd * half, pz = y + ux * sd * half; pos.push(px, H(px, pz) + lift, pz); }
+        }
+      }
+      for (let r = 0; r < pos.length / 6 - 1; r++) { const a = r * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      m.receiveShadow = true; scene.add(m); return m;
+    };
+    const P = w2.drove.pts;
+    ribbon(P, w2.drove.width / 2, 0x6e7a46, 1.2);                        // the green way, grazed short
+    const off = (d) => P.map(([x, y], i) => { const [bx, by] = P[Math.min(i + 1, P.length - 1)], [ax, ay] = P[Math.max(i - 1, 0)], L = Math.hypot(bx - ax, by - ay) || 1; return [x - (by - ay) / L * d, y + (bx - ax) / L * d]; });
+    for (const d of [-34, 34]) ribbon(off(d), 9, 0x4a4a2c, 1.6);       // hoof-worn ruts
+    const turnOf = { milestone: 0.4, pines: 0, needfire: 0.6 };
+    for (const st of w2.drove.stops) {
+      if (st.id === 'pines') {
+        for (const [dx, dy, sz] of [[-90, -30, 330], [40, 60, 370], [110, -70, 300]]) {
+          const g = kkPlace(scene, st.model, st.x + dx, st.y + dy, sz, dx * 0.01, 'height'); if (g) { g.position.y = H(st.x + dx, st.y + dy); g.userData.camFade = true; }
+          WILDS_WALLS.push({ x: st.x + dx - 14, y: st.y + dy - 14, w: 28, h: 28 });
+        }
+      } else if (st.model) {
+        const stone = st.id === 'milestone' || st.id === 'gate';
+        const g = kkPlace(scene, st.model, st.x, st.y, st.size, turnOf[st.id] || 0, stone ? 'height' : 'fit');
+        if (g) g.position.y = H(st.x, st.y);
+        const r = stone ? 18 : 40;
+        if (stone) WILDS_WALLS.push({ x: st.x - r, y: st.y - r, w: r * 2, h: r * 2 });
+      }
+      const lbl = makeSignSprite(`${st.icon} ${st.name}`);
+      lbl.position.set(st.x, H(st.x, st.y) + (st.id === 'pines' ? 380 : st.id === 'gate' ? 170 : 130), st.y); scene.add(lbl);
+      WILDS_KIOSKS.push({ x: st.x, z: st.y + (st.id === 'pines' ? 110 : 70), npc: 'drove', droveId: st.id, hint: st.hint, radius: 130 });
+    }
+    // the gate: across the end of the road, the Wastes' glow beyond it
+    const G = w2.drove.gate;
+    const gate = kkPlace(scene, 'wd_march_gate', G.x, G.y, 260, Math.PI / 2, 'height');
+    if (gate) gate.position.y = H(G.x, G.y);
+    for (const dy of [-150, 150]) WILDS_WALLS.push({ x: G.x - 35, y: G.y + dy - 35, w: 70, h: 70 });
+    if (typeof makeGlowTexture === 'function') {
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff5a20, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+      glow.scale.set(420, 260, 1); glow.position.set(G.x + 120, H(G.x, G.y) + 90, G.y); scene.add(glow);
+    }
+    const gl = makeSignSprite('🚧 The March gate: the Ember Wastes');
+    gl.position.set(G.x, H(G.x, G.y) + 290, G.y); scene.add(gl);
+    WILDS_KIOSKS.push({ x: G.x - 40, z: G.y, npc: 'march', hint: 'go through the March gate into the Ember Wastes (anyone may strike you there)', radius: 140 });
+  }
   // The dancing ground by the Unbound Circle: where hands are taken for the reel (the Old Ways, data/oldWays.js REEL).
   WILDS_KIOSKS.push({ x: 2200, z: 5240, npc: 'oldways', npcName: '💃 the dancing ground', hint: 'take hands for the reel, and the other old ways', radius: 90 });
 
