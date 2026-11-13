@@ -1022,6 +1022,30 @@
   .famCoatLbl { font-size:10px; font-weight:700; color:#e5d8bf; }
   /* Daily Tarot */
   #tarotModal { width:min(340px, 92vw); text-align:center; }
+  /* Players online (O) */
+  #onlineModal { width:min(440px, 94vw); max-height:84vh; display:flex; flex-direction:column; overflow:hidden; }
+  #onlineContent { flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #onlineModal > .btn { flex:0 0 auto; }
+  .olRow { display:flex; align-items:center; gap:8px; padding:8px 6px; border-bottom:1px solid rgba(230,190,120,0.12); }
+  .olWho { flex:1 1 auto; min-width:0; }
+  .olName { font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .olMeta { font-size:12px; color:#b8a98a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .olBtns { display:flex; gap:6px; flex:0 0 auto; }
+  .olBtns button, .olInvite button { background:rgba(255,255,255,0.07); border:1px solid rgba(230,190,120,0.35); color:#ffe9c2; border-radius:12px; padding:7px 10px; font-size:13px; font-weight:700; cursor:pointer; }
+  .olBtns button:hover, .olInvite button:hover { background:rgba(255,255,255,0.14); }
+  .olInvite { display:flex; flex-wrap:wrap; gap:6px; padding:0 6px 10px 6px; }
+  .olInvite button[disabled] { opacity:0.4; cursor:default; }
+  .olMuted .olName { text-decoration:line-through; opacity:0.6; }
+  .olEmpty { color:#b8a98a; padding:18px 6px; text-align:center; }
+  #onlineCompose { flex:0 0 auto; border-top:1px solid rgba(230,190,120,0.25); padding-top:8px; margin-top:6px; }
+  #onlineCompose.hidden { display:none; }
+  #onlineComposeTo { font-size:12px; color:#d8c8a8; margin-bottom:6px; }
+  #onlineCompose .ocRow { display:flex; gap:6px; }
+  #onlineComposeText { flex:1 1 auto; min-width:0; padding:9px 10px; border-radius:10px; border:1px solid rgba(230,190,120,0.35); background:rgba(0,0,0,0.35); color:#fff2d8; font-size:15px; }
+  #onlineCompose .btn { margin:0; width:auto; padding:0 16px; }
+  .chatLine.whisperLine { color:#e0c8ff; font-style:italic; }
+  .chatLine.whisperLine b { cursor:pointer; }
+  #peopleTag > span:first-child { cursor:pointer; }
   /* Three-card spread: Past · Present · What Comes, each a real card face. */
   .tspread { display:flex; gap:14px; justify-content:center; align-items:flex-start; margin:6px 0 14px; }
   .tseat { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; }
@@ -3038,6 +3062,7 @@
     <div id="menuSheetTitle">Thornreach</div>
     <div id="menuGrid">
       <button class="menuRow" id="menuMap" title="The map — see where everything is (M)">🗺️ Map</button>
+      <button class="menuRow" id="menuOnline" title="Everyone online — message or invite them (O)">👥 Players online</button>
       <div class="menuSection">You</div>
       <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;"><span class="coin"></span> 0</span></button>
       <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
@@ -4057,6 +4082,19 @@
     <span>❗ NPCs &amp; services</span>
   </div>
   <div class="mapBtns"><button class="btn" id="mapCloseBtn">Close</button></div>
+</div>
+
+<!-- Everyone online: message or invite them (client/main.js "Players online"; lib/online.js) -->
+<div id="onlineModal" class="floatPanel hidden">
+  <div class="floatPanelHandle">
+    <span>👥 Players online <span id="onlineCount"></span></span><span class="floatPanelDrag">⠿</span>
+  </div>
+  <div id="onlineContent"></div>
+  <form id="onlineCompose" class="hidden" autocomplete="off">
+    <div id="onlineComposeTo"></div>
+    <div class="ocRow"><input id="onlineComposeText" maxlength="240" placeholder="A quiet word…"><button class="btn" id="onlineComposeSend" type="submit">Send</button></div>
+  </form>
+  <button class="btn" id="onlineCloseBtn" style="margin-top:8px;">Close (Esc)</button>
 </div>
 
 <div id="bugModal" class="overlay hidden">

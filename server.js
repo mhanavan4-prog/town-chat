@@ -9168,6 +9168,19 @@ function packmanShut(player, npcId, tell) {
   } else send(player.ws, { type: 'shop_error', message: 'The packman is not here.' });
   return true;
 }
+// Who is online, and whispers (lib/online.js): the 👥 Players online panel.
+const online = require('./lib/online')({ players, send, sanitizeText,
+  isMuted: (p) => bans.isMuted(p.accountKey || null, p.ws && p.ws._ip),
+  blocked: (text, p) => {
+    const hit = wordFilter.matchBlocked(text);
+    if (!hit) return null;
+    audit.log({ level: 'warn', type: 'whisper_blocked_term', ip: p.ws && p.ws._ip, account: p.accountKey || null, name: p.name, detail: { sample: wordFilter.maskSample(hit) } });
+    return '⚠️ That whisper wasn’t sent — it tripped the language filter.';
+  },
+  flood: (p) => audit.hit(p.accountKey || (p.ws && p.ws._ip) || p.id, 'whisper', 10 * 1000),
+  buildings: WORLD.buildings, villageHouses: require('./data/villageHouses').VILLAGE_HOUSES,
+  levelOf: (p) => (getProgress(p).level || 1), classOf: (p) => CLASS_NAMES[p.charId] || '',
+  covenNameOf: (p) => { const cv = p.accountKey && covenOf(p.accountKey); return cv ? cv.name : null; } });
 // Ashminster in the Ember Wastes (lib/ashminster.js): the frith no creature enters, sanctuary at the knocker, the anchoress.
 const ashminster = require('./lib/ashminster')({ send,
   onArrive: (p) => storyEvent(p, 'visit_room', { room: 'ashminster' }),
@@ -15164,6 +15177,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
+    if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead
@@ -18613,7 +18628,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
