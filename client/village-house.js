@@ -124,8 +124,12 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       kkPlace(scene, 'furn_hearth', h.x, 40, 190, 0, 'fit');
       lamp(h.x, 120, 70, 2.0, 640); glow(h.x, 46, 70, 120, 0xff8a30);
       sign('🔥 The hearth — Press F', h.x, 170, 70);
-      kkPlace(scene, 'furn_htable', W / 2, D / 2 + 20, 330, Math.PI / 2, 'fit');
-      kkPlace(scene, 'furn_hbench', W / 2 - 80, D / 2 + 20, 300, Math.PI / 2, 'fit'); kkPlace(scene, 'furn_hbench', W / 2 + 80, D / 2 + 20, 300, Math.PI / 2, 'fit');
+      // the long table, made of three trestle tables end to end, at a height to sit at (one at 330 stood
+      // higher than a head), with a bench down each side
+      for (const dz of [-92, 0, 92]) {
+        kkPlace(scene, 'furn_htable', W / 2, D / 2 + 20 + dz, 92, Math.PI / 2, 'fit');
+        for (const sx of [-50, 50]) kkPlace(scene, 'furn_hbench', W / 2 + sx, D / 2 + 20 + dz, 90, Math.PI / 2, 'fit');
+      }
       kkPlace(scene, 'furn_highseat', W / 2, D / 2 - 190, 90, 0, 'height');
       const ch = kkPlace(scene, 'furn_chandelier', W / 2, D / 2 + 20, 130, 0, 'fit'); if (ch) ch.position.y = 170;
       lamp(W / 2, D / 2 + 20, 160, 1.2, 600);

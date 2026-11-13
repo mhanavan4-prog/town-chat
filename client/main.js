@@ -45,7 +45,7 @@ import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTextu
 import { ALTAR_DECOS, ALTAR_SLOTS, setAltarDecoModels } from './altar-decor.js';
 import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
 import createCreatures from './creatures.js';
-import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES } from './sprites.js';
+import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES, QUIET_SIGNS } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
@@ -10907,6 +10907,33 @@ function setDroveHerd(msg) {
   for (let i = 0; i < msg.path.length - 1; i++) { const [ax, ay] = msg.path[i], [bx, by] = msg.path[i + 1]; const len = Math.hypot(bx - ax, by - ay); segs.push({ ax, ay, bx, by, len, at: total }); total += len; }
   droveHerd = { parts, beasts, drover, ghost, segs, total, speed: msg.speed || 100, standMs: msg.standMs || 0, spacing: msg.spacing || 70, t0: performance.now() };
 }
+// World signs are quiet (client/sprites.js QUIET_SIGNS): a sign fades in only as you come up to the place
+// it names, and of several near you only the nearest shows, so a village is not a wall of banners.
+// Only opacity is touched: whatever shows or hides a sign for its own reasons (the packman's, a
+// lit balefire's) still does.
+const QUIET_NEAR = 430, QUIET_FADE = 140;
+const _qsPos = new THREE.Vector3();
+let _qsTick = 0;
+function updateQuietSigns() {
+  if (!me || !activeScene || (++_qsTick % 3)) return;
+  const rp = getRenderPos(me);
+  let best = null, bestD = Infinity;
+  const near = [];
+  for (const sp of QUIET_SIGNS) {
+    let root = sp; while (root.parent) root = root.parent;
+    if (root !== activeScene) continue;
+    sp.getWorldPosition(_qsPos);
+    const d = Math.hypot(_qsPos.x - rp.x, _qsPos.z - rp.z);
+    near.push([sp, d]);
+    if (d < bestD && sp.visible) { bestD = d; best = sp; }
+  }
+  for (const [sp, d] of near) {
+    const want = sp === best ? Math.max(0, Math.min(1, (QUIET_NEAR - d) / QUIET_FADE)) : 0;
+    const m = sp.material; if (!m) continue;
+    m.opacity += (want - m.opacity) * 0.35;
+    if (Math.abs(m.opacity - want) < 0.02) m.opacity = want;
+  }
+}
 function stepDroveHerd() {
   const h = droveHerd;
   if (!h) return;
@@ -20661,6 +20688,7 @@ function update(dt) {
   stepOthersOnBesoms();
   stepCorpseCandle();
   stepDroveHerd();
+  updateQuietSigns();
   const reeling = !riding && stepReel(); // in the reel the ring carries her
   if (riding || reeling) { /* no walking in the air, or out of the ring */ } else if (mode === 'outdoor') {
     updateOutdoor(stepX, stepY);
