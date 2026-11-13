@@ -1,3 +1,4 @@
+import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
 import createCollision from './collision.js';
 import { Modals } from './modals.js';
@@ -11408,8 +11409,7 @@ function addInstancedDecor(scene, key, mode, placements) {
   let made = 0;
   unit.traverse((o) => {
     if (!o.isMesh) return;
-    const geo = o.geometry.clone();
-    geo.applyMatrix4(o.matrixWorld); // bake the unit scale + local offset: prop now sits at size 1, base y=0
+    const geo = bakeGeometry(o.geometry, o.matrixWorld); // bake the unit scale + local offset: prop now sits at size 1, base y=0 (normals kept whole: client/bake-geometry.js)
     const im = new THREE.InstancedMesh(geo, o.material, placements.length);
     im.frustumCulled = false; // one big object spanning the map — never cull it whole
     for (let i = 0; i < placements.length; i++) {

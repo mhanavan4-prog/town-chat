@@ -16,6 +16,6 @@ check('the same road is laid the same way every time', JSON.stringify(a) === JSO
 check('kerb stones stand at the road\'s edges, with gaps; flags lie in the way', a.kerbs.every((k) => Math.abs(distToRoad(k.x, k.y) - half) < 30) && a.setts.every((k) => distToRoad(k.x, k.y) < half) && a.kerbs.length < 2 * Math.floor(4500 / 105));
 check('the two models are in the kit and the manifest', ['road_setts', 'road_kerb'].every((n) => fs.existsSync(path.join(root, 'public/kk/home', n + '.glb'))) && /rd_setts: 'kk\/home\/road_setts\.glb', rd_kerb: 'kk\/home\/road_kerb\.glb'/.test(read('client/main.js')));
 check('the drove road and the Wastes\' track are both laid with them, the Wastes\' scorched', /layRoadStones\(scene, KK, \[P\], w2\.drove\.width \/ 2, H, null, 23\)/.test(read('client/wilds-scene.js')) && /layRoadStones\(scene, KK, FIELD_TRACK, 105, H, \(g\) => scorch\(g, 0\.14\), 11\)/.test(read('client/ember-scene.js')));
-check('each model is one instanced mesh, with normals of unit length (a packed normal scaled by the bake draws black)', /new THREE\.InstancedMesh\(geo, o\.material, items\.length\)/.test(src) && /new THREE\.Float32BufferAttribute\(out, 3\)/.test(src));
+check('each model is one instanced mesh, its normals kept whole through the bake (client/bake-geometry.js)', /new THREE\.InstancedMesh\(geo, o\.material, items\.length\)/.test(src) && /bakeGeometry\(o\.geometry, o\.matrixWorld\)/.test(src));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

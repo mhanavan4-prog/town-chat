@@ -8,6 +8,8 @@
 // `runs` is [[[x, y], ...], ...]; `half` the road's half-width; `heightAt(x, y)`
 // the ground there; `prep(unit)` may darken the size-1 reference before it is
 // copied (the Wastes scorch theirs). Returns false until both models are in.
+import { bakeGeometry } from './bake-geometry.js';
+
 export function roadStoneSpots(runs, half, heightAt, seed) {
   let s = seed || 7; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
   const H = heightAt || (() => 0), setts = [], kerbs = [];
@@ -40,12 +42,7 @@ export function layRoadStones(scene, KK, runs, half, heightAt, prep, seed) {
     unit.updateMatrixWorld(true);
     unit.traverse((o) => {
       if (!o.isMesh) return;
-      const geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld);
-      // normals of unit length, in floats: a packed normal scaled by the bake lights to nothing, and the stone draws black
-      if (!geo.attributes.normal) geo.computeVertexNormals();
-      { const n = geo.attributes.normal, out = new Float32Array(n.count * 3);
-        for (let i = 0; i < n.count; i++) { const x = n.getX(i), y = n.getY(i), z = n.getZ(i), L = Math.hypot(x, y, z); if (L > 1e-6) { out[i * 3] = x / L; out[i * 3 + 1] = y / L; out[i * 3 + 2] = z / L; } else out[i * 3 + 1] = 1; }
-        geo.setAttribute('normal', new THREE.Float32BufferAttribute(out, 3)); }
+      const geo = bakeGeometry(o.geometry, o.matrixWorld);
       const im = new THREE.InstancedMesh(geo, o.material, items.length);
       im.frustumCulled = false; im.receiveShadow = true;
       items.forEach((it, i) => { q.setFromAxisAngle(yUp, it.roty); pos.set(it.x, it.h, it.y); scl.set(it.scale, it.scale, it.scale); m4.compose(pos, q, scl); im.setMatrixAt(i, m4); });

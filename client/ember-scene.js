@@ -1,4 +1,5 @@
 import { layRoadStones } from './road-stones.js';
+import { bakeGeometry } from './bake-geometry.js';
 // ---------------------------------------------------------------------------
 // Ember Wastes scene (Tier 3.4 Phase C, 3D slice) — the Wilds-styled hostile
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
@@ -42,12 +43,8 @@ function addScorchedInstances(scene, key, mode, items) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), yUp = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), scl = new THREE.Vector3();
   unit.traverse((o) => {
     if (!o.isMesh) return;
-    const geo = o.geometry.clone();
-    geo.applyMatrix4(o.matrixWorld); // bake unit scale + local offset: prop at size 1, base y=0
-    // A normal of no length lights to NaN, which draws black whatever the light or the fog (the Wastes'
-    // dead trees stood black against an ash storm): make each one a real direction.
-    if (!geo.attributes.normal) geo.computeVertexNormals();
-    { const n = geo.attributes.normal; let bad = 0; for (let i = 0; i < n.count; i++) { const x = n.getX(i), y = n.getY(i), z = n.getZ(i), L = Math.hypot(x, y, z); if (!(L > 1e-6)) { n.setXYZ(i, 0, 1, 0); bad++; } else if (Math.abs(L - 1) > 1e-3) n.setXYZ(i, x / L, y / L, z / L); } if (bad) n.needsUpdate = true; }
+    // normals kept whole through the bake (client/bake-geometry.js): the Wastes' dead trees once stood black against an ash storm
+    const geo = bakeGeometry(o.geometry, o.matrixWorld); // prop at size 1, base y=0
     const im = new THREE.InstancedMesh(geo, o.material, items.length);
     im.frustumCulled = false;
     for (let i = 0; i < items.length; i++) {

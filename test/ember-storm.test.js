@@ -76,7 +76,7 @@ setTimeout(() => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools/audio/sfx.manifest.json'), 'utf8'));
   const by = Object.fromEntries(manifest.sfx.map((e) => [e.id, e]));
   check('the client draws it and hears it: fog, ash, the track lit, the wind looped', /msg\.type === 'ember_storm'\) \{ _emberStorm\.apply\(msg\)/.test(main) && /_emberStorm\.update\(dt\)/.test(main) && /stormLights/.test(cs) && /startSfxLoop\('ash_storm_wind'/.test(cs) && /src\.loop = true/.test(audio));
-  check('the scattered dead trees have real normals, so they light and fog instead of standing black', /if \(!geo\.attributes\.normal\) geo\.computeVertexNormals\(\);/.test(fs.readFileSync(path.join(__dirname, '..', 'client/ember-scene.js'), 'utf8')) && /if \(!\(L > 1e-6\)\) \{ n\.setXYZ\(i, 0, 1, 0\)/.test(fs.readFileSync(path.join(__dirname, '..', 'client/ember-scene.js'), 'utf8')));
+  check('the scattered dead trees have real normals, so they light and fog instead of standing black', /bakeGeometry\(o\.geometry, o\.matrixWorld\)/.test(fs.readFileSync(path.join(__dirname, '..', 'client/ember-scene.js'), 'utf8')) && /if \(!geo\.attributes\.normal\) geo\.computeVertexNormals\(\);/.test(fs.readFileSync(path.join(__dirname, '..', 'client/bake-geometry.js'), 'utf8')));
   check('its three sounds have prompts, the wind as a loop', by.ash_storm_rise && by.ash_storm_end && by.ash_storm_wind && by.ash_storm_wind.loop === true);
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
