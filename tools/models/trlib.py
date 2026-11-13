@@ -258,6 +258,52 @@ def spoon(s):
     return (0.25 + 0.95 * s ** 0.8) * (1 - s ** 6) ** 0.5
 
 
+# ── the finishing pass, done in Blender before export ───────────────────────
+# For a model rebuilt in the KayKit idiom (it sets Model.bevel; see build_home.py
+# "The KayKit idiom"). KayKit's look is a wide chamfer on every hard edge with
+# the shading carried smoothly over it, so an edge catches the light as a soft
+# line while the big faces stay flat. That is done with Blender's own modifiers,
+# applied on export: coincident vertices welded so the edges are real edges, a
+# two-segment bevel of the model's own width on every edge sharper than
+# BEVEL_ANGLE, and weighted normals so the flats stay flat. Glowing and trim
+# pieces (thin wire, cord, lettering) are left as they are.
+#
+# It is not run on every model: a chamfer on everything roughly doubles each
+# file, and the kits have size budgets (test/real-*.test.js: models stream one
+# by one, grass tufts are scattered by the hundred). A model earns it by being
+# rebuilt in few, chunky blocks.
+FINISH = True
+BEVEL_WIDTH = 0.013      # at a model one unit across
+BEVEL_ANGLE = 38         # degrees: edges sharper than this are chamfered
+SHARP_ANGLE = 52         # degrees: what still reads as a hard edge after it
+
+
+def finish(ob, V, bevel=None):
+    import bpy
+    me = ob.data
+    ext = float(np.max(V.max(axis=0) - V.min(axis=0))) if len(V) else 1.0
+    for poly in me.polygons:
+        poly.use_smooth = True
+    try:
+        me.set_sharp_from_angle(angle=math.radians(SHARP_ANGLE))
+    except Exception:
+        pass
+    weld = ob.modifiers.new('weld', 'WELD')
+    weld.merge_threshold = 1e-5
+    bev = ob.modifiers.new('bevel', 'BEVEL')
+    # a model built in the chunky KayKit idiom (Model.bevel) names its own, wider chamfer, rounded with two segments
+    bev.width = bevel if bevel else BEVEL_WIDTH * min(max(ext, 0.5), 3.2) ** 0.75
+    bev.segments = 2 if bevel else 1
+    bev.limit_method = 'ANGLE'
+    bev.angle_limit = math.radians(BEVEL_ANGLE)
+    bev.use_clamp_overlap = True
+    bev.miter_outer = 'MITER_SHARP'
+    wn = ob.modifiers.new('weighted', 'WEIGHTED_NORMAL')
+    wn.keep_sharp = False
+    wn.weight = 60
+    wn.mode = 'FACE_AREA'
+
+
 # ── a model: list of parts → Blender mesh → .glb ───────────────────────────
 class Model:
     """Parts in model space. Parts added inside `with m.node(name, pivot):` become a
@@ -272,6 +318,7 @@ class Model:
         self.pivots = {}
         self._node = None
         self.forward_x = forward_x
+        self.bevel = None      # the chamfer width for the finishing pass, if this model sets its own
 
     def node(self, name, pivot=(0, 0, 0)):
         model = self
@@ -361,6 +408,8 @@ class Model:
                 me.materials.append(material(glow))
                 ob = bpy.data.objects.new(oname, me)
                 bpy.context.scene.collection.objects.link(ob)
+                if FINISH and glow is False and self.bevel:
+                    finish(ob, V, self.bevel)
                 if root:
                     ob.parent = root
                     ob.location = tuple(pivot @ turn.T)

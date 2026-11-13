@@ -154,6 +154,29 @@ def campion():
 OAK = ('#4a2e1a', '#8a5a34')
 OAK_DK = ('#2e1a10', '#5a3a20')
 
+# ── The KayKit idiom ───────────────────────────────────────────────────────
+# What sets a KayKit prop apart: it is made of a few CHUNKY blocks (nothing
+# spindly), each one colour with barely a gradient, stone a cool blue-grey and
+# wood a warm brown, every edge given a wide rounded chamfer, and one or two
+# crisp details (a cap stone, an iron band, a row of nails). Models rebuilt in
+# this idiom use these colours and blk(), and set m.bevel for the wide chamfer.
+KK_STONE = ('#74838b', '#95a4aa')
+KK_STONE_DK = ('#55626a', '#6c7a82')
+KK_STONE_LT = ('#8f9da3', '#b2bfc3')
+KK_WOOD = ('#6a4530', '#84583c')
+KK_WOOD_DK = ('#43291c', '#583826')
+KK_WOOD_CHAR = ('#221916', '#3a2a22')
+KK_IRON = ('#24282d', '#3c434a')
+KK_MOSS = ('#506c2a', '#7c9a3c')
+KK_BONE = ('#d9cfb6', '#f1ead6')
+
+
+def blk(sx, sy, sz, colors, at=(0, 0, 0), R=None):
+    """A plain block, its base centred at `at`."""
+    return box(sx, sy, sz, colors).xf(R, at)
+
+
+
 
 def box_bed():
     """A carved oak box bed, its headboard cut with a crescent moon, made up with a patchwork quilt, pillows and a rolled wool blanket."""
@@ -343,31 +366,34 @@ def trimtube(*a, **k):
 
 
 def hall_table():
-    """An oak trestle table: a thick plank top on two A-frame trestles and a stretcher, set with a jug, bowls and a candle."""
+    """An oak trestle table in the KayKit idiom: a thick plank top on two stout trestles and a stretcher, set with a jug, bowls and a candle."""
     m = Model('hall_table')
+    m.bevel = 0.022
     W, D, H = 1.0, 0.6, 0.58
-    for k in range(4):  # planks, a little uneven
-        m.add(box(W, D / 4 * 0.97, 0.06, OAK, jitter=0.01, seed=k).xf(None, (0, -D / 2 + D / 8 + k * D / 4, H - 0.06)))
-    for sx in (-0.36, 0.36):
-        for sy in (-1, 1):
-            m.add(tube([(sx, sy * 0.24, 0), (sx, sy * 0.06, H - 0.06)], 0.035, sides=6, colors=OAK_DK))
-        m.add(box(0.07, 0.5, 0.05, OAK_DK).xf(None, (sx, 0, H - 0.11)))
-    m.add(box(0.74, 0.05, 0.05, OAK_DK).xf(None, (0, 0, 0.22)))
-    m.add(lathe([(0.04, 0), (0.06, 0.04), (0.055, 0.1), (0.035, 0.14), (0.04, 0.16)], sides=8, colors=('#6a5a4a', '#b8a890'), close_bottom=True).xf(None, (0.28, 0.08, H)))  # a stoneware jug
+    for k in range(3):  # three thick planks
+        m.add(blk(W - (0.03 if k == 1 else 0), D / 3 - 0.012, 0.075, KK_WOOD if k != 1 else KK_WOOD_DK, (0, -D / 3 + k * D / 3, H - 0.075)))
+    for sx in (-0.34, 0.34):
+        m.add(blk(0.09, 0.5, 0.07, KK_WOOD_DK, (sx, 0, H - 0.145)))            # the cleat under the top
+        for sy in (-0.19, 0.19):
+            m.add(blk(0.085, 0.085, H - 0.14, KK_WOOD_DK, (sx, sy, 0)))          # stout legs
+        m.add(blk(0.07, 0.44, 0.07, KK_WOOD, (sx, 0, 0.14)))                   # foot rail
+    m.add(blk(0.7, 0.07, 0.08, KK_WOOD, (0, 0, 0.15)))                          # stretcher
+    m.add(lathe([(0.045, 0), (0.07, 0.04), (0.065, 0.11), (0.04, 0.15), (0.048, 0.18)], sides=8, colors=('#8a7a68', '#c4b49c'), close_bottom=True).xf(None, (0.28, 0.08, H)))  # a stoneware jug
     for (x, y) in ((-0.1, -0.12), (0.12, 0.14)):
-        m.add(lathe([(0.03, 0), (0.07, 0.03), (0.075, 0.035)], sides=8, colors=('#5a3a20', '#9a7044'), close_bottom=True, close_top=False).xf(None, (x, y, H)))  # wooden bowls
-    m.add(lathe([(0.02, 0), (0.02, 0.09)], sides=6, colors=('#d8c890', '#f4ecc8'), close_bottom=True).xf(None, (-0.32, 0.1, H)))
+        m.add(lathe([(0.03, 0), (0.075, 0.03), (0.08, 0.045)], sides=8, colors=KK_WOOD_DK, close_bottom=True).xf(None, (x, y, H)))
+    m.add(lathe([(0.022, 0), (0.022, 0.1)], sides=6, colors=KK_BONE, close_top=True).xf(None, (-0.3, 0.05, H)))
+    m.add(glowing(blob(0.014, 0.014, 0.028, seg=5, rings=3, colors=('#ffb040', '#fff0a0'))).xf(None, (-0.3, 0.05, H + 0.115)))
     return m, None
 
 
 def hall_bench():
-    """A plank bench on splayed legs."""
+    """A plank bench in the KayKit idiom: a thick seat on two slab ends and a rail."""
     m = Model('hall_bench')
-    m.add(box(1.0, 0.28, 0.06, OAK).xf(None, (0, 0, 0.32)))
-    for sx in (-0.38, 0.38):
-        for sy in (-1, 1):
-            m.add(tube([(sx * 1.08, sy * 0.14, 0), (sx, sy * 0.08, 0.32)], 0.03, sides=5, colors=OAK_DK))
-    m.add(box(0.7, 0.04, 0.04, OAK_DK).xf(None, (0, 0, 0.14)))
+    m.bevel = 0.02
+    m.add(blk(1.0, 0.3, 0.07, KK_WOOD, (0, 0, 0.31)))
+    for sx in (-0.36, 0.36):
+        m.add(blk(0.08, 0.26, 0.31, KK_WOOD_DK, (sx, 0, 0)))
+    m.add(blk(0.66, 0.06, 0.07, KK_WOOD_DK, (0, 0, 0.12)))
     return m, None
 
 
@@ -2470,16 +2496,19 @@ def field_standard():
 
 
 def field_barrow():
-    """A knight's barrow on the field: a low mound of ash and turf, a kerb of stones, a sword driven in at its head and a helm hung on it."""
+    """A knight's barrow in the KayKit idiom: a low rounded mound, a kerb of chunky stones, a sword driven in at its head with a helm hung on the hilt."""
     m = Model('field_barrow')
-    m.add(blob(1.1, 0.6, 0.5, seg=12, rings=6, colors=('#1c1210', '#3a2a22'), jitter=0.06, seed=31).xf(None, (0, 0, -0.1)))
-    for k in range(14):
-        a = TAU * k / 14
-        m.add(box(0.2, 0.14, 0.14, MIN_STONE, (0, 0, 0), jitter=0.2, seed=k + 3).xf(rz(a), (1.18 * math.cos(a), 0.66 * math.sin(a), 0)))
-    m.add(tube([(1.0, 0, 0.18), (1.03, 0, 0.95)], 0.02, sides=4, colors=PEWTER))                                   # the blade
-    m.add(box(0.05, 0.3, 0.04, PEWTER, (1.03, 0, 0.95)))                                                            # the guard
-    m.add(tube([(1.03, 0, 0.99), (1.03, 0, 1.18)], 0.025, sides=5, colors=OAK_DK))                                 # the grip
-    m.add(lathe([(0.0, 0.2), (0.12, 0.19), (0.14, 0.1), (0.13, 0.0)], sides=8, colors=PEWTER, close_top=True).xf(rx(0.3), (1.03, 0.03, 1.03)))   # the helm on the hilt
+    m.bevel = 0.03
+    m.add(blob(1.1, 0.62, 0.46, seg=10, rings=5, colors=('#2a211e', '#4a3a32'), jitter=0.03, seed=31).xf(None, (0, 0, -0.08)))
+    for k in range(12):
+        a = TAU * k / 12
+        w = 0.26 + 0.06 * ((k * 7) % 3)
+        m.add(blk(w, 0.2, 0.16 + 0.04 * (k % 2), KK_STONE if k % 3 else KK_STONE_LT, (0, 0, 0)).xf(rz(a + math.pi / 2 + 0.1 * ((k % 3) - 1)), (1.2 * math.cos(a), 0.7 * math.sin(a), -0.02)))
+    m.add(blk(0.07, 0.025, 0.8, ('#8a9298', '#c4ccd0'), (1.02, 0, 0.18)))                 # the blade, broad
+    m.add(blk(0.3, 0.06, 0.06, KK_IRON, (1.02, 0, 0.96)))                               # the guard
+    m.add(blk(0.055, 0.055, 0.2, KK_WOOD_DK, (1.02, 0, 1.02)))                           # the grip
+    m.add(blk(0.09, 0.09, 0.07, KK_IRON, (1.02, 0, 1.22)))                               # the pommel
+    m.add(lathe([(0.0, 0.24), (0.11, 0.22), (0.15, 0.12), (0.15, 0.0)], sides=8, colors=('#6a7278', '#aab2b8'), close_top=True).xf(rx(0.25), (1.02, 0.02, 1.08)))   # the helm on the hilt
     return m, None
 
 
@@ -2553,22 +2582,33 @@ def field_bell():
 
 
 def ring_stone():
-    """A stone of the witches' ring: a rough, leaning upright, blackened on the side the fire came from."""
+    """A stone of the witches' ring in the KayKit idiom: a tall chunky upright of three rough courses, leaning, soot-dark at the foot, packing stones round it."""
     m = Model('ring_stone')
-    m.add(crag(0.42, 0.3, 1.3, seed=77, colors=('#1e1a18', '#8a8278'), nx=4, nz=5, lean=0.06).xf(None, (0, 0, 0)))
+    m.bevel = 0.045
+    SOOT = ('#33383d', '#6d7a82')
+    m.add(box(0.62, 0.42, 0.5, SOOT, jitter=0.07, seed=71).xf(rz(0.1), (0, 0, 0)))
+    m.add(box(0.54, 0.38, 0.48, KK_STONE_DK, jitter=0.08, seed=72).xf(rz(-0.08) @ ry(0.04), (0.02, 0, 0.46)))
+    m.add(box(0.44, 0.32, 0.42, KK_STONE, jitter=0.1, seed=73).xf(rz(0.14) @ ry(0.07), (0.05, 0.01, 0.9)))
     for k in range(4):
         a = TAU * k / 4 + 0.4
-        m.add(blob(0.12, 0.1, 0.07, seg=6, rings=3, colors=('#1e1a18', '#6a645c'), jitter=0.25, seed=k + 40).xf(None, (0.28 * math.cos(a), 0.22 * math.sin(a), 0.03)))
+        m.add(box(0.2, 0.16, 0.12, KK_STONE_DK, jitter=0.15, seed=k + 40).xf(rz(a), (0.36 * math.cos(a), 0.28 * math.sin(a), 0)))
     return m, None
 
 
 def fingerpost():
-    """A fingerpost at a fork in the Wastes' track: a charred post with three arms, one snapped."""
+    """A fingerpost in the KayKit idiom: a stout charred post in a stone footing, a cap, and three thick pointed arms, one snapped short."""
     m = Model('fingerpost')
-    m.add(tube([(0, 0, 0), (0, 0, 1.6)], [0.06, 0.05], sides=6, colors=MIN_CHAR, cap_base=True))
-    for (a, z, ln) in ((0.3, 1.45, 0.55), (2.2, 1.3, 0.5), (4.1, 1.15, 0.22)):
-        m.add(box(ln, 0.04, 0.11, OAK_DK, (0, 0, 0)).xf(rz(a), (ln / 2 * math.cos(a), ln / 2 * math.sin(a), z)))
-    m.add(lathe([(0.0, 0.08), (0.075, 0.0)], sides=6, colors=MIN_CHAR, close_top=True).xf(None, (0, 0, 1.6)))
+    m.bevel = 0.025
+    m.add(blk(0.34, 0.34, 0.12, KK_STONE_DK))
+    m.add(blk(0.14, 0.14, 1.5, KK_WOOD_CHAR, (0, 0, 0.1)))
+    m.add(blk(0.2, 0.2, 0.06, KK_WOOD_DK, (0, 0, 1.6)))
+    m.add(lathe([(0.11, 0), (0.0, 0.1)], sides=4, colors=KK_WOOD_CHAR, close_bottom=True, phase=math.pi / 4).xf(None, (0, 0, 1.66)))
+    for (a, z, ln, col) in ((0.3, 1.36, 0.6, KK_WOOD), (2.2, 1.2, 0.54, KK_WOOD_DK), (4.1, 1.04, 0.24, KK_WOOD)):
+        R = rz(a)
+        m.add(blk(ln, 0.05, 0.15, col, (0, 0, 0)).xf(R, (R @ np.array([0.07 + ln / 2, 0, 0]))[0:3] + np.array([0, 0, z])))
+        if ln > 0.3:   # the pointed end
+            tip = R @ np.array([0.07 + ln, 0, 0])
+            m.add(lathe([(0.075, 0), (0.0, 0.1)], sides=4, colors=col, close_bottom=True, phase=math.pi / 4).xf(R @ ry(math.pi / 2), (tip[0], tip[1], z + 0.075)))
     return m, None
 
 
@@ -2613,6 +2653,7 @@ def coffinstone():
     return m, None
 
 
+
 # ── The drove road east to the March (data/droveRoad.js) ───────────────────
 GREYSTONE = ('#36332f', '#a8a296')
 
@@ -2633,53 +2674,67 @@ def scots_pine():
 
 
 def needfire():
-    """A need-fire hearth: a ring of fire-cracked stones round old ash, and beside it the fire-drill: a post turning in a socket in a plank, a rope round it."""
+    """A need-fire hearth in the KayKit idiom: a ring of chunky fire-blackened stones round ash and charred logs, and beside it the fire-drill: a stout spindle in a plank, a cross-bar, a rope."""
     m = Model('needfire')
-    for k in range(9):
-        a = TAU * k / 9
-        m.add(blob(0.16, 0.13, 0.11, seg=6, rings=4, colors=('#141210', '#6a625a'), jitter=0.25, seed=k + 70).xf(None, (0.55 * math.cos(a), 0.55 * math.sin(a), 0.06)))
-    m.add(blob(0.48, 0.48, 0.05, seg=10, rings=3, colors=('#1a1614', '#4a4440'), jitter=0.1, seed=3).xf(None, (0, 0, 0.0)))     # the ash
-    for k in range(5):   # half-burnt sticks
-        a = k * 1.25
-        m.add(trim(tube([(0.25 * math.cos(a), 0.25 * math.sin(a), 0.05), (-0.05 * math.cos(a), -0.05 * math.sin(a), 0.12)], 0.03, sides=5, colors=('#120c08', '#3a2416'))))
-    # the drill: a plank on two stones, an upright spindle turning in it, a cross-bar on top, and the rope
-    m.add(box(0.9, 0.22, 0.06, OAK_DK, (0, 0, 0)).xf(None, (0.0, -0.95, 0.14)))
+    m.bevel = 0.025
+    for k in range(8):
+        a = TAU * k / 8
+        m.add(blk(0.3, 0.2, 0.16 + 0.03 * (k % 2), KK_STONE_DK if k % 2 else ('#3a3f44', '#5e6a72')).xf(rz(a + math.pi / 2), (0.56 * math.cos(a), 0.56 * math.sin(a), 0)))
+    m.add(lathe([(0.0, 0.05), (0.44, 0.04), (0.46, 0.0)], sides=10, colors=('#2a2624', '#4a4440'), close_top=True).xf(None, (0, 0, 0)))     # the ash
+    for k in range(3):   # charred logs
+        a = k * 2.1
+        m.add(blk(0.5, 0.09, 0.09, KK_WOOD_CHAR).xf(rz(a) @ ry(-0.25), (0.05 * math.cos(a), 0.05 * math.sin(a), 0.05)))
+    # the drill
+    m.add(blk(0.95, 0.26, 0.08, KK_WOOD, (0, -1.0, 0.1)))
     for sx in (-0.38, 0.38):
-        m.add(blob(0.1, 0.1, 0.07, seg=6, rings=3, colors=('#141210', '#6a625a'), jitter=0.2, seed=int(sx * 100) + 200).xf(None, (sx, -0.95, 0.05)))
-    m.add(tube([(0, -0.95, 0.17), (0, -0.95, 1.05)], 0.04, sides=6, colors=OAK))
-    m.add(box(0.7, 0.06, 0.06, OAK_DK, (0, 0, 0)).xf(None, (0, -0.95, 1.0)))
-    m.add(trim(tube([(0.04 * math.cos(a), -0.95 + 0.04 * math.sin(a), 0.55 + 0.02 * a) for a in np.linspace(0, TAU * 2, 14)], 0.012, sides=3, colors=('#5a4a2a', '#a08a5a'))))
-    m.add(trim(tube([(0.04, -0.95, 0.6), (0.4, -0.7, 0.3), (0.55, -0.6, 0.02)], 0.012, sides=3, colors=('#5a4a2a', '#a08a5a'))))
-    m.add(trim(blob(0.03, 0.03, 0.015, seg=5, rings=3, colors=('#1a0a04', '#3a1a0a')).xf(None, (0.0, -0.95, 0.18))))   # the scorch where it turns
+        m.add(blk(0.18, 0.3, 0.1, KK_STONE_DK, (sx, -1.0, 0)))
+    m.add(blk(0.09, 0.09, 0.9, KK_WOOD_DK, (0, -1.0, 0.18), rz(0.5)))
+    m.add(blk(0.72, 0.08, 0.08, KK_WOOD, (0, -1.0, 1.0)))
+    m.add(trim(tube([(0.065 * math.cos(a), -1.0 + 0.065 * math.sin(a), 0.5 + 0.022 * a) for a in np.linspace(0, TAU * 2.5, 16)], 0.018, sides=4, colors=('#8a7444', '#b89c62'))))
+    m.add(trim(tube([(0.065, -1.0, 0.56), (0.42, -0.74, 0.3), (0.58, -0.62, 0.03)], 0.018, sides=4, colors=('#8a7444', '#b89c62'))))
     return m, None
 
 
 def march_gate():
-    """The March gate: two rough stone gateposts, a burnt timber across them, an iron shoe nailed to it, and one leaf of the gate hanging off its hinge."""
+    """The March gate in the KayKit idiom: two stout gateposts of stacked blocks with cap stones, a charred beam across, and one iron-bound leaf hanging open."""
     m = Model('march_gate')
-    for sx in (-1.1, 1.1):
-        m.add(crag(0.42, 0.42, 2.1, seed=90 + int(sx * 10), colors=GREYSTONE, nx=3, nz=5, lean=0.03).xf(None, (sx, 0, 0)))
-    m.add(box(2.8, 0.22, 0.24, MIN_CHAR, (0, 0, 0)).xf(ry(0.03), (0, 0, 2.05)))
-    shoe = [(0.09 * math.cos(a), -0.13, 1.94 + 0.09 * math.sin(a)) for a in np.linspace(-0.35, math.pi + 0.35, 9)]   # points up, to hold the luck
-    m.add(trim(tube(shoe, 0.018, sides=4, colors=IRON)))
-    # the hanging leaf: rails and a brace, skewed off its top hinge
-    leaf = rz(0.0) @ ry(0.35)
-    for z in (0.35, 0.85, 1.35):
-        m.add(box(0.95, 0.06, 0.1, OAK_DK, (0, 0, 0)).xf(leaf, (-0.55, 0.08, z)))
-    m.add(box(0.07, 0.06, 1.2, OAK_DK, (0, 0, 0)).xf(leaf @ ry(0.75), (-0.55, 0.08, 0.85)))
-    for z in (0.5, 1.4):
-        m.add(trim(tube([(-0.9, 0.0, z), (-1.0, 0.1, z)], 0.02, sides=4, colors=IRON)))
+    m.bevel = 0.04
+    for sx in (-1.15, 1.15):
+        m.add(blk(0.62, 0.62, 0.2, KK_STONE_DK, (sx, 0, 0)))                                     # footing
+        for k, (w, col, tw) in enumerate(((0.5, KK_STONE, 0.03), (0.46, KK_STONE_LT, -0.05), (0.5, KK_STONE, 0.02), (0.46, KK_STONE, -0.02))):
+            m.add(blk(w, w, 0.42, col, (sx, 0, 0.2 + k * 0.42), rz(tw)))                           # the shaft, block on block, none quite square to the last
+        m.add(blk(0.64, 0.64, 0.14, KK_STONE_DK, (sx, 0, 1.88)))                                 # cap stone
+        m.add(lathe([(0.3, 0), (0.16, 0.14), (0.0, 0.22)], sides=4, colors=KK_STONE, close_bottom=True, phase=math.pi / 4).xf(None, (sx, 0, 2.02)))
+    m.add(blk(2.1, 0.2, 0.2, KK_WOOD_CHAR, (0, 0, 1.62), ry(0.04)))                              # the burnt beam, let into the posts
+    shoe = [(0.1 * math.cos(a), -0.12, 1.54 + 0.1 * math.sin(a)) for a in np.linspace(-0.35, math.pi + 0.35, 9)]
+    m.add(trim(tube(shoe, 0.02, sides=4, colors=KK_IRON)))                                       # an iron shoe, points up to hold the luck
+    # the leaf: four planks, two rails and a brace, iron straps, swung open on its hinge post
+    hinge = (-0.88, -0.06)
+    L = rz(-0.32)
+    def on(x, y, z):
+        v = L @ np.array([x, y, 0.0]); return (hinge[0] + v[0], hinge[1] + v[1], z)
+    for i in range(4):
+        m.add(blk(0.22, 0.06, 1.18 - (0.06 if i % 2 else 0), KK_WOOD if i % 2 else KK_WOOD_DK, on(0.14 + i * 0.235, 0, 0.16), L))
+    for z in (0.34, 1.08):
+        m.add(blk(0.98, 0.07, 0.1, KK_WOOD_DK, on(0.5, -0.06, z), L))
+        m.add(trim(blk(0.34, 0.03, 0.06, KK_IRON, on(0.18, -0.105, z + 0.02), L)))                 # hinge straps
+    m.add(blk(1.05, 0.06, 0.09, KK_WOOD_DK, on(0.5, -0.06, 0.66), L @ ry(-0.62)))                # the brace
     return m, None
 
 
 def milestone():
-    """A milestone with a rounded head, leaning a little, the miles cut in it gone soft."""
+    """A milestone in the KayKit idiom: a stout slab on a plinth, its head stepped round, a sunk panel for the miles, moss on one shoulder."""
     m = Model('milestone')
-    m.add(box(0.36, 0.2, 0.75, GREYSTONE, (0, 0, 0)).xf(ry(0.06), (0, 0, 0)))
-    m.add(blob(0.18, 0.1, 0.17, seg=12, rings=6, colors=GREYSTONE, jitter=0.03, seed=21).xf(ry(0.06), (0.045, 0.0, 0.72)))   # the rounded head
-    for z in (0.5, 0.36):   # the figures, cut and worn
-        m.add(trim(tube([(-0.09, -0.105, z), (0.09, -0.105, z)], 0.012, sides=4, colors=('#1a1816', '#3a3632'))))
-    m.add(trim(blob(0.12, 0.08, 0.03, seg=6, rings=3, colors=('#4a5a30', '#8a9a58'), jitter=0.25, seed=12)).xf(None, (0.1, 0.0, 0.72)))
+    m.bevel = 0.03
+    m.add(blk(0.56, 0.36, 0.12, KK_STONE_DK))                               # plinth
+    m.add(blk(0.44, 0.26, 0.5, KK_STONE, (0, 0, 0.12), rz(0.0)))             # the slab
+    m.add(blk(0.38, 0.26, 0.1, KK_STONE, (0, 0, 0.62)))                      # head, stepped in twice so the chamfers round it
+    m.add(blk(0.26, 0.26, 0.07, KK_STONE_LT, (0, 0, 0.72)))
+    m.add(blk(0.3, 0.03, 0.3, KK_STONE_DK, (0, -0.135, 0.24)))               # the sunk panel
+    for z, w in ((0.44, 0.2), (0.36, 0.14), (0.29, 0.18)):                   # the cut figures
+        m.add(trim(blk(w, 0.02, 0.035, KK_IRON, (0, -0.15, z))))
+    m.add(blob(0.13, 0.1, 0.05, seg=6, rings=3, colors=KK_MOSS, jitter=0.15, seed=12).xf(None, (0.14, 0.02, 0.69)))
+    m.add(blob(0.09, 0.07, 0.04, seg=6, rings=3, colors=KK_MOSS, jitter=0.15, seed=13).xf(None, (-0.2, 0.1, 0.12)))
     return m, None
 
 
