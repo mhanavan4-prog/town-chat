@@ -6,7 +6,7 @@
 // injected via get/set; EMBER_MOB_VISUALS + humanoid/sprite helpers by ref;
 // MOB_ATTACK_LUNGE_DIST via getter (declared after this module's ctor point).
 // ---------------------------------------------------------------------------
-export default function createEmberMobs({ EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
+export default function createEmberMobs({ staticModel, EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar, createKayKitByKey, kkSetState, kkOneShot, hasKK, getMobAttackLungeDist, getEmberScene, getEmberMobVisuals, getEmberStaticKiosks, setEmberKiosks, emberHeightAt }) {
 const groundY = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 // How long a slain mob's death collapse lingers before it's hidden.
 const MOB_DEATH_VIS_MS = 1100;
@@ -34,6 +34,24 @@ function getOrCreateEmberMobVisual(id, mobType) {
   let v = getEmberMobVisuals()[id];
   if (!v) {
     const visual = EMBER_MOB_VISUALS[mobType] || EMBER_MOB_VISUALS.ash_wraith;
+    // The Wastes' own life (a crow, a hound): one of the critter models, moved by hand.
+    if (visual.staticKey && hasKK && hasKK(visual.staticKey) && staticModel) {
+      const h = visual.staticHeight || 40;
+      const body = staticModel(visual.staticKey, h, 'height');
+      if (body) {
+        const group = new THREE.Group();
+        body.traverse((c) => { if (c.isMesh && c.material) c.material = Array.isArray(c.material) ? c.material.map((m) => m.clone()) : c.material.clone(); });
+        emberScorch(body, visual.staticTint);
+        group.add(body);
+        group.visible = false;
+        group.userData = { kind: 'ember_mob', targetId: id };
+        const bar = makeHealthBarSprite(78); bar.position.set(0, h + 20, 0); group.add(bar);
+        const label = makeNpcNameSprite(visual.name); label.position.set(0, h + 34, 0); group.add(label);
+        if (getEmberScene()) getEmberScene().add(group);
+        return (getEmberMobVisuals()[id] = { isStatic: true, fly: !!visual.fly, group, body, x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
+          initialized: false, dead: false, hasLoot: false, attackAnimStartAt: null, walkPhase: Math.random() * 10 });
+      }
+    }
     // Preferred: an animated KayKit skeleton (same shared-rig path the
     // Necromancer's summons use). Falls back to the classic humanoid until the
     // skeleton body has streamed in (BG_KEYS), so mobs never go invisible.
@@ -135,6 +153,27 @@ function updateEmberMobVisuals(dt) {
     v.facing = lerpAngle(v.facing, v.targetFacing, f);
     const actualSpeed = dt > 0 ? Math.hypot(v.x - prevX, v.y - prevY) / dt : 0;
 
+    // ── A crow or a hound: bob as it goes (a crow wheels in the air over its
+    // ground and comes down to strike), fall over and go when it dies. ──
+    if (v.isStatic) {
+      const now = performance.now();
+      v.walkPhase += dt * (v.fly ? 7 : Math.max(2, actualSpeed * 0.09));
+      if (v.dead) {
+        const t = Math.min(1, (now - (v.deathAt || 0)) / 600);
+        v.body.rotation.z = t * 1.4;
+        v.group.position.set(v.x, groundY(v.x, v.y) + (v.fly ? 70 * (1 - t) : 0), v.y);
+        v.group.visible = (now - (v.deathAt || 0) < MOB_DEATH_VIS_MS);
+        continue;
+      }
+      v.body.rotation.z = 0;
+      const striking = v.attackAnimStartAt != null && now - v.attackAnimStartAt < 500;
+      const lift = v.fly ? (striking ? 20 : 70 + Math.sin(v.walkPhase * 0.35) * 18) + Math.abs(Math.sin(v.walkPhase)) * 6 : (actualSpeed > 3 ? Math.abs(Math.sin(v.walkPhase)) * 4 : 0);
+      if (v.fly) v.body.rotation.x = Math.sin(v.walkPhase) * 0.12;
+      v.group.position.set(v.x, groundY(v.x, v.y) + lift, v.y);
+      v.group.rotation.y = v.facing;
+      v.group.visible = true;
+      continue;
+    }
     // ── Animated KayKit skeleton: drive the shared-rig clips (KK.tick advances
     // the mixer globally) instead of hand-rotating limbs. ──
     if (v.isKK) {

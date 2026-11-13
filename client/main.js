@@ -14200,6 +14200,9 @@ const EMBER_MOB_VISUALS = {
   soot_revenant: { name: 'Soot Revenant', scale: 1.1,  kkKey: 'skel_minion',  kkHeight: 70,  kkAttack: 'Unarmed_Melee_Attack_Punch_A',    kkTint: { mul: 0x9a6ab0, emissive: 0x2a0e44, ei: 0.45, eye: 0xcc88ff }, preset: { skin: 0x6a4a7a, hair: 0x120a1a, hairStyle: 'long',   eye: 0xcc88ff, shirt: 0x2a1a3a, pants: 0x160e22 } },
   cinder_brute:  { name: 'Cinder Brute',  scale: 1.25, kkKey: 'skel_warrior', kkHeight: 86,  kkAttack: '2H_Melee_Attack_Slice',           kkTint: { mul: 0xd0481c, emissive: 0x5a1400, ei: 0.5,  eye: 0xffaa00 }, preset: { skin: 0x8a3a1a, hair: 0x1a0a00, hairStyle: 'buzz',   eye: 0xffaa00, shirt: 0x4a1a00, pants: 0x2a1000 } },
   magma_golem:   { name: 'Magma Golem',   scale: 1.6,  kkKey: 'skel_golem',   kkHeight: 128, kkAttack: '2H_Melee_Attack_Slice',           kkTint: { mul: 0xc8401a, emissive: 0x6a1800, ei: 0.6,  eye: 0xffee44 }, preset: { skin: 0xb83010, hair: 0x300800, hairStyle: 'buzz',   eye: 0xffee44, shirt: 0x5a1400, pants: 0x330a00 } },
+  // the Wastes' own life (server: neutral, fight only when struck): drawn from the critter models
+  carrion_crow:  { name: 'Carrion Crow', staticKey: 'cr_gravewing_crow', staticHeight: 34, fly: true, staticTint: { mul: 0x9a9090, emissive: 0x000000, ei: 0 }, scale: 0.6, preset: { shirt: 0x222222, pants: 0x222222, skin: 0x222222, hair: 0x111111 } },
+  ash_hound:     { name: 'Ash-Hound', staticKey: 'cr_hound', staticHeight: 52, staticTint: { mul: 0x8a7e74, emissive: 0x2a0a04, ei: 0.25 }, scale: 0.8, preset: { shirt: 0x5a524a, pants: 0x5a524a, skin: 0x6a625a, hair: 0x3a342e } },
   ember_warlord: { name: 'Ashlord Cindermaw', scale: 2.5, kkKey: 'skel_golem', kkHeight: 220, kkAttack: '2H_Melee_Attack_Slice',          kkTint: { mul: 0xe83a08, emissive: 0x8a1800, ei: 0.75, eye: 0xffff66 }, preset: { skin: 0xff3a00, hair: 0x1a0300, hairStyle: 'mohawk', eye: 0xffff66, shirt: 0x7a1000, pants: 0x2a0600 } }
 };
 
@@ -14210,6 +14213,7 @@ let emberMobVisuals = {};
 // (shared with ember-scene) — injected via get/set; MOB_ATTACK_LUNGE_DIST via
 // getter (declared later). ──
 const { applyEmberMobState, updateEmberMobVisuals } = createEmberMobs({
+  staticModel: (key, size, mode) => (KK && KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
   EMBER_MOB_VISUALS, createHumanoid, lerpAngle, makeHealthBarSprite, makeNpcNameSprite, mobAttackLungeAmount, updateHealthBar,
   createKayKitByKey, kkSetState, kkOneShot, hasKK: (key) => KK.has(key),
   getMobAttackLungeDist: () => MOB_ATTACK_LUNGE_DIST,

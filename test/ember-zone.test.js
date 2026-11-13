@@ -25,8 +25,8 @@ setTimeout(() => {
 
   // ── Zone is a full, large, populated map ──
   check('the zone is twice the Wilds (20000²)', h.EMBER_WORLD_DIMS.width === 20000 && h.EMBER_WORLD_DIMS.height === 20000);
-  check('there are six wild ember creature types (+ the warlord boss)',
-    Object.keys(h.EMBER_MOB_TYPES).filter(k => !h.EMBER_MOB_TYPES[k].boss).length === 6, Object.keys(h.EMBER_MOB_TYPES));
+  check('there are six hostile ember creature types (+ the warlord boss and the neutral life)',
+    Object.keys(h.EMBER_MOB_TYPES).filter(k => !h.EMBER_MOB_TYPES[k].boss && !h.EMBER_MOB_TYPES[k].neutral).length === 6, Object.keys(h.EMBER_MOB_TYPES));
   check('the zone is well populated (40+ spawns)', h.emberMobs.length >= 40, h.emberMobs.length);
   check('every scatter spawn is a real non-boss type',
     h.EMBER_MOB_SPAWNS.every(s => h.EMBER_MOB_TYPES[s.type] && !h.EMBER_MOB_TYPES[s.type].boss));
