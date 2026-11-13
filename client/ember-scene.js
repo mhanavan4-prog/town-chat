@@ -604,7 +604,7 @@ function buildEmberScene() {
     hollow.rotation.x = -Math.PI / 2; hollow.position.set(w.x, 2.8, w.y); scene.add(hollow);
     const rim = new THREE.Mesh(new THREE.RingGeometry(62, 74, 24), new THREE.MeshBasicMaterial({ color: 0x9a7a5a, side: THREE.DoubleSide, transparent: true, opacity: 0.55, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
     rim.rotation.x = -Math.PI / 2; rim.position.set(w.x, 2.9, w.y); scene.add(rim);
-    ringKiosks.push({ x: w.x, z: w.y, npc: 'ring', ringId: w.id, hint: `stand in ${w.name}'s place`, radius: 85 });
+    ringKiosks.push({ x: w.x, z: w.y, npc: 'ring', ringId: w.id, hint: `stand in ${w.name}'s place`, radius: 95 });   // as near as the server allows (data/witchRing.js RING.range): a thumb on a joystick is not exact
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🕯️ ' + w.name); l.position.set(w.x, 70, w.y); scene.add(l); }
   }
   ringKiosks.push({ x: WITCH_RING.x, z: WITCH_RING.y + 60, npc: 'ring', ringId: 'elder', hint: 'go to the elder', radius: 120 });
@@ -618,6 +618,7 @@ function buildEmberScene() {
       const a = (i / WITCH_RING.stones) * Math.PI * 2;
       const g = KK.staticInstance('em_ring_stone', 170 + ((i * 37) % 60), 'height'); if (!g) continue;
       ringPlaced.add(i);
+      g.userData.camFade = true;   // the chase camera ghosts a stone it ends up inside
       g.rotation.y = -a + Math.PI / 2; g.position.set(WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, 0, WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR);
       scene.add(g);
       const half = 40, sx = WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, sz = WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR;
