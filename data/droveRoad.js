@@ -2,8 +2,9 @@
 // crossroads in the Wilds to the March gate, and through it into the west of
 // the Ember Wastes. Before the war the cattle came along it; now nothing does.
 // A milestone, the three pines of a drovers' stance, a need-fire hearth, and
-// the gate. The gate is open at any hour, both ways: the long way in, and the
-// way out when the temple portal has gone dark.
+// the gate. Out of the Wastes it is open at any hour (the way out when the
+// temple portal has gone dark); in, only while the temple's four torches burn,
+// as the portal itself.
 //
 // Placed clear of Troy Town (7000, 7900) and the Countless Stones (8600, 6600).
 const ROAD = {
