@@ -1600,19 +1600,19 @@ def rock_column():
 
 
 def door_props():
-    """A propped doorway: two timber posts and a cap-piece wedged under the rock, a lantern hook, a sag in the lintel."""
+    """A propped doorway in the KayKit idiom: two stout timber posts and a cap-piece wedged under the rock, raking shores, a lantern hook."""
     m = Model('door_props')
+    m.bevel = 0.025
     W, H = 2.3, 1.55
     for sx in (-1, 1):
-        m.add(trim(tube([(sx * W / 2, 0, 0), (sx * (W / 2 - 0.05), 0, H)], lambda u: 0.085 - 0.012 * u, sides=7, colors=OAK_DK)))
-        m.add(trim(tube([(sx * (W / 2 + 0.3), 0.0, 0), (sx * (W / 2 - 0.02), 0, H * 0.62)], 0.05, sides=5, colors=OAK_DK)))   # a raking shore
-        m.add(trim(box(0.26, 0.2, 0.05, OAK)).xf(None, (sx * W / 2, 0, 0)))
-    cap = tube([(-W / 2 - 0.2, 0, H + 0.04), (0, 0, H - 0.03), (W / 2 + 0.2, 0, H + 0.04)], 0.095, sides=7, colors=OAK)
-    m.add(trim(cap))
+        m.add(blk(0.18, 0.18, H, KK_WOOD_DK, (sx * W / 2, 0, 0)))
+        m.add(blk(0.11, 0.11, 1.02, KK_WOOD, (sx * (W / 2 + 0.34), 0.0, 0), ry(-0.32 * sx)))   # a raking shore
+        m.add(blk(0.3, 0.26, 0.06, KK_WOOD, (sx * W / 2, 0, 0)))
+        m.add(blk(W / 2 + 0.24, 0.22, 0.19, KK_WOOD, (sx * (W / 4 + 0.1), 0, H - 0.02 + 0.0), ry(-0.035 * sx)))   # the cap-piece, sagging at the middle
     for sx in (-0.5, 0.45):
-        m.add(trim(box(0.14, 0.2, 0.07, OAK_DK)).xf(ry(0.15), (sx * W / 2, 0, H + 0.1)))   # wedges
-    m.add(crag(W + 0.7, 0.4, 0.5, 31, nx=7, nz=3).xf(None, (0, 0, H + 0.15)))               # the rock it holds up
-    m.add(trimtube([(0.3, 0, H - 0.08), (0.3, -0.12, H - 0.1), (0.3, -0.12, H - 0.2)], 0.01, sides=4, colors=IRON))
+        m.add(blk(0.16, 0.22, 0.08, KK_WOOD_DK, (sx * W / 2, 0, H + 0.15), ry(0.15)))     # wedges
+    m.add(crag(W + 0.7, 0.4, 0.5, 31, nx=7, nz=3).xf(None, (0, 0, H + 0.2)))             # the rock it holds up
+    m.add(trimtube([(0.3, 0, H - 0.04), (0.3, -0.16, H - 0.06), (0.3, -0.16, H - 0.2)], 0.018, sides=4, colors=KK_IRON))
     return m, None
 
 
@@ -2153,40 +2153,47 @@ def rare_well():
 
 # ── The road north (data/wayside.js): three things by the wayside ──
 def gibbet():
-    """A gibbet at a crossroads: a tall tarred post, braced, with an arm and an iron cage hung from it on a chain. The cage is empty."""
+    """A gibbet at a crossroads in the KayKit idiom: a tall tarred post in a footing of stones, braced, with an arm and an iron cage hung from it on a chain. The cage is empty."""
     m = Model('gibbet')
-    T = ('#1c1612', '#4a3a2c')
-    m.add(trim(tube([(0, 0, 0), (0.01, 0, 1.6), (0, 0, 3.2)], [0.11, 0.095, 0.08], sides=6, colors=T)))
-    m.add(trim(tube([(0, 0, 3.05), (0.95, 0, 3.1)], 0.06, sides=5, colors=T)))
-    m.add(trim(tube([(0, 0, 2.35), (0.6, 0, 3.05)], 0.045, sides=5, colors=T)))
-    for a in (0.6, 2.7, 4.6):   # stones wedged round the foot
-        m.add(blob(0.2, 0.17, 0.13, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=int(a * 10)).xf(None, (0.24 * math.cos(a), 0.24 * math.sin(a), 0.07)))
+    m.bevel = 0.03
+    T = ('#2a211c', '#4c3b2e')
+    m.add(blk(0.2, 0.2, 3.2, T))
+    m.add(blk(0.26, 0.26, 0.08, KK_WOOD_DK, (0, 0, 3.2)))
+    m.add(blk(1.15, 0.15, 0.15, T, (0.45, 0, 2.98)))                                    # the arm
+    m.add(blk(0.11, 0.11, 0.9, KK_WOOD_DK, (0.06, 0, 2.3), ry(0.71)))                    # the brace
+    for k, a in enumerate((0.6, 2.7, 4.6)):                                             # stones wedged round the foot
+        m.add(blk(0.3, 0.24, 0.18, KK_STONE if k else KK_STONE_LT, (0.25 * math.cos(a), 0.25 * math.sin(a), 0), rz(a + 0.4)))
     cx = 0.82
-    m.add(trim(tube([(cx, 0, 3.06), (cx, 0, 2.72)], 0.014, sides=4, colors=IRON)))   # the chain
-    for z, r in ((2.7, 0.06), (2.52, 0.2), (2.1, 0.24), (1.62, 0.2), (1.34, 0.1)):   # the hoops of the cage
-        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 11)], 0.014, sides=4, colors=IRON)))
-    for a in np.linspace(0, TAU, 7)[:-1]:   # its straps, head to foot
-        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for z, r in ((2.7, 0.06), (2.52, 0.2), (2.1, 0.24), (1.62, 0.2), (1.34, 0.1))], 0.012, sides=4, colors=IRON)))
-    m.add(trim(tube([(0, -0.1, 1.5), (0, -0.115, 1.2)], 0.035, sides=4, colors=('#5a4a36', '#b09a70'))))   # where splinters have been cut: pale wood
+    for k in range(3):                                                                  # the chain
+        m.add(trim(blk(0.035 if k % 2 else 0.07, 0.07 if k % 2 else 0.035, 0.1, KK_IRON, (cx, 0, 2.7 + 0.09 * k))))
+    C = ((2.7, 0.07), (2.52, 0.21), (2.1, 0.25), (1.62, 0.21), (1.34, 0.1))
+    for z, r in C:                                                                      # the hoops of the cage
+        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 9)], 0.024, sides=4, colors=KK_IRON)))
+    for a in np.linspace(0, TAU, 7)[:-1]:                                               # its straps, head to foot
+        m.add(trim(tube([(cx + r * math.cos(a), r * math.sin(a), z) for z, r in C], 0.02, sides=4, colors=KK_IRON)))
+    m.add(trim(blk(0.1, 0.02, 0.3, ('#8a7450', '#b89c6c'), (0, -0.1, 1.2))))             # where splinters have been cut: pale wood
     return m, None
 
 
 def cointree():
-    """A coin tree: a fallen oak trunk lying beside the path, its bark studded all along with coins knocked in edgeways."""
+    """A coin tree in the KayKit idiom: a fallen oak trunk lying beside the path, stout and plain, its bark studded all along with coins knocked in edgeways."""
     m = Model('cointree')
-    B = ('#2e2218', '#6a5238')
-    m.add(trim(tube([(-0.95, 0.05, 0.2), (-0.3, 0, 0.22), (0.4, -0.03, 0.2), (1.0, 0.04, 0.17)], [0.24, 0.22, 0.2, 0.15], sides=8, colors=B, cap_base=True)))
-    m.add(trim(tube([(-0.95, 0.05, 0.2), (-1.12, 0.3, 0.26), (-1.25, 0.5, 0.42)], [0.1, 0.07, 0.03], sides=5, colors=B)))   # a root
-    m.add(trim(tube([(-0.95, 0.05, 0.2), (-1.15, -0.25, 0.2), (-1.3, -0.45, 0.3)], [0.1, 0.06, 0.03], sides=5, colors=B)))
-    m.add(trim(tube([(0.5, -0.02, 0.3), (0.62, 0.02, 0.62), (0.7, 0.1, 0.8)], [0.06, 0.04, 0.02], sides=5, colors=B)))    # a broken branch
+    m.bevel = 0.025
+    B = KK_WOOD_DK
+    m.add(tube([(-0.95, 0.05, 0.22), (-0.3, 0, 0.24), (0.4, -0.03, 0.22), (1.0, 0.04, 0.19)], [0.27, 0.25, 0.22, 0.17], sides=8, colors=B, cap_base=True))
+    m.add(lathe([(0.0, 0.0), (0.2, 0.0), (0.2, 0.03)], sides=8, colors=('#8a6a48', '#b08a60'), close_top=True).xf(ry(math.pi / 2), (1.0, 0.04, 0.19)))   # the sawn end
+    m.add(tube([(-0.95, 0.05, 0.22), (-1.12, 0.3, 0.28), (-1.28, 0.52, 0.46)], [0.13, 0.1, 0.05], sides=5, colors=B))   # roots
+    m.add(tube([(-0.95, 0.05, 0.22), (-1.15, -0.25, 0.2), (-1.32, -0.48, 0.3)], [0.13, 0.09, 0.05], sides=5, colors=B))
+    m.add(tube([(-0.95, 0.05, 0.3), (-1.2, 0.05, 0.5), (-1.3, 0.0, 0.72)], [0.12, 0.08, 0.04], sides=5, colors=B))
+    m.add(tube([(0.5, -0.02, 0.3), (0.62, 0.02, 0.66), (0.72, 0.1, 0.84)], [0.085, 0.07, 0.05], sides=5, colors=B, cap_base=True))    # a broken branch
     r = np.random.default_rng(77)
-    for k in range(46):   # the coins: thin discs standing in the top and sides of the trunk
+    for k in range(34):   # the coins: discs standing in the top and sides of the trunk
         x = r.uniform(-0.85, 0.9); a = r.uniform(0.25, math.pi - 0.25)
-        rad = 0.24 - 0.045 * (x + 0.95)
-        col = (('#7a6a1c', '#e8d058') if r.random() < 0.3 else ('#3a5a48', '#8ac0a0'))   # a few still bright, most gone green
-        d = lathe([(0.0, 0.0), (0.03, 0.0), (0.03, 0.006), (0.0, 0.006)], sides=7, colors=col)
-        m.add(glowing(d).xf(rx(-a) @ rz(r.uniform(0, math.pi)) @ ry(math.pi / 2), (x, rad * math.cos(a), 0.2 + rad * math.sin(a))))
-    m.add(blob(0.16, 0.13, 0.1, seg=6, rings=4, colors=ROCKP, jitter=0.2, seed=4).xf(None, (0.2, -0.42, 0.05)))   # the stone people knock them in with
+        rad = 0.27 - 0.05 * (x + 0.95)
+        col = (('#9a8424', '#f0d860') if r.random() < 0.35 else ('#3e6650', '#8ac0a0'))   # a few still bright, most gone green
+        d = lathe([(0.0, 0.0), (0.042, 0.0), (0.042, 0.012), (0.0, 0.012)], sides=7, colors=col)
+        m.add(glowing(d).xf(rx(-a) @ rz(r.uniform(0, math.pi)) @ ry(math.pi / 2), (x, rad * math.cos(a), 0.22 + rad * math.sin(a))))
+    m.add(blk(0.26, 0.2, 0.15, KK_STONE, (0.2, -0.46, 0), rz(0.5)))                      # the stone people knock them in with
     return m, '#c8b060'
 
 
@@ -2674,33 +2681,37 @@ def frith_cross():
 
 
 def boundstone():
-    """A bound stone: a rough standing stone at the edge of a village's ground, with an iron cresset pinned to its head to carry fire."""
+    """A bound stone in the KayKit idiom: a stout standing stone at the edge of a village's ground, with an iron cresset pinned to its head to carry fire."""
     m = Model('boundstone')
-    m.add(blob(0.3, 0.22, 0.78, seg=7, rings=7, colors=ROCKP, jitter=0.16, seed=63).xf(rz(0.3), (0, 0, 0.7)))
-    for a in (0.4, 2.3, 4.4):   # packing stones at the foot
-        m.add(blob(0.2, 0.16, 0.12, seg=6, rings=4, colors=ROCKP, jitter=0.22, seed=int(a * 10) + 3).xf(None, (0.3 * math.cos(a), 0.26 * math.sin(a), 0.06)))
-    m.add(trim(tube([(0, 0, 1.3), (0, 0, 1.62)], 0.03, sides=5, colors=IRON)))   # the pin
-    H = ((1.62, 0.1), (1.72, 0.17), (1.84, 0.2))
-    for z, r in H:   # the cresset's hoops
-        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 9)], 0.016, sides=4, colors=IRON)))
-    for a in np.linspace(0, TAU, 6)[:-1]:   # and its ribs
-        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for z, r in H], 0.014, sides=4, colors=IRON)))
-    m.add(blob(0.1, 0.1, 0.05, seg=6, rings=3, colors=('#1a1512', '#3a3028'), jitter=0.2, seed=8).xf(None, (0, 0, 1.7)))   # old char in the basket
+    m.bevel = 0.04
+    m.add(blk(0.56, 0.42, 0.62, KK_STONE_DK, (0, 0, 0), rz(0.3)))
+    m.add(blk(0.48, 0.36, 0.5, KK_STONE, (0.01, 0, 0.6), rz(0.36)))
+    m.add(blk(0.38, 0.3, 0.3, KK_STONE_LT, (0.0, 0.01, 1.08), rz(0.24)))
+    for k, a in enumerate((0.4, 2.3, 4.4)):                                             # packing stones at the foot
+        m.add(blk(0.28, 0.22, 0.15, KK_STONE if k else KK_STONE_DK, (0.36 * math.cos(a), 0.32 * math.sin(a), 0), rz(a)))
+    m.add(trim(blk(0.07, 0.07, 0.26, KK_IRON, (0, 0, 1.38))))                            # the pin
+    H = ((1.62, 0.11), (1.73, 0.18), (1.86, 0.21))
+    for z, r in H:                                                                      # the cresset's hoops
+        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for a in np.linspace(0, TAU, 9)], 0.024, sides=4, colors=KK_IRON)))
+    for a in np.linspace(0, TAU, 6)[:-1]:                                               # and its ribs
+        m.add(trim(tube([(r * math.cos(a), r * math.sin(a), z) for z, r in H], 0.02, sides=4, colors=KK_IRON)))
+    m.add(lathe([(0.0, 0.0), (0.1, 0.02), (0.12, 0.08), (0.0, 0.1)], sides=6, colors=KK_WOOD_CHAR, close_top=True).xf(None, (0, 0, 1.63)))   # old char in the basket
     return m, None
 
 
 def coffinstone():
-    """A coffin stone: a long flat slab on two rough stubs beside the corpse road, worn smooth on top, with a small cross cut in one end."""
+    """A coffin stone in the KayKit idiom: a long thick slab on two stubs beside the corpse road, with a small cross cut in one end and moss on the other."""
     m = Model('coffinstone')
-    m.add(crag(1.9, 0.72, 0.16, seed=41, nx=6, nz=2).xf(None, (0, 0, 0.42)))
+    m.bevel = 0.04
+    m.add(blk(1.9, 0.72, 0.18, KK_STONE_LT, (0, 0, 0.42), rz(0.02)))
     for sx in (-0.62, 0.62):
-        m.add(crag(0.42, 0.6, 0.44, seed=42 + int(sx * 10), nx=3, nz=3).xf(None, (sx, 0, 0)))
-    # the cross, cut shallow in the top at the head end
-    for pts in ([(-0.72, -0.12, 0.6), (-0.72, 0.12, 0.6)], [(-0.8, 0, 0.6), (-0.6, 0, 0.6)]):
-        m.add(trim(tube(pts, 0.014, sides=4, colors=('#1a1a1c', '#2c2c30'))))
-    m.add(trim(blob(0.2, 0.14, 0.03, seg=6, rings=3, colors=('#4a5a30', '#8a9a58'), jitter=0.25, seed=9)).xf(None, (0.5, 0.2, 0.585)))   # moss
+        m.add(blk(0.42, 0.6, 0.42, KK_STONE_DK, (sx, 0, 0), rz(0.06 * sx)))
+    for (sx, sy) in ((0.05, 0.26), (0.22, 0.05)):                                       # the cross, cut in the top at the head end
+        m.add(trim(blk(sx, sy, 0.012, KK_STONE_DK, (-0.7, 0, 0.598))))
+    m.add(blk(0.34, 0.24, 0.035, KK_MOSS, (0.55, 0.18, 0.59), rz(0.4)))
+    m.add(blk(0.2, 0.14, 0.03, KK_MOSS, (0.75, -0.2, 0.59), rz(-0.3)))
+    m.add(blk(0.24, 0.2, 0.14, KK_STONE, (-0.2, 0.52, 0), rz(0.8)))
     return m, None
-
 
 
 # ── The drove road east to the March (data/droveRoad.js) ───────────────────
@@ -2708,17 +2719,20 @@ GREYSTONE = ('#36332f', '#a8a296')
 
 
 def scots_pine():
-    """A Scots pine as the drovers knew them: a tall bare red-barked trunk and a flat, wind-torn crown high up."""
+    """A Scots pine as the drovers knew them, in the KayKit idiom: a tall bare red-barked trunk and a flat crown of a few broad pads high up."""
     m = Model('scots_pine')
-    BARK = ('#3a1e12', '#b0643a')
-    m.add(tube([(0, 0, 0), (0.05, 0.02, 1.4), (-0.04, 0.05, 2.8), (0.06, 0.0, 3.9)], [0.2, 0.15, 0.11, 0.07], sides=8, colors=BARK, cap_base=True))
-    for (a, z, ln) in ((0.3, 3.0, 0.9), (2.0, 3.3, 0.8), (3.6, 3.55, 0.85), (5.0, 3.15, 0.7), (1.2, 3.75, 0.6)):
-        tip = (ln * math.cos(a), ln * math.sin(a), z + 0.25)
-        m.add(tube([(0.02, 0.02, z), (tip[0] * 0.6, tip[1] * 0.6, z + 0.2), tip], [0.06, 0.04, 0.02], sides=5, colors=BARK))
-        m.add(blob(0.55, 0.45, 0.16, seg=8, rings=4, colors=('#14261a', '#3e5e36'), jitter=0.25, seed=int(a * 10)).xf(None, (tip[0], tip[1], tip[2] + 0.08)))
-    m.add(blob(0.6, 0.5, 0.2, seg=8, rings=4, colors=('#14261a', '#3e5e36'), jitter=0.25, seed=5).xf(None, (0.06, 0.0, 4.0)))
+    m.bevel = 0.03
+    BARK = ('#6a3a24', '#b0683e')
+    m.add(tube([(0, 0, 0), (0.04, 0.02, 1.4), (-0.03, 0.04, 2.8), (0.05, 0.0, 3.9)], [0.24, 0.18, 0.14, 0.09], sides=6, colors=BARK, cap_base=True))
+    pad = lambda rr, h, seed: lathe([(0.0, 0.0), (rr * 0.8, 0.02), (rr, h * 0.45), (rr * 0.62, h), (0.0, h * 1.08)], sides=7, colors=('#24402a', '#4e7a40'), close_top=True, phase=seed)
+    for (a, z, ln, rr) in ((0.3, 3.0, 0.85, 0.62), (2.2, 3.25, 0.8, 0.56), (4.1, 3.1, 0.75, 0.52), (5.3, 3.5, 0.5, 0.42)):
+        tip = (ln * math.cos(a), ln * math.sin(a), z + 0.22)
+        m.add(tube([(0.02, 0.02, z), (tip[0] * 0.6, tip[1] * 0.6, z + 0.18), tip], [0.085, 0.07, 0.05], sides=5, colors=BARK))
+        m.add(pad(rr, 0.36, a).xf(None, (tip[0], tip[1], tip[2] - 0.04)))
+    m.add(pad(0.72, 0.46, 0.4).xf(None, (0.05, 0.0, 3.82)))
+    m.add(blk(0.3, 0.24, 0.16, KK_STONE, (0.42, -0.3, 0), rz(0.6)))                      # a stone to sit on
     for a in (0.5, 2.6, 4.5):   # roots at the foot
-        m.add(trim(tube([(0, 0, 0.1), (0.35 * math.cos(a), 0.35 * math.sin(a), 0.0)], [0.08, 0.03], sides=5, colors=BARK)))
+        m.add(tube([(0, 0, 0.16), (0.4 * math.cos(a), 0.4 * math.sin(a), 0.0)], [0.11, 0.05], sides=5, colors=BARK))
     return m, None
 
 
