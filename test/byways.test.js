@@ -13,7 +13,7 @@ const by = Object.fromEntries(BYWAYS.map((b) => [b.id, b]));
 check('the hidden shoes are record, and say that the reason is a reading, not a record', by.shoe.tier === 'record' && /Nobody who hid one wrote down why/.test(by.shoe.lore[1]) && /Winchester Cathedral/.test(by.shoe.lore[0]) && /Swann/.test(by.shoe.source));
 check('the Devil\'s stone is folk, and says nobody can show it is old', by.stone.tier === 'folk' && /Shebbear/.test(by.stone.lore[0]) && /no record of it before the twentieth century/.test(by.stone.lore[1]) && /Roud/.test(by.stone.source));
 check('Hob\'s hole is folk, with when it was written down', by.hob.tier === 'folk' && /Runswick Bay/.test(by.hob.lore[0]) && /1889/.test(by.hob.lore[1]) && /1889/.test(by.hob.source));
-const others = [[7000, 7900], [8600, 6600], [3700, 6000], [2900, 8300], [5000, 3000], [5000, 8800], ...[[3000, 5000], [7000, 7000], [1500, 4000], [8500, 2000], [4200, 6600], [8600, 5200]], ...WAYSIDE.map((w) => [w.x, w.y]), ...STOPS.map((s) => [s.x, s.y]), ...ROAD.pts];
+const others = [[require('../data/troyTown').TROY_TOWN.x, require('../data/troyTown').TROY_TOWN.y], [8600, 6600], [3700, 6000], [2900, 8300], [5000, 3000], [5000, 8800], ...[[3000, 5000], [7000, 7000], [1500, 4000], [8500, 2000], [4200, 6600], [8600, 5200]], ...WAYSIDE.map((w) => [w.x, w.y]), ...STOPS.map((s) => [s.x, s.y]), ...ROAD.pts];
 check('they stand clear of the Wilds\' other places, the tombs, the roads and each other', BYWAYS.every((b) => others.every(([x, y]) => Math.hypot(b.x - x, b.y - y) > 600) && BYWAYS.every((c) => c === b || Math.hypot(b.x - c.x, b.y - c.y) > 1500)), BYWAYS.map((b) => Math.round(Math.min(...others.map(([x, y]) => Math.hypot(b.x - x, b.y - y))))));
 
 let t = 86400000 * 400;

@@ -7083,7 +7083,7 @@ const stickEl = document.getElementById('stick');
 let joyVec = { x: 0, y: 0 };
 let joyActive = false, joyOrigin = { x: 0, y: 0 }, joyTouchId = null;
 // Pinching the world opens the map (see the pinch watcher after the camera's touch handlers).
-const PINCH_RATIO_IN = 0.62, PINCH_RATIO_OUT = 1.45;
+const PINCH_RATIO_IN = 0.62;
 let pinch = null; // { a, b, d0 } while two fingers that came down together are on the world
 
 const JOY_BASE = MOBILE_UI ? 128 : 110;   // ring diameter (px)
@@ -17448,6 +17448,33 @@ const { openNotifModal } = _notif;
 // server data: it reads what the client already has.
 (function installTownMap() {
   let timer = null;
+  // Labels are not drawn where they are asked for: they are queued, and set down at the end in order of
+  // weight, each only where it does not lie across one already down (it is tried a line or two lower first).
+  // So a crowded corner shows its chief names and no tangle; on a phone, zooming in gives the rest room.
+  let labelQ = [];
+  const PHONE = MOBILE_UI;
+  const LABEL_PX = PHONE ? 12 : 10;
+  function label(text, x, y, color, weight) { if (text) labelQ.push({ text: String(text), x, y, color: color || '#cfc3e8', weight: weight || 1, n: labelQ.length }); }
+  function setLabels(ctx, reserved) {
+    const down = (reserved || []).slice();
+    const q = labelQ.sort((a, b) => b.weight - a.weight || a.n - b.n); labelQ = [];
+    ctx.font = `600 ${LABEL_PX}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.lineJoin = 'round';
+    for (const it of q) {
+      const w = ctx.measureText(it.text).width + 8, h = LABEL_PX + 4;
+      let y = it.y, ok = false;
+      for (let k = 0; k < 3 && !ok; k++, y += h) ok = !down.some((r) => Math.abs(r.x - it.x) * 2 < r.w + w && y < r.y + r.h && r.y < y + h);
+      if (!ok) continue;
+      y -= h; down.push({ x: it.x, y, w, h });
+      ctx.strokeStyle = 'rgba(8,5,18,0.9)'; ctx.lineWidth = 3; ctx.strokeText(it.text, it.x, y + 1);
+      ctx.fillStyle = it.color; ctx.fillText(it.text, it.x, y + 1);
+    }
+  }
+  // On a phone the map is the whole screen, and the world is looked at through it: drag to move, pinch to
+  // zoom, ◎ to come back to yourself. `scale` is screen pixels to a world unit; (cx, cy) the world point at
+  // the middle of the screen. On a desktop the whole zone is fitted, as before.
+  const view = { key: null, scale: 0, cx: 0, cy: 0, follow: true, min: 0, max: 0 };
+  let mapScale = 1;
+  globalThis.__mapLabel = label;
   // Outdoor NPC / landmark markers, keyed by the kiosk's `npc` type (the live
   // OUTDOOR_KIOSKS list is the source of truth for positions). 'npc' is a town
   // quest-giver villager (its own name is shown). Portals are drawn separately.
@@ -17813,14 +17840,12 @@ const { openNotifModal } = _notif;
   function propMarker(ctx, px, py, kind, label, color, s, opt) {
     const gy = py + s * 0.2;
     drawProp(ctx, px, gy, s, kind, opt);
-    if (label) {
-      ctx.fillStyle = color || '#cfc3e8'; ctx.font = '600 9px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(label, px, gy + 5);
-    }
+    if (label) globalThis.__mapLabel(label, px, gy + 5, color, (opt && opt.weight) || 4);
   }
   // Dots for everyone else in `room`, then the teal "You" marker.
   function drawPlayers(ctx, PX, PY, room) {
+    // every name asked for so far is set down now, keeping clear of where "You" will be written
+    setLabels(ctx, (me && me.room === room && typeof me.x === 'number') ? [{ x: PX(me.x), y: PY(me.y) - 28, w: 44, h: 46 }] : []);
     for (const id in players) {
       const p = players[id];
       if (!p || id === myId || p.room !== room || typeof p.x !== 'number') continue;
@@ -17840,8 +17865,9 @@ const { openNotifModal } = _notif;
         ctx.lineTo(px + fx * 9 - nx * 5, py + fy * 9 - ny * 5);
         ctx.closePath(); ctx.fill();
       }
-      ctx.fillStyle = '#5ee7c0'; ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText('You', px, py - 11);
+      ctx.font = `700 ${LABEL_PX + 2}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.strokeStyle = 'rgba(8,5,18,0.9)'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeText('You', px, py - 11);
+      ctx.fillStyle = '#5ee7c0'; ctx.fillText('You', px, py - 11);
       // 📍 The quest waypoint, in this map's coordinates (see client/waypoint.js).
       const wt = waypoint.current();
       if (wt) {
@@ -17871,24 +17897,44 @@ const { openNotifModal } = _notif;
     const zone = activeZone();
     if (!canvas || !wrap || !zone) return;
     const W = zone.W, H = zone.H, aspect = W / H;
-    let cw = wrap.clientWidth, ch = cw / aspect;
-    if (ch > wrap.clientHeight) { ch = wrap.clientHeight; cw = ch * aspect; }
-    if (cw < 10 || ch < 10) return;
+    let cw = wrap.clientWidth, ch = cw / aspect, ox = 0, oy = 0, sx, sy;
+    if (PHONE) {
+      cw = wrap.clientWidth; ch = wrap.clientHeight;
+      if (cw < 10 || ch < 10) return;
+      view.min = Math.min(cw / W, ch / H);                 // the whole zone on the screen
+      view.max = Math.max(cw / W, ch / H) * 6;
+      if (view.key !== zone.key || !view.scale) {          // first sight of this zone: across the screen and half as close again, on yourself
+        Object.assign(view, { key: zone.key, scale: Math.max(cw / W, ch / H) * 1.5, follow: true });
+      }
+      view.scale = Math.max(view.min, Math.min(view.max, view.scale));
+      if (view.follow && me && typeof me.x === 'number') { view.cx = me.x; view.cy = me.y; }
+      // never look past the edge of the zone; a zone smaller than the screen sits in the middle of it
+      const halfW = cw / 2 / view.scale, halfH = ch / 2 / view.scale;
+      view.cx = halfW >= W / 2 ? W / 2 : Math.max(halfW, Math.min(W - halfW, view.cx));
+      view.cy = halfH >= H / 2 ? H / 2 : Math.max(halfH, Math.min(H - halfH, view.cy));
+      sx = sy = view.scale; ox = cw / 2 - view.cx * sx; oy = ch / 2 - view.cy * sy;
+    } else {
+      if (ch > wrap.clientHeight) { ch = wrap.clientHeight; cw = ch * aspect; }
+      if (cw < 10 || ch < 10) return;
+      sx = cw / W; sy = ch / H;
+    }
+    mapScale = sx;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const sx = cw / W, sy = ch / H;
-    const PX = (x) => x * sx, PY = (y) => y * sy;
+    const PX = (x) => x * sx + ox, PY = (y) => y * sy + oy;
+    labelQ = [];
     const t = document.getElementById('mapTitle'); if (t) t.textContent = zone.title;
 
     // Ground + faint grid.
-    ctx.fillStyle = zone.bg; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = '#080512'; ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = zone.bg; ctx.fillRect(PX(0), PY(0), W * sx, H * sy);
     ctx.strokeStyle = 'rgba(126,240,195,0.05)'; ctx.lineWidth = 1;
     const step = W / 8;
-    for (let gx = 0; gx <= W; gx += step) { ctx.beginPath(); ctx.moveTo(PX(gx), 0); ctx.lineTo(PX(gx), ch); ctx.stroke(); }
-    for (let gy = 0; gy <= H; gy += step) { ctx.beginPath(); ctx.moveTo(0, PY(gy)); ctx.lineTo(cw, PY(gy)); ctx.stroke(); }
+    for (let gx = 0; gx <= W; gx += step) { ctx.beginPath(); ctx.moveTo(PX(gx), PY(0)); ctx.lineTo(PX(gx), PY(H)); ctx.stroke(); }
+    for (let gy = 0; gy <= H; gy += step) { ctx.beginPath(); ctx.moveTo(PX(0), PY(gy)); ctx.lineTo(PX(W), PY(gy)); ctx.stroke(); }
 
     if (zone.key === 'town') drawTown(ctx, PX, PY, sx, sy, cw, ch);
     else if (zone.key === 'wilds') drawWilds(ctx, PX, PY, cw, ch);
@@ -17933,7 +17979,7 @@ const { openNotifModal } = _notif;
         ctx.fillText("● you're inside", cx, ly);
       }
     }
-    const propS = Math.max(22, Math.min(cw * 0.028, 34));
+    const propS = PHONE ? 30 : Math.max(22, Math.min(cw * 0.028, 34));
     if (world.spawn) {
       propMarker(ctx, PX(world.spawn.x), PY(world.spawn.y), 'spawn', 'Spawn', '#e8d9a8', propS);
     }
@@ -17954,19 +18000,19 @@ const { openNotifModal } = _notif;
     drawPlayers(ctx, PX, PY, 'outside');
   }
   function drawWilds(ctx, PX, PY, cw, ch) {
-    const propS = Math.max(18, Math.min(cw * 0.024, 28));
+    const propS = PHONE ? 30 : Math.max(18, Math.min(cw * 0.024, 28));
     const npcS = Math.max(16, propS * 0.82), fireS = Math.max(14, propS * 0.7);
     // Spawn / portal home (they sit together at the south edge).
     if (world2.spawn) {
       propMarker(ctx, PX(world2.spawn.x), PY(world2.spawn.y), 'wilds_portal', '🌀 Portal home', '#d7b8ff', propS);
     }
-    // Landmark props; seed the label-placement list so NPC names below won't
-    // collide with them.
-    const placed = [];
-    for (const poi of WILDS_POI) {
-      propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#cbbdf0', propS, { color: poi.color });
-      placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
+    // The drove road east to the March gate, under everything else.
+    if (world2.drove && world2.drove.pts) {
+      ctx.save(); ctx.strokeStyle = 'rgba(200,190,140,0.45)'; ctx.lineWidth = Math.max(2, world2.drove.width * mapScale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); world2.drove.pts.forEach((q, i) => (i ? ctx.lineTo(PX(q[0]), PY(q[1])) : ctx.moveTo(PX(q[0]), PY(q[1])))); ctx.stroke(); ctx.restore();
     }
+    // Landmark props, their names the weightiest on the map.
+    for (const poi of WILDS_POI) propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#cbbdf0', propS, { color: poi.color, weight: 8 });
     // The two old places near the portal: the Shepherd's Race (east) and the
     // clootie well (west). Where they are comes from the server's Wilds.
     const oldPlaces = [];
@@ -17975,9 +18021,18 @@ const { openNotifModal } = _notif;
     // …and, when the server has them, the Crick-stone and the Nine-and-Twenty.
     if (world2.menAnTol) oldPlaces.push({ x: world2.menAnTol.x, y: world2.menAnTol.y, kind: 'holed_stone', label: '🪨 Crick-stone' });
     if (world2.countless) oldPlaces.push({ x: world2.countless.x, y: world2.countless.y, kind: 'stone_ring', label: '🪨 Nine-and-Twenty' });
-    for (const poi of oldPlaces) {
-      propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#e6d6a8', propS);
-      placed.push({ x: PX(poi.x), y: PY(poi.y) + propS * 0.2 + 5 });
+    for (const poi of oldPlaces) propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#e6d6a8', propS, { weight: 6 });
+    // The smaller places: the road north's three, the drove road's stops and gate, the by-ways. A pip and a name.
+    const pips = [];
+    for (const w of (world2.wayside || [])) pips.push(w);
+    for (const w of ((world2.drove && world2.drove.stops) || [])) pips.push(w);
+    for (const w of (world2.byways || [])) pips.push(w);
+    if (world2.drove && world2.drove.gate) pips.push({ x: world2.drove.gate.x, y: world2.drove.gate.y, icon: '🚧', name: 'The March gate' });
+    for (const w of pips) {
+      const x = PX(w.x), y = PY(w.y);
+      ctx.fillStyle = '#e6d6a8'; ctx.strokeStyle = '#2a2010'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      label(`${w.icon || ''} ${w.name || ''}`.trim(), x, y + 8, '#e6d6a8', 3);
     }
     // Campfires: prop only — five identical "Campfire" labels were just noise.
     if (typeof WILDS_CAMPFIRES !== 'undefined') {
@@ -17997,23 +18052,16 @@ const { openNotifModal } = _notif;
     // the tight camp clusters read as a clean list instead of a tangle.
     if (typeof WILDS_NPCS !== 'undefined') {
       for (const n of WILDS_NPCS) drawProp(ctx, PX(n.x), PY(n.y) + npcS * 0.2, npcS, 'npc');
-      ctx.font = '600 9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#ffd479';
-      const list = WILDS_NPCS.map((n) => ({ name: n.name, x: PX(n.x), y: PY(n.y) + npcS * 0.2 })).sort((a, b) => a.y - b.y || a.x - b.x);
-      for (const it of list) {
-        let ly = it.y + 6, guard = 0;
-        while (placed.some((p) => Math.abs(p.x - it.x) < 60 && Math.abs(p.y - ly) < 11) && guard++ < 14) ly += 11;
-        placed.push({ x: it.x, y: ly });
-        ctx.fillText(it.name, it.x, ly);
-      }
+      for (const n of WILDS_NPCS) label(n.name, PX(n.x), PY(n.y) + npcS * 0.2 + 6, '#ffd479', 2);
     }
     drawPlayers(ctx, PX, PY, 'wilds');
   }
   function drawEmber(ctx, PX, PY, cw, ch) {
-    const emberPropS = Math.max(18, Math.min(cw * 0.024, 28));
+    const emberPropS = PHONE ? 30 : Math.max(18, Math.min(cw * 0.024, 28));
     const sp = EMBER_WORLD.spawn;
     // Safe haven ring around spawn.
     if (sp) {
-      const px = PX(sp.x), py = PY(sp.y), rr = EMBER_SAFE_R * (cw / EMBER_WORLD.width);
+      const px = PX(sp.x), py = PY(sp.y), rr = EMBER_SAFE_R * mapScale;
       ctx.fillStyle = 'rgba(126,240,195,0.07)'; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(126,240,195,0.35)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       propMarker(ctx, px, py, 'haven', 'Safe haven', '#7ef0c3', emberPropS);
@@ -18026,7 +18074,7 @@ const { openNotifModal } = _notif;
       }
     }
     drawPlayers(ctx, PX, PY, 'ember_wastes');
-    ctx.fillStyle = 'rgba(255,160,140,0.75)'; ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255,160,140,0.75)'; ctx.font = `600 ${LABEL_PX + 1}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('⚔️ Open PvP — anyone may strike you outside the haven', cw / 2, ch - 8);
   }
   function open() {
@@ -18035,6 +18083,8 @@ const { openNotifModal } = _notif;
     const m = document.getElementById('mapModal'); if (!m) return;
     Modals.set('mapModalOpen', true);
     m.classList.remove('hidden');
+    m.classList.toggle('phone', PHONE);
+    view.key = null;   // each opening starts on yourself
     render();
     if (timer) clearInterval(timer);
     timer = setInterval(render, 500); // live player dots while open
@@ -18050,7 +18100,7 @@ const { openNotifModal } = _notif;
   window.__openTownMap = open;
   // Three ways to it on a phone, none of which puts anything new on the
   // screen: tap the health-and-level pill at the top left; pinch the world
-  // (fingers together) — and spread them on the map to put it away; or Map,
+  // (fingers together) — on the open map two fingers zoom it, and ✕ puts it away; or Map,
   // first in the ☰ menu. Someone who takes the long way through the menu is
   // told the short ways, once.
   const tellShortWays = () => {
@@ -18065,19 +18115,42 @@ const { openNotifModal } = _notif;
     pill.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); toggle(); }, { passive: false });
     pill.addEventListener('click', (e) => { e.preventDefault(); toggle(); });
   }
-  if (MOBILE_UI) { const h = document.getElementById('mapHint'); if (h) h.textContent = 'spread two fingers, or tap Close, to put it away'; }
-  // Spread two fingers on the open map to put it away.
-  const mm = document.getElementById('mapModal');
-  if (mm) {
-    let spread = null;
-    mm.addEventListener('touchstart', (e) => { spread = e.touches.length === 2 ? Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) : null; }, { passive: true });
-    mm.addEventListener('touchmove', (e) => {
-      if (spread == null || e.touches.length !== 2) return;
-      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      if (d > spread * PINCH_RATIO_OUT) { spread = null; close(); }
-    }, { passive: true });
-    mm.addEventListener('touchend', () => { spread = null; }, { passive: true });
+  if (PHONE) {
+    const h = document.getElementById('mapHint'); if (h) h.textContent = 'drag to move · pinch to zoom';
+    const x = document.getElementById('mapCloseBtn'); if (x) { x.textContent = '✕'; x.setAttribute('aria-label', 'Close the map'); }
   }
+  // On the open map: one finger drags it, two fingers zoom it about the point between them.
+  const mm = document.getElementById('mapCanvasWrap');
+  if (mm) {
+    let drag = null, pinch = null;
+    const mid = (e) => ({ x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) });
+    mm.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) { pinch = { ...mid(e), scale: view.scale }; drag = null; }
+      else if (e.touches.length === 1) { drag = { x: e.touches[0].clientX, y: e.touches[0].clientY }; pinch = null; }
+    }, { passive: true });
+    mm.addEventListener('touchmove', (e) => {
+      if (!view.scale) return;
+      if (pinch && e.touches.length === 2) {
+        const m = mid(e), r = mm.getBoundingClientRect();
+        const next = Math.max(view.min, Math.min(view.max, pinch.scale * (m.d / Math.max(1, pinch.d))));
+        // keep the world point under the fingers under the fingers
+        const fx = m.x - r.left - r.width / 2, fy = m.y - r.top - r.height / 2;
+        view.cx += fx / view.scale - fx / next; view.cy += fy / view.scale - fy / next;
+        view.scale = next; view.follow = false; render();
+      } else if (drag && e.touches.length === 1) {
+        const t = e.touches[0];
+        view.cx -= (t.clientX - drag.x) / view.scale; view.cy -= (t.clientY - drag.y) / view.scale;
+        drag = { x: t.clientX, y: t.clientY }; view.follow = false; render();
+      }
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    mm.addEventListener('touchend', (e) => { pinch = null; drag = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { passive: true });
+  }
+  const zoomBy = (k) => { if (!view.scale) return; view.scale = Math.max(view.min, Math.min(view.max, view.scale * k)); render(); };
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  bind('mapZoomIn', () => zoomBy(1.5)); bind('mapZoomOut', () => zoomBy(1 / 1.5));
+  bind('mapCentre', () => { view.follow = true; render(); });
+  window.__mapView = view;   // for the tests
   const cb = document.getElementById('mapCloseBtn'); if (cb) cb.addEventListener('click', close);
   window.addEventListener('resize', () => { if (Modals.isOpen('mapModalOpen')) render(); });
 })();

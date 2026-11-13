@@ -6,7 +6,7 @@
 // temple portal has gone dark); in, only while the temple's four torches burn,
 // as the portal itself.
 //
-// Placed clear of Troy Town (7000, 7900), the Countless Stones (8600, 6600) and the tombs at (7000, 7000).
+// Placed clear of Troy Town (data/troyTown.js), the Countless Stones (8600, 6600) and the tombs at (7000, 7000).
 const ROAD = {
   // the way itself, from the crossroads at the gibbet (data/wayside.js) to the gate
   // it bends south round the tombs at (7000, 7000) (client/main.js crypt grounds: a ring of 300)

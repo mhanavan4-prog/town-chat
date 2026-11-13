@@ -4078,6 +4078,19 @@
 #mapModal .mapLegend i{width:11px;height:11px;border-radius:50%;display:inline-block}
 #mapModal .mapBtns{margin-top:12px}
 #mapModal .mapBtns .btn{min-width:160px}
+#mapModal .mapTools{display:none}
+/* On a phone the map is the whole screen: the title a chip in one corner, Close a round ✕ in the other, the
+   zoom and ◎ buttons down the right edge, no legend. (client/main.js installTownMap) */
+#mapModal.phone{padding:0;background:#080512}
+#mapModal.phone #mapCanvasWrap{max-width:none;width:100%;height:100%;flex:1;touch-action:none}
+#mapModal.phone #mapCanvas{border:0;border-radius:0;box-shadow:none;max-width:none;max-height:none;background:#080512}
+#mapModal.phone .mapHead{position:absolute;z-index:2;top:calc(8px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));margin:0;gap:8px;font-size:14px;padding:6px 11px;border-radius:11px;background:rgba(8,5,18,0.78);border:1px solid rgba(185,138,255,0.25);pointer-events:none;max-width:70vw;white-space:nowrap;overflow:hidden}
+#mapModal.phone .mapHead .mapHint{font-size:11px}
+#mapModal.phone .mapLegend{display:none}
+#mapModal.phone .mapBtns{position:absolute;z-index:2;top:calc(8px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));margin:0}
+#mapModal.phone .mapBtns .btn,#mapModal.phone .mapTools button{min-width:0;width:44px;height:44px;padding:0;border-radius:50%;font-size:19px;line-height:44px;text-align:center}
+#mapModal.phone .mapTools{display:flex;flex-direction:column;gap:8px;position:absolute;z-index:2;right:calc(10px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom))}
+#mapModal.phone .mapTools button{background:rgba(8,5,18,0.82);color:#e9ddff;border:1px solid rgba(185,138,255,0.4);font-weight:800}
 </style>
 <div id="mapModal" class="hidden">
   <div class="mapHead"><span id="mapTitle">🗺️ Thornreach — Town Map</span> <span class="mapHint" id="mapHint">press M or Esc to close</span></div>
@@ -4090,6 +4103,7 @@
     <span>❗ NPCs &amp; services</span>
   </div>
   <div class="mapBtns"><button class="btn" id="mapCloseBtn">Close</button></div>
+  <div class="mapTools"><button id="mapZoomIn" aria-label="Zoom in">+</button><button id="mapZoomOut" aria-label="Zoom out">−</button><button id="mapCentre" aria-label="Back to where you are">◎</button></div>
 </div>
 
 <!-- Everyone online: message or invite them (client/main.js "Players online"; lib/online.js) -->
