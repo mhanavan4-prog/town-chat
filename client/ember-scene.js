@@ -1,3 +1,4 @@
+import { layRoadStones } from './road-stones.js';
 // ---------------------------------------------------------------------------
 // Ember Wastes scene (Tier 3.4 Phase C, 3D slice) — the Wilds-styled hostile
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
@@ -579,6 +580,7 @@ function buildEmberScene() {
   const fieldPlaced = new Set();
   const buildField = () => {
     if (!(KK && KK.has && KK.staticInstance)) return;
+    layRoadStones(scene, KK, FIELD_TRACK, 105, H, (g) => scorch(g, 0.14), 11);   // the track's kerbs and worn flags
     markerSpots.forEach(([x, y], i) => {
       const k = 'm' + i; if (fieldPlaced.has(k) || !KK.has('wl_waymarker')) return;
       const g = KK.staticInstance('wl_waymarker', 110, 'height'); if (!g) return;

@@ -10,6 +10,7 @@ import { makeCountlessRing } from './props-countless.js';
 // ---------------------------------------------------------------------------
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
+import { layRoadStones } from './road-stones.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
@@ -443,6 +444,7 @@ function buildWildsScene(w2) {
     ribbon(P, w2.drove.width / 2, 0x6e7a46, 1.2);                        // the green way, grazed short
     const off = (d) => P.map(([x, y], i) => { const [bx, by] = P[Math.min(i + 1, P.length - 1)], [ax, ay] = P[Math.max(i - 1, 0)], L = Math.hypot(bx - ax, by - ay) || 1; return [x - (by - ay) / L * d, y + (bx - ax) / L * d]; });
     for (const d of [-34, 34]) ribbon(off(d), 9, 0x4a4a2c, 1.6);       // hoof-worn ruts
+    layRoadStones(scene, KK, [P], w2.drove.width / 2, H, null, 23);   // its kerbs and worn flags
     const turnOf = { milestone: 0.4, pines: 0, needfire: 0.6 };
     for (const st of w2.drove.stops) {
       if (st.id === 'pines') {
