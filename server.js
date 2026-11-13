@@ -4011,6 +4011,15 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
   // A Mossback Tortoise's shell soaks most of a blow (its `armor` is the
   // fraction of damage that gets through). Applied before anything reads dmg
   // so lifesteal, hit numbers and the health hit all use the real figure.
+  if (targetType === 'ember_mob') {
+    // the Wastes' neutral life fights back at whoever struck it
+    const ep = EMBER_MOB_TYPES[t.mobType];
+    if (ep && ep.neutral) {
+      t.provokedUntil = Date.now() + ep.provokeMs; t.provokerId = player.id;
+      // a pack answers for any of its own
+      if (ep.pack) for (const o of emberMobs) if (o !== t && !o.dead && o.mobType === t.mobType && Math.hypot(o.x - t.x, o.y - t.y) < 700) { o.provokedUntil = t.provokedUntil; o.provokerId = player.id; }
+    }
+  }
   if (targetType === 'mob3') {
     const np = MOB3_TYPES[t.mobType];
     if (np && np.armor) dmg = Math.max(1, Math.round(dmg * np.armor));
@@ -10583,6 +10592,18 @@ const EMBER_MOB_TYPES = {
   magma_golem:   { name: 'Magma Golem',   color: 0xb83010, scale: 1.7,  maxHealth: 240, speed: 30,  aggroRadius: 210, strikeRange: 80,  dmgMin: 28, dmgMax: 40, hitCooldownMs: 2600, xp: 48,
     lootTable: [ { itemId: 'iron_ore', qty: 2, chance: 0.6 }, { itemId: 'enchanted_gem', qty: 1, chance: 0.05 }, { gold: true, min: 24, max: 48, chance: 0.7 } ],
     stealChance: 0.25, stealTable: [ 'iron_ore', 'stone_block' ] },
+  // The Wastes' own life, for the long gaps between its places: neutral, like
+  // the Wilds' beasts. They keep to their own ground and fight only whoever
+  // strikes them (provokeMs), then go back to it. Carrion crows over the
+  // field's graves; packs of ash-hounds roaming the empty country.
+  carrion_crow:  { name: 'Carrion Crow',  color: 0x2a2a30, scale: 0.6, maxHealth: 22,  speed: 110, aggroRadius: 0, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1000, xp: 6,
+    neutral: true, provokeMs: 15000, leash: 450,
+    lootTable: [ { itemId: 'bone_shard', qty: 1, chance: 0.3 }, { gold: true, min: 1, max: 4, chance: 0.5 } ],
+    stealChance: 0, stealTable: [] },
+  ash_hound:     { name: 'Ash-Hound',     color: 0x6a625a, scale: 0.9, maxHealth: 70,  speed: 150, aggroRadius: 0, strikeRange: 50, dmgMin: 8,  dmgMax: 13, hitCooldownMs: 1100, xp: 18,
+    neutral: true, provokeMs: 25000, leash: 900, pack: true,
+    lootTable: [ { itemId: 'fur_scrap', qty: 2, chance: 0.6 }, { itemId: 'animal_pelt', qty: 1, chance: 0.25 }, { gold: true, min: 3, max: 9, chance: 0.5 } ],
+    stealChance: 0, stealTable: [] },
   // The zone warlord — a single garrison boss at Charhold Keep. A destination,
   // not an obstacle: a huge shared-looking health pool, long reach, hits hard,
   // and leashes to its throne (see tickEmberWastes) so it holds its post rather
@@ -10629,6 +10650,9 @@ const EMBER_MOB_SPAWNS = (() => {
     for (let i = clustered; i < n; i++) scatter(type);
   }
   // Nothing rises inside Ashminster: a spawn that fell there is put out to its edge, on its own bearing.
+  // The Wastes' own life: crows over the field's graves and its chapel, and three packs of ash-hounds in the empty country between the places.
+  for (const f of require('./data/emberField').FINDS.filter((x) => /barrow|chapel/.test(x.model))) for (let i = 0; i < 3; i++) out.push({ x: f.x + Math.cos(i * 2.1) * 260, y: f.y + Math.sin(i * 2.1) * 260, type: 'carrion_crow' });
+  for (const [px, py] of [[5600, 16600], [15800, 12300], [13600, 3800]]) for (let i = 0; i < 4; i++) out.push({ x: px + Math.cos(i * 1.6) * 180, y: py + Math.sin(i * 1.6) * 180, type: 'ash_hound', pack: [px, py] });
   for (let pass = 0; pass < 3; pass++) for (const sp of out) for (const g of [...EMBER_TOWN.ground, { x: WITCH_RING.x, y: WITCH_RING.y, r: 1000 }]) {
     const dx = sp.x - g.x, dy = sp.y - g.y, d = Math.hypot(dx, dy);
     if (d < g.r) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = g.x + u[0] * (g.r + 1); sp.y = g.y + u[1] * (g.r + 1); }
@@ -10641,6 +10665,7 @@ const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
   id: 'ember_' + i,
   mobType: p.type,
   spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
+  ...(p.pack ? { homeX: p.pack[0], homeY: p.pack[1] } : {}), // a pack keeps to its own country together
   facing: Math.random() * Math.PI * 2,
   wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
   health: EMBER_MOB_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
@@ -10793,6 +10818,32 @@ function tickEmberWastes(dt) {
       const inv = dist > 0.01 ? 1 / dist : 0;
       vx = dx * inv * preset.speed;
       vy = dy * inv * preset.speed;
+    } else if (preset.neutral) {
+      // the Wastes' own life: after whoever struck it, while it is angry; else about its own ground
+      const foe = m.provokedUntil > now ? players.get(m.provokerId) : null;
+      if (foe && foe.room === 'ember_wastes' && !foe.isDead && Math.hypot(foe.x - m.x, foe.y - m.y) < 1600) {
+        const fd = Math.hypot(foe.x - m.x, foe.y - m.y), inv = fd > 0.01 ? 1 / fd : 0;
+        vx = (foe.x - m.x) * inv * preset.speed; vy = (foe.y - m.y) * inv * preset.speed;
+        if (fd < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
+          m.lastHitAt = now;
+          const dmg = absorbIncomingDamage(foe, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+          foe.health = Math.max(0, foe.health - dmg);
+          noteAttacked(foe);
+          if (foe.health <= 0) { foe.health = 0; foe.isDead = true; noteDeath(foe); send(foe.ws, { type: 'you_died', byName: preset.name, mobId: m.id }); }
+          else send(foe.ws, { type: 'struck', byName: preset.name, damage: dmg, mobId: m.id });
+        }
+      } else {
+        m.provokedUntil = 0;
+        const hx = m.homeX != null ? m.homeX : m.spawnX, hy = m.homeY != null ? m.homeY : m.spawnY;
+        m.wanderTimer -= dt;
+        if (m.wanderTimer <= 0) {
+          m.wanderTimer = 1.2 + Math.random() * 2.2;
+          m.paused = Math.random() < (preset.pack ? 0.25 : 0.4);
+          const away = Math.hypot(m.x - hx, m.y - hy);
+          m.wanderAngle = away > preset.leash ? Math.atan2(hx - m.x, hy - m.y) + (Math.random() - 0.5) * 0.6 : Math.random() * Math.PI * 2;
+        }
+        if (!m.paused) { const sp = preset.speed * (preset.pack ? 0.45 : 0.6); vx = Math.sin(m.wanderAngle) * sp; vy = Math.cos(m.wanderAngle) * sp; }
+      }
     } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
       m.rivalId = null; // a real player threat always wins out over a squabble
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
@@ -18646,7 +18697,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
