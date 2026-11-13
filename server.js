@@ -1572,6 +1572,7 @@ WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns 
 { const { PACKMAN: PK } = require('./data/packman'); WORLD2.packman = { x: PK.x, y: PK.y, name: PK.name }; }
 { const { WARD } = require('./data/villageWard'); WORLD2.ward = { centre: WARD.centre, radius: WARD.radius, model: WARD.model, size: WARD.size, stones: WARD.stones.map((s) => ({ id: s.id, x: s.x, y: s.y, name: s.name })) }; }
 // The road north (data/wayside.js): the gibbet, the coin tree and the coffin stone, where the client draws them.
+{ const DR = require('./data/droveRoad'); WORLD2.drove = { pts: DR.ROAD.pts, width: DR.ROAD.width, gate: DR.GATE.wilds, stops: DR.STOPS.map(({ id, icon, name, x, y, model, size, hint }) => ({ id, icon, name, x, y, model, size, hint })) }; } // the drove road east to the March gate
 WORLD2.wayside = require('./data/wayside').WAYSIDE.map((w) => ({ id: w.id, x: w.x, y: w.y, model: w.model, size: w.size, name: w.name, icon: w.icon, hint: w.hint }));
 WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, note: COUNT.COUNTLESS_NOTE, source: COUNT.COUNTLESS_SOURCE };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
@@ -1727,6 +1728,8 @@ WILDS_FLORA_TYPES.push('crotal_stone');
 {
   const keepOff = [
     ...WORLD2.wayside.map((w) => ({ x: w.x, y: w.y, r: 230 })),
+    ...WORLD2.drove.stops.map((w) => ({ x: w.x, y: w.y, r: 230 })), { x: WORLD2.drove.gate.x, y: WORLD2.drove.gate.y, r: 300 },
+    ...WORLD2.drove.pts.slice(1).flatMap((b, i) => { const a = WORLD2.drove.pts[i], n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 150); return Array.from({ length: n }, (_, k) => ({ x: a[0] + (b[0] - a[0]) * k / n, y: a[1] + (b[1] - a[1]) * k / n, r: 130 })); }),
     ...WORLD2.ward.stones.map((s) => ({ x: s.x, y: s.y, r: 150 })),
     { x: WORLD2.countless.x, y: WORLD2.countless.y, r: WORLD2.countless.radius + 140 },
     { x: WORLD2.clootieWell.x, y: WORLD2.clootieWell.y, r: 310 },
@@ -9226,6 +9229,10 @@ const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHea
 const wayside = require('./lib/wayside')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
   noteRoad: (p) => { if (daybook.note(p, 'road')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the road north, walked.' }); } });
+// The drove road east to the March gate (lib/droveRoad.js, data/droveRoad.js); the crossing itself is the march_gate message below.
+const droveRoad = require('./lib/droveRoad')({ send, grantXP, playerMaxHealth,
+  acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
+  noteWalked: (p) => { if (daybook.note(p, 'drove')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the drove road, walked.' }); } });
 const wildsFinds = require('./lib/wildsFinds')({ send, grantLoot, grantXP, inventoryStatePayload,
   noteRound: (p) => { if (daybook.note(p, 'balefires')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the round of the balefires.' }); saveAccounts(); } });
 // Things to do underground besides fighting (chests, caches, gathering, traps,
@@ -10670,6 +10677,9 @@ const EMBER_MOB_SPAWNS = (() => {
     const dx = sp.x - g.x, dy = sp.y - g.y, d = Math.hypot(dx, dy);
     if (d < g.r) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = g.x + u[0] * (g.r + 1); sp.y = g.y + u[1] * (g.r + 1); }
   }
+  // nor by the March gate on the west edge (data/droveRoad.js): one too near is put east of it
+  { const { GATE } = require('./data/droveRoad'), g = GATE.arriveWastes;
+    for (const sp of out) { const dy = sp.y - g.y; if (Math.hypot(sp.x - g.x, dy) < GATE.quiet) sp.x = g.x + Math.sqrt(GATE.quiet * GATE.quiet - dy * dy) + 1; } }
   return out;
 })();
 const EMBER_MOB_RESPAWN_MS = 90 * 1000;
@@ -10804,7 +10814,7 @@ function tickEmberWastes(dt) {
         vx = dx * inv * preset.speed; vy = dy * inv * preset.speed;
         if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
           m.lastHitAt = now;
-          const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+          const dmg = absorbIncomingDamage(nearestP, Math.max(1, Math.round((preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))) * (1 - droveRoad.smokeCut(nearestP)))));
           nearestP.health = Math.max(0, nearestP.health - dmg);
           noteAttacked(nearestP);
           if (nearestP.health <= 0) {
@@ -10839,7 +10849,7 @@ function tickEmberWastes(dt) {
         vx = (foe.x - m.x) * inv * preset.speed; vy = (foe.y - m.y) * inv * preset.speed;
         if (fd < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
           m.lastHitAt = now;
-          const dmg = absorbIncomingDamage(foe, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+          const dmg = absorbIncomingDamage(foe, Math.max(1, Math.round((preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))) * (1 - droveRoad.smokeCut(foe)))));
           foe.health = Math.max(0, foe.health - dmg);
           noteAttacked(foe);
           if (foe.health <= 0) { foe.health = 0; foe.isDead = true; noteDeath(foe); send(foe.ws, { type: 'you_died', byName: preset.name, mobId: m.id }); }
@@ -10867,7 +10877,7 @@ function tickEmberWastes(dt) {
       vy = dy * inv * preset.speed;
       if (dist < preset.strikeRange && (!m.lastHitAt || now - m.lastHitAt >= preset.hitCooldownMs)) {
         m.lastHitAt = now;
-        const dmg = absorbIncomingDamage(nearestP, preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1)));
+        const dmg = absorbIncomingDamage(nearestP, Math.max(1, Math.round((preset.dmgMin + Math.floor(Math.random() * (preset.dmgMax - preset.dmgMin + 1))) * (1 - droveRoad.smokeCut(nearestP)))));
         nearestP.health = Math.max(0, nearestP.health - dmg);
         noteAttacked(nearestP);
         if (nearestP.health <= 0) {
@@ -15254,6 +15264,35 @@ wss.on('connection', (ws, req) => {
     // Use a thing in a dungeon or the Delve: a chest, a cache, a vein, a brazier, a seal.
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'drove_use') { if (droveRoad.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
+    // The March gate (data/droveRoad.js): open at any hour, both ways, between the east edge of the Wilds and the west edge of the Ember Wastes.
+    if (msg.type === 'march_gate') {
+      const { GATE } = require('./data/droveRoad');
+      if (player.isDead || (player.instance || '') !== '') return;
+      if (player.room === 'wilds' && Math.hypot(player.x - GATE.wilds.x, player.y - GATE.wilds.y) <= 240) {
+        clearDuels(player);
+        player.room = 'ember_wastes';
+        player.roomLockUntil = Date.now() + 1500;
+        player.x = GATE.arriveWastes.x; player.y = GATE.arriveWastes.y;
+        player.emberReturnX = null; player.emberReturnY = null;
+        send(ws, { type: 'ember_wastes_entered', spawn: { ...GATE.arriveWastes }, landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(), greeting: null, march: true });
+        send(ws, { type: 'toast', level: 'important', always: true, message: '🚧 You go through the March gate. The grass stops; the ground goes black. You are in the west of the Ember Wastes, where anyone may strike you. The gate behind you is open at any hour.' });
+        storyEvent(player, 'visit_room', { room: 'ember_wastes' });
+        return;
+      }
+      if (player.room === 'ember_wastes' && Math.hypot(player.x - GATE.wastes.x, player.y - GATE.wastes.y) <= 240) {
+        clearDuels(player);
+        player.room = 'wilds';
+        player.roomLockUntil = Date.now() + 1500;
+        player.x = GATE.arriveWilds.x; player.y = GATE.arriveWilds.y;
+        player.emberReturnX = null; player.emberReturnY = null;
+        emberStorm.leave(player);
+        send(ws, { type: 'ember_wastes_exited', x: player.x, y: player.y, room: 'wilds' });
+        return;
+      }
+      send(ws, { type: 'toast', level: 'routine', message: 'Go up to the gate.' });
+      return;
+    }
     if (msg.type === 'wayside_use') { if (wayside.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
@@ -18713,7 +18752,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

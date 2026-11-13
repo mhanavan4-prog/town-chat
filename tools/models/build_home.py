@@ -2613,6 +2613,76 @@ def coffinstone():
     return m, None
 
 
+# ── The drove road east to the March (data/droveRoad.js) ───────────────────
+GREYSTONE = ('#36332f', '#a8a296')
+
+
+def scots_pine():
+    """A Scots pine as the drovers knew them: a tall bare red-barked trunk and a flat, wind-torn crown high up."""
+    m = Model('scots_pine')
+    BARK = ('#3a1e12', '#b0643a')
+    m.add(tube([(0, 0, 0), (0.05, 0.02, 1.4), (-0.04, 0.05, 2.8), (0.06, 0.0, 3.9)], [0.2, 0.15, 0.11, 0.07], sides=8, colors=BARK, cap_base=True))
+    for (a, z, ln) in ((0.3, 3.0, 0.9), (2.0, 3.3, 0.8), (3.6, 3.55, 0.85), (5.0, 3.15, 0.7), (1.2, 3.75, 0.6)):
+        tip = (ln * math.cos(a), ln * math.sin(a), z + 0.25)
+        m.add(tube([(0.02, 0.02, z), (tip[0] * 0.6, tip[1] * 0.6, z + 0.2), tip], [0.06, 0.04, 0.02], sides=5, colors=BARK))
+        m.add(blob(0.55, 0.45, 0.16, seg=8, rings=4, colors=('#14261a', '#3e5e36'), jitter=0.25, seed=int(a * 10)).xf(None, (tip[0], tip[1], tip[2] + 0.08)))
+    m.add(blob(0.6, 0.5, 0.2, seg=8, rings=4, colors=('#14261a', '#3e5e36'), jitter=0.25, seed=5).xf(None, (0.06, 0.0, 4.0)))
+    for a in (0.5, 2.6, 4.5):   # roots at the foot
+        m.add(trim(tube([(0, 0, 0.1), (0.35 * math.cos(a), 0.35 * math.sin(a), 0.0)], [0.08, 0.03], sides=5, colors=BARK)))
+    return m, None
+
+
+def needfire():
+    """A need-fire hearth: a ring of fire-cracked stones round old ash, and beside it the fire-drill: a post turning in a socket in a plank, a rope round it."""
+    m = Model('needfire')
+    for k in range(9):
+        a = TAU * k / 9
+        m.add(blob(0.16, 0.13, 0.11, seg=6, rings=4, colors=('#141210', '#6a625a'), jitter=0.25, seed=k + 70).xf(None, (0.55 * math.cos(a), 0.55 * math.sin(a), 0.06)))
+    m.add(blob(0.48, 0.48, 0.05, seg=10, rings=3, colors=('#1a1614', '#4a4440'), jitter=0.1, seed=3).xf(None, (0, 0, 0.0)))     # the ash
+    for k in range(5):   # half-burnt sticks
+        a = k * 1.25
+        m.add(trim(tube([(0.25 * math.cos(a), 0.25 * math.sin(a), 0.05), (-0.05 * math.cos(a), -0.05 * math.sin(a), 0.12)], 0.03, sides=5, colors=('#120c08', '#3a2416'))))
+    # the drill: a plank on two stones, an upright spindle turning in it, a cross-bar on top, and the rope
+    m.add(box(0.9, 0.22, 0.06, OAK_DK, (0, 0, 0)).xf(None, (0.0, -0.95, 0.14)))
+    for sx in (-0.38, 0.38):
+        m.add(blob(0.1, 0.1, 0.07, seg=6, rings=3, colors=('#141210', '#6a625a'), jitter=0.2, seed=int(sx * 100) + 200).xf(None, (sx, -0.95, 0.05)))
+    m.add(tube([(0, -0.95, 0.17), (0, -0.95, 1.05)], 0.04, sides=6, colors=OAK))
+    m.add(box(0.7, 0.06, 0.06, OAK_DK, (0, 0, 0)).xf(None, (0, -0.95, 1.0)))
+    m.add(trim(tube([(0.04 * math.cos(a), -0.95 + 0.04 * math.sin(a), 0.55 + 0.02 * a) for a in np.linspace(0, TAU * 2, 14)], 0.012, sides=3, colors=('#5a4a2a', '#a08a5a'))))
+    m.add(trim(tube([(0.04, -0.95, 0.6), (0.4, -0.7, 0.3), (0.55, -0.6, 0.02)], 0.012, sides=3, colors=('#5a4a2a', '#a08a5a'))))
+    m.add(trim(blob(0.03, 0.03, 0.015, seg=5, rings=3, colors=('#1a0a04', '#3a1a0a')).xf(None, (0.0, -0.95, 0.18))))   # the scorch where it turns
+    return m, None
+
+
+def march_gate():
+    """The March gate: two rough stone gateposts, a burnt timber across them, an iron shoe nailed to it, and one leaf of the gate hanging off its hinge."""
+    m = Model('march_gate')
+    for sx in (-1.1, 1.1):
+        m.add(crag(0.42, 0.42, 2.1, seed=90 + int(sx * 10), colors=GREYSTONE, nx=3, nz=5, lean=0.03).xf(None, (sx, 0, 0)))
+    m.add(box(2.8, 0.22, 0.24, MIN_CHAR, (0, 0, 0)).xf(ry(0.03), (0, 0, 2.05)))
+    shoe = [(0.09 * math.cos(a), -0.13, 1.94 + 0.09 * math.sin(a)) for a in np.linspace(-0.35, math.pi + 0.35, 9)]   # points up, to hold the luck
+    m.add(trim(tube(shoe, 0.018, sides=4, colors=IRON)))
+    # the hanging leaf: rails and a brace, skewed off its top hinge
+    leaf = rz(0.0) @ ry(0.35)
+    for z in (0.35, 0.85, 1.35):
+        m.add(box(0.95, 0.06, 0.1, OAK_DK, (0, 0, 0)).xf(leaf, (-0.55, 0.08, z)))
+    m.add(box(0.07, 0.06, 1.2, OAK_DK, (0, 0, 0)).xf(leaf @ ry(0.75), (-0.55, 0.08, 0.85)))
+    for z in (0.5, 1.4):
+        m.add(trim(tube([(-0.9, 0.0, z), (-1.0, 0.1, z)], 0.02, sides=4, colors=IRON)))
+    return m, None
+
+
+def milestone():
+    """A milestone with a rounded head, leaning a little, the miles cut in it gone soft."""
+    m = Model('milestone')
+    m.add(box(0.36, 0.2, 0.75, GREYSTONE, (0, 0, 0)).xf(ry(0.06), (0, 0, 0)))
+    m.add(blob(0.18, 0.1, 0.17, seg=12, rings=6, colors=GREYSTONE, jitter=0.03, seed=21).xf(ry(0.06), (0.045, 0.0, 0.72)))   # the rounded head
+    for z in (0.5, 0.36):   # the figures, cut and worn
+        m.add(trim(tube([(-0.09, -0.105, z), (0.09, -0.105, z)], 0.012, sides=4, colors=('#1a1816', '#3a3632'))))
+    m.add(trim(blob(0.12, 0.08, 0.03, seg=6, rings=3, colors=('#4a5a30', '#8a9a58'), jitter=0.25, seed=12)).xf(None, (0.1, 0.0, 0.72)))
+    return m, None
+
+
 HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells, 'fp_campion': campion,
         'bed': box_bed, 'hearth': hearth, 'candle_stand': candle_stand, 'witch_ball': witch_ball,
         'altar_candle': altar_candle, 'athame': athame, 'censer': censer,
@@ -2633,7 +2703,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

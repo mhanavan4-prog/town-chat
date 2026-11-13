@@ -85,8 +85,8 @@ const ASH_SPOTS = {
 };
 // The field (data/emberField.js; test/ember-field.test.js keeps this copy in
 // step): the worn track and its forks, and the twelve things the war left by it.
-const FIELD_TRACK = [[[10000,18350],[9900,16800],[10100,15200],[10000,14400]],[[10000,9300],[10200,7500],[9800,5600],[10000,4300]],[[8300,10900],[7200,9600],[6200,7900],[5800,7300]],[[11700,10800],[12900,9900],[13900,8900]],[[10500,18250],[12800,17600],[14700,16700],[15300,16300]],[[8300,11200],[6500,12100],[4800,12800],[3950,13200]]];
-const FIELD_POSTS = [{"x":10260,"y":18200,"arms":["Ashminster ↑","Emberfall ↗"]},{"x":10180,"y":14420,"arms":["Ashminster ↑","the portal ↓"]},{"x":8250,"y":11050,"arms":["Charhold ↖","the witches' ring ←"]},{"x":10180,"y":9250,"arms":["the Cinder Bazaar ↑"]},{"x":11750,"y":10950,"arms":["the Great Ossuary ↗"]}];
+const FIELD_TRACK = [[[10000,18350],[9900,16800],[10100,15200],[10000,14400]],[[10000,9300],[10200,7500],[9800,5600],[10000,4300]],[[8300,10900],[7200,9600],[6200,7900],[5800,7300]],[[11700,10800],[12900,9900],[13900,8900]],[[10500,18250],[12800,17600],[14700,16700],[15300,16300]],[[8300,11200],[6500,12100],[4800,12800],[3950,13200]],[[3950,13200],[2900,12400],[1800,12650],[900,13100]]];
+const FIELD_POSTS = [{"x":4050,"y":13420,"arms":["the March gate ↖","the witches' ring ↙","Ashminster →"]},{"x":10260,"y":18200,"arms":["Ashminster ↑","Emberfall ↗"]},{"x":10180,"y":14420,"arms":["Ashminster ↑","the portal ↓"]},{"x":8250,"y":11050,"arms":["Charhold ↖","the witches' ring ←"]},{"x":10180,"y":9250,"arms":["the Cinder Bazaar ↑"]},{"x":11750,"y":10950,"arms":["the Great Ossuary ↗"]}];
 const FIELD_FINDS = [
   {"id":"standard_south","name":"A fallen standard","icon":"🚩","model":"em_standard","x":9720,"y":16150,"size":200,"turn":0.4,"hint":"search the fallen standard"},
   {"id":"bell","name":"A cracked bell","icon":"🔔","model":"em_bell","x":10260,"y":15150,"size":90,"turn":0.5,"hint":"look at the cracked bell"},
@@ -636,8 +636,27 @@ function buildEmberScene() {
     if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildRing).catch(() => {});
     if (KK.onAssetLoad) KK.onAssetLoad(buildRing);
   }
+  // ── the March gate on the west edge (data/droveRoad.js GATE.wastes; test/drove-road.test.js keeps this
+  // in step): through it, the drove road back into the Wilds, open at any hour.
+  const MARCH_GATE = { x: 560, y: 13100 };
+  const marchKiosks = [{ x: MARCH_GATE.x + 50, z: MARCH_GATE.y, npc: 'march', hint: 'go back through the March gate into the Wilds', radius: 140 }];
+  for (const dy of [-150, 150]) scene.userData.walls.push({ x: MARCH_GATE.x - 35, y: MARCH_GATE.y + dy - 35, w: 70, h: 70 });
+  if (typeof makeGlowTexture === 'function') {
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x9adf6a, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(380, 240, 1); glow.position.set(MARCH_GATE.x - 120, 90, MARCH_GATE.y); scene.add(glow);
+  }
+  if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🚧 The March gate: back to the Wilds'); l.position.set(MARCH_GATE.x, 290, MARCH_GATE.y); scene.add(l); }
+  let marchPlaced = false;
+  const buildMarch = () => {
+    if (marchPlaced || !(KK && KK.has && KK.staticInstance && KK.has('wd_march_gate'))) return;
+    const g = KK.staticInstance('wd_march_gate', 260, 'height'); if (!g) return;
+    marchPlaced = true; scorch(g, 0.1); g.rotation.y = Math.PI / 2; g.position.set(MARCH_GATE.x, 0, MARCH_GATE.y); scene.add(g);
+  };
+  buildMarch();
+  if (KK && !marchPlaced) { if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildMarch).catch(() => {}); if (KK.onAssetLoad) KK.onAssetLoad(buildMarch); }
+
   // what can be stood at and used, each with its name over it
-  const ashKiosks = [...fieldKiosks, ...ringKiosks];
+  const ashKiosks = [...fieldKiosks, ...ringKiosks, ...marchKiosks];
   for (const id in ASH_SPOTS) {
     const sp = ASH_SPOTS[id];
     ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });

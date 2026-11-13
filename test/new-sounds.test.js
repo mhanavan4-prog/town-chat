@@ -21,7 +21,7 @@ check('the hare, the Hand of Glory and the turned silver each have theirs', /sfx
 check('a wanderer abroad is heard as well as told, in a dungeon, on a Delve floor, and on arriving', /sfx: m\.mobType, message: wandererWarning\(m\)/.test(dung) && /sfx: key, message: `🕯️ The lanterns dip/.test(delve) && /sfx: w\.mobType, message: wandererWarning\(w\)/.test(server));
 check('the three rare rooms each sound when used', /'important', 'rare_marked'\);/.test(finds) && /'important', 'rare_hoard'\);/.test(finds) && /'important', 'rare_well'\);/.test(finds));
 check('the reel has its trump, round again while the ring turns, and the besom its wind', (main.match(/playSfx\('reel_trump'\)/g) || []).length === 2 && /playSfx\('besom_ride'\)/.test(main));
-check('a line written in the daybook scratches', (server.match(/sfx: 'daybook', message: '📖 Written in your daybook/g) || []).length === 10);
+check('a line written in the daybook scratches', (server.match(/sfx: 'daybook', message: '📖 Written in your daybook/g) || []).length === 11);
 check('an id with no recorded file yet is simply silent: the synth voices stay retired', /const SYNTH_MUTED = true;/.test(audio) && IDS.every((id) => !new RegExp("case '" + id + "'").test(audio)));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
