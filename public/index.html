@@ -2852,6 +2852,12 @@
     opacity:0; transition:opacity 0.15s ease-out;
   }
   #damageFlash.show { opacity:1; }
+  /* 🎮 A controller in a panel (client/pad-nav.js): the button the d-pad is on. */
+  .padFocus { outline: 3px solid #f2c45a !important; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(242, 196, 90, 0.25), 0 0 18px rgba(242, 196, 90, 0.55) !important; border-radius: 10px; }
+  /* 📺 TV text: panels and the HUD a size up, for reading across a room. */
+  body.tvMode .overlay > *, body.tvMode .floatPanel, body.tvMode #menuSheet, body.tvMode #inventoryPanel { zoom: 1.15; }
+  body.tvMode .overlay > * { max-height: calc(100vh / 1.15 - 24px); overflow-y: auto; }
+  body.tvMode #hud, body.tvMode #toastStack, body.tvMode #interactHint, body.tvMode #unlockToast { zoom: 1.25; }
 </style>
 </head>
 <body>

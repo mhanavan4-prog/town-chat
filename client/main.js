@@ -58,6 +58,7 @@ import createMobsWilds from './mobs-wilds.js';
 import createEmberMobs from './ember-mobs.js';
 import createEmberNodes from './ember-nodes.js';
 import createEmberStorm from './ember-storm.js';
+import createPadNav from './pad-nav.js';
 import createDungeonMobs from './dungeon-mobs.js';
 import createCryptMobs from './crypt-mobs.js';
 import createVillageNpcs from './village-npcs.js';
@@ -20373,10 +20374,12 @@ const gamepadVec = { x: 0, y: 0 };
 let gamepadButtonsPrev = [];
 let gamepadToastShown = false;
 const GAMEPAD_DEADZONE = 0.18;
+const _padNav = createPadNav();   // a controller in a panel, and TV text (client/pad-nav.js)
 window.addEventListener('gamepadconnected', (e) => {
+  const tv = _padNav.padSeen();
   if (!gamepadToastShown) {
     gamepadToastShown = true;
-    setUnlockToast('🎮 Controller connected — stick walks, Ⓐ interacts, Ⓧ strikes, bumpers cast, ☰ on Start.');
+    setUnlockToast('🎮 Controller connected — stick walks, Ⓐ interacts, Ⓧ strikes, bumpers cast, ☰ on Start. In a panel, the d-pad moves, Ⓐ presses, Ⓑ goes back.' + (tv ? ' 📺 TV text is on (Select + Ⓨ to turn it off).' : ''), { level: 'important', always: true });
   }
 });
 function pollGamepad(dt) {
@@ -20385,6 +20388,16 @@ function pollGamepad(dt) {
   let pad = null;
   for (const p of pads) { if (p && p.connected) { pad = p; break; } }
   if (!pad) { gamepadButtonsPrev = []; return; }
+  const pressed = (i) => !!(pad.buttons[i] && pad.buttons[i].pressed);
+  const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
+  if (pressed(8) && justPressed(3)) { const on = _padNav.toggleTv(); setUnlockToast(on ? '📺 TV text on.' : '📺 TV text off.'); }
+  // A panel open: the d-pad or stick moves round it, Ⓐ presses, Ⓑ goes back, Start still opens ☰. Nobody walks.
+  if (_padNav.poll(pad, justPressed, dt)) {
+    if (justPressed(1)) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    if (justPressed(9)) { const sh = document.getElementById('menuSheet'); if (sh) sh.classList.toggle('hidden'); }
+    gamepadButtonsPrev = pad.buttons.map(b => !!b.pressed);
+    return;
+  }
   // Left stick → movement vector (same shape the touch joystick produces).
   const lx = pad.axes[0] || 0, ly = pad.axes[1] || 0;
   if (Math.hypot(lx, ly) > GAMEPAD_DEADZONE && !typing && !seatedAt) {
@@ -20395,9 +20408,7 @@ function pollGamepad(dt) {
   // back in through the steering math, so it never fights the character).
   const rx = pad.axes[2] || 0;
   if (Math.abs(rx) > GAMEPAD_DEADZONE) cameraYawOffset -= rx * 2.6 * dt;
-  // Buttons, edge-triggered.
-  const pressed = (i) => !!(pad.buttons[i] && pad.buttons[i].pressed);
-  const justPressed = (i) => pressed(i) && !gamepadButtonsPrev[i];
+  // Buttons, edge-triggered (pressed / justPressed above).
   const sheet = document.getElementById('menuSheet');
   const sheetOpen = sheet && !sheet.classList.contains('hidden');
   const anyModal = Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen');
