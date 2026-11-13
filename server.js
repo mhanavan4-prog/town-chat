@@ -9181,6 +9181,12 @@ const online = require('./lib/online')({ players, send, sanitizeText,
   buildings: WORLD.buildings, villageHouses: require('./data/villageHouses').VILLAGE_HOUSES,
   levelOf: (p) => (getProgress(p).level || 1), classOf: (p) => CLASS_NAMES[p.charId] || '',
   covenNameOf: (p) => { const cv = p.accountKey && covenOf(p.accountKey); return cv ? cv.name : null; } });
+// The field in the Ember Wastes (lib/emberField.js): twelve things the war left along the track.
+const emberField = require('./lib/emberField')({ send, grantXP,
+  acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null),
+  grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); },
+  noteWalked: (p) => { daybook.note(p, 'field'); } });
 // Ashminster in the Ember Wastes (lib/ashminster.js): the frith no creature enters, sanctuary at the knocker, the anchoress.
 const ashminster = require('./lib/ashminster')({ send,
   onArrive: (p) => storyEvent(p, 'visit_room', { room: 'ashminster' }),
@@ -15177,6 +15183,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
+    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); return; }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
     if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
     if (msg.type === 'dungeon_exit') {
@@ -18628,7 +18636,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
