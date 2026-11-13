@@ -6,10 +6,11 @@
 // temple portal has gone dark); in, only while the temple's four torches burn,
 // as the portal itself.
 //
-// Placed clear of Troy Town (7000, 7900) and the Countless Stones (8600, 6600).
+// Placed clear of Troy Town (7000, 7900), the Countless Stones (8600, 6600) and the tombs at (7000, 7000).
 const ROAD = {
   // the way itself, from the crossroads at the gibbet (data/wayside.js) to the gate
-  pts: [[5150, 7200], [6300, 7320], [7450, 7260], [8550, 7330], [9620, 7300]],
+  // it bends south round the tombs at (7000, 7000) (client/main.js crypt grounds: a ring of 300)
+  pts: [[5150, 7200], [6300, 7320], [7000, 7480], [7700, 7300], [8550, 7330], [9620, 7300]],
   width: 170,
   range: 190,
   eachXp: 15,
@@ -41,7 +42,7 @@ const STOPS = [
     note: 'The town on the stone, and the war that ended the droving, are the game\'s.',
   },
   {
-    id: 'pines', icon: '🌲', name: 'Three pines at the stance', x: 7450, y: 7060, model: 'wd_scots_pine', size: 330, hint: 'rest at the drovers\' stance',
+    id: 'pines', icon: '🌲', name: 'Three pines at the stance', x: 7800, y: 7090, model: 'wd_scots_pine', size: 330, hint: 'rest at the drovers\' stance',
     tier: 'folk',
     says: '🌲 You sit with your back to the middle pine, where the ground is worn flat by a great many people sitting. The wind goes over and not through. You get up mended.',
     lore: [

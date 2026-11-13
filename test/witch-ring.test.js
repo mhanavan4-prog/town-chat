@@ -54,7 +54,7 @@ ps[0].x += 600; cycle = 3;
 check('two in one place and one empty is not five', ring.fiveStanding() === null);
 
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-check('the server answers and saves; the client lets each place and the elder be used; it is named as a landmark; nothing rises inside it', /if \(msg\.type === 'ring_use'\) \{ if \(witchRing\.use\(player, String\(msg\.id \|\| ''\)\)\) \{ saveAccounts\(\); saveBankAccounts\(\); \} return; \}/.test(server) && /type: 'ring_use', id: kiosk\.ringId/.test(main) && /ring: true, blurb: WITCH_RING\.blurb/.test(server) && /\{ x: WITCH_RING\.x, y: WITCH_RING\.y, r: 1000 \}/.test(server));
+check('the server answers and saves; the client lets each place and the elder be used; it is named as a landmark; nothing rises inside it', /if \(msg\.type === 'ring_use'\) \{/.test(server) && /if \(witchRing\.use\(player, String\(msg\.id \|\| ''\)\)\) \{ saveAccounts\(\); saveBankAccounts\(\); \}/.test(server) && /type: 'ring_use', id: kiosk\.ringId/.test(main) && /ring: true, blurb: WITCH_RING\.blurb/.test(server) && /\{ x: WITCH_RING\.x, y: WITCH_RING\.y, r: 1000 \}/.test(server));
 check('the stone has a model in the manifest and on disk', /em_ring_stone: 'kk\/home\/ring_stone\.glb'/.test(main) && fs.existsSync(path.join(root, 'public/kk/home/ring_stone.glb')));
 { const scene = fs.readFileSync(path.join(root, 'client/ember-scene.js'), 'utf8'), RINGD = require('../data/witchRing').RING;
   const r = scene.match(/npc: 'ring', ringId: w\.id, hint: `stand in \$\{w\.name\}'s place`, radius: (\d+)/);

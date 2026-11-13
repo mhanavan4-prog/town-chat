@@ -6500,6 +6500,9 @@ function objectiveGoal(obj) {
   // Ashminster is out in the Ember Wastes, where the waypoint cannot lead: it points at the town, where the
   // temple portal is, and the objective's own words say the rest. (A wrong arrow is worse than none.)
   if (obj.room === 'ashminster' || obj.npcId === 'npc_anchoress') return { kind: 'room', room: 'outside' };
+  // The same for the rest of the Wastes (the witches' ring, the things on the field); the March gate is at the east edge of the Wilds.
+  if (obj.room === 'witch_ring' || /^field_/.test(obj.room || '')) return { kind: 'room', room: 'outside' };
+  if (obj.room === 'march_gate') return { kind: 'room', room: 'wilds' };
   if (obj.type === 'talk_npc') return { kind: 'npc', npcId: obj.npcId, room: NPC_ROOM[obj.npcId] || null };
   if (obj.type === 'visit_room') return { kind: 'room', room: obj.room };
   if (obj.type === 'harvest_plant' || obj.type === 'harvest_specific') return { kind: 'room', room: 'wilds' };
@@ -6578,7 +6581,8 @@ function backfillPackCapstone(player) {
   for (const charId of Object.keys(story)) {
     const line = STORYLINES[charId];
     const st = story[charId];
-    if (line && st && (st.chapter || 0) >= line.chapters.length) { finished = line; break; }
+    // the campaign is its first nine chapters; Episode III (10–12, out in the Wastes) does not move this reward further off
+    if (line && st && (st.chapter || 0) >= Math.min(9, line.chapters.length)) { finished = line; break; }
   }
   if (!finished) return false;
   prog.packCapstone = true;
@@ -6784,6 +6788,8 @@ function storyEvent(player, eventType, detail = {}) {
   // Finishing a whole campaign is town news — everyone hears the bell.
   // (Public recognition is half the reward; it also quietly advertises
   // that the campaigns exist to players who haven't started theirs.)
+  // The campaign proper is nine chapters: its capstone bag comes with the ninth, not with the end of Episode III.
+  if (!storyDone && st.chapter >= 9) { try { backfillPackCapstone(player); } catch (e) { /* noop */ } }
   if (storyDone) {
     // The ladder's top rung: finishing a class campaign. Granted here rather
     // than on each storyline's last chapter so all six stay in step, and it
@@ -15316,6 +15322,7 @@ wss.on('connection', (ws, req) => {
         player.x = GATE.arriveWastes.x; player.y = GATE.arriveWastes.y;
         player.emberReturnX = null; player.emberReturnY = null;
         send(ws, { type: 'ember_wastes_entered', spawn: { ...GATE.arriveWastes }, landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(), greeting: null, march: true });
+        storyEvent(player, 'visit_room', { room: 'march_gate' });   // the Wanderer's chapter 10: through the gate
         send(ws, { type: 'toast', level: 'important', always: true, sfx: 'march_gate', message: '🚧 You go through the March gate. The grass stops; the ground goes black. You are in the west of the Ember Wastes, where anyone may strike you. The gate behind you is open at any hour.' });
         storyEvent(player, 'visit_room', { room: 'ember_wastes' });
         return;
@@ -15337,9 +15344,21 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
-    if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { advanceQuestProgress(player, 'event', 'field_find'); saveAccounts(); saveBankAccounts(); } return; }
+    if (msg.type === 'field_use') {
+      // Coming up to a thing on the field is a place found, for a story chapter that sends you to it (data/quests.js
+      // Episode III): by its own id, and by its kind, so "a knight's barrow" is either barrow. Whether or not it pays today.
+      { const { FINDS, FIELD } = require('./data/emberField'); const f = FINDS.find((x) => x.id === String(msg.id || ''));
+        if (f && !player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - f.x, player.y - f.y) <= FIELD.range) { storyEvent(player, 'visit_room', { room: 'field_' + f.id }); storyEvent(player, 'visit_room', { room: 'field_' + f.id.split('_')[0] }); } }
+      if (emberField.use(player, String(msg.id || ''))) { advanceQuestProgress(player, 'event', 'field_find'); saveAccounts(); saveBankAccounts(); }
+      return;
+    }
     if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); send(ws, ashFolk.payload(player)); return; }
-    if (msg.type === 'ring_use') { if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
+    if (msg.type === 'ring_use') {
+      // Standing inside the witches' ring and putting a hand to it is the ring found (the Witch's chapter 10).
+      { const { RING } = require('./data/witchRing'); if (!player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - RING.x, player.y - RING.y) <= RING.stoneR) storyEvent(player, 'visit_room', { room: 'witch_ring' }); }
+      if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); }
+      return;
+    }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
     if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
     if (msg.type === 'dungeon_exit') {

@@ -505,6 +505,30 @@
  "new": true,
  "duration_seconds": 3.5,
  "prompt": "Sitting down to rest with your back against a tall pine tree on an open hill: a soft creak of bark, a long slow breath out, and high above the wind moving steadily through pine needles with a gentle rushing sigh. Calm and restoring. No music, no voice words, no birds."
+},
+{
+ "id": "dead_rise",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 4.0,
+ "prompt": "Dusk on an old burnt battlefield, and the dead getting up: a low cold wind drops to stillness, then dry ash and cinders shift and slide as something pushes up through them, a slow scrape of rusted mail and a single hollow breath drawn in, like air through a cracked helm. Bleak and quiet, not a monster roar. No music, no voice words, no bell."
+},
+{
+ "id": "ring_dim",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "A ring of standing stones that has been singing falls silent and its glow goes out: a clear glassy ringing tone, like a wet finger round the rim of a glass, sinking steadily in pitch and fading away, ending in one soft low thrum from the ground and then stillness. Calm, complete, a little sad. No music, no voice, no chimes."
+},
+{
+ "id": "folk_return",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "Someone has come home to a ruined town and set up again: a wooden shutter unlatched and swung open on a dry hinge, a trestle set down on stone, and a small hand-bell rung once, warm and bright in a wide empty street. Hopeful but modest. No music, no voice words, no crowd."
 }
  ],
   "_optional_candidates": [

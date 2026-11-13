@@ -67,7 +67,10 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
     const s = strength;
     // the night: eased in and out over a dozen seconds; a new night and the ring may sing again
     const night = !!isNight();
-    if (night && wasNight === false) ringSung = false;   // dusk came while we watched: a new night
+    if (night && wasNight === false) {                   // dusk came while we watched: a new night
+      ringSung = false;
+      if (isActive() && typeof playSfx === 'function') playSfx('dead_rise');   // and the field's dead get up
+    }
     wasNight = night;
     nightK += Math.max(-dt * 0.08, Math.min(dt * 0.08, (night ? 1 : 0) - nightK));
     const n = nightK;
@@ -113,7 +116,7 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
   // QA: jump to how thick it will be (a slow headless frame rate would take minutes to get there)
   const settle = () => { strength = TARGET[phase] || 0; };
   const clear = (ms) => { clearUntil = performance.now() + ms; };
-  const sung = () => { ringSung = true; };
+  const sung = () => { if (!ringSung && isActive() && typeof playSfx === 'function') playSfx('ring_dim'); ringSung = true; };   // the glow goes out, and can be heard to
   const settleNight = () => { nightK = isNight() ? 1 : 0; };
   return { apply, update, settle, settleNight, clear, sung, phase: () => phase, strength: () => strength, night: () => nightK };
 }

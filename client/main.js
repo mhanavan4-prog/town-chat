@@ -3841,7 +3841,7 @@ const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
-const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise' };
+const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook' };
 function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
@@ -11128,7 +11128,7 @@ function updatePortals(dt) {
 // mostly wasted beyond the fog). Same Points-with-velocity trick as the Manor.
 // The ash storms (client/ember-storm.js; the server's clock is lib/emberStorm.js).
 const _emberStorm = createEmberStorm({ getScene: () => emberScene, getCamera: () => emberCamera,
-  isActive: () => !!(emberScene && activeScene === emberScene), makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx,
+  isActive: () => !!(emberScene && activeScene === emberScene), makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx: (id) => playSfx(sfxOrStandIn(id)),
   say: (m) => setUnlockToast(m, { level: 'important', always: true }),
   isNight: () => { try { return !!getDayNightState().isNight; } catch (e) { return false; } } });
 function updateEmberAmbient(dt) {

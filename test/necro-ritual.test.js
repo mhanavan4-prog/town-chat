@@ -23,10 +23,10 @@ setTimeout(() => {
   const line = h.STORYLINES[5];
 
   // ── The questline exists, like every other class, and is ritual-themed ──
-  check('the Necromancer has his own 9-chapter storyline', line && line.chapters.length === 9, line && line.chapters.length);
+  check('the Necromancer has his own storyline: nine chapters and the three of Episode III', line && line.chapters.length === 12, line && line.chapters.length);
   check('it is The Sixth Rite', line && line.title === 'The Sixth Rite');
   check('the base campaign capstone grants a relic staff', line.chapters[5].itemRewards.some(r => r.itemId === 'void_staff'));
-  const ep2 = line.chapters.slice(6).map(c => c.objective.type);
+  const ep2 = line.chapters.slice(6, 9).map(c => c.objective.type);
   check('Episode II threads the Delve, Workshop and World Boss', ep2.join() === ['delve_depth', 'craft_item', 'defeat_world_boss'].join(), ep2);
 
   // ── Live: each rite completed deepens necro rank ──

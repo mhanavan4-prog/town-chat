@@ -16,7 +16,7 @@ const { TITLES } = require('../data/titles');
 const { EMBER_TOWN: T, ASH_SPOTS, ANCHORESS } = require('../data/emberTown');
 
 const K = STORYLINES[3].chapters;
-check('the Knight has twelve chapters; the other classes keep their nine', K.length === 12 && [0, 1, 2, 4, 5].every((c) => STORYLINES[c].chapters.length === 9));
+check('the Knight has twelve chapters, and so now has every class (test/episode-three.test.js)', K.length === 12 && [0, 1, 2, 4, 5].every((c) => STORYLINES[c].chapters.length === 12));
 check('the third episode: find Ashminster, speak at the squint, lay fifteen to rest', K[9].objective.type === 'visit_room' && K[9].objective.room === 'ashminster' && K[10].objective.type === 'talk_npc' && K[10].objective.npcId === 'npc_anchoress' && K[11].objective.type === 'kill_mob' && K[11].objective.target === 15);
 check('each new chapter has its telling before and after, its level, and its pay', K.slice(9).every((c) => c.intro.length > 150 && c.outro.length > 150 && c.requiresLevel === 17 && c.xpReward > 0 && c.goldReward > 0 && c.title));
 check('it keeps to the story the first two episodes told: the Order, the witches it had hunted, Hazel, and the page cut out', /leaf was cut out/.test(K[9].intro) && /five women it had been hunting/.test(K[10].outro) && /Hazel cut the one over the door/.test(K[10].outro) && /we were not ashamed of you/.test(K[10].outro) && /daisy wheel/.test(K[11].outro));
