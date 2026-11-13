@@ -44,6 +44,11 @@ const TITLES = {
     desc: 'Brought in the last sheaves and released what could not last the dark.',
     from: 'The Reckoning Harvest — Mabon'
   },
+  field_walker: {
+    id: 'field_walker', name: 'Who Walked the Field', glyph: '🚩',
+    desc: 'Found all twelve things the war left along the Ember Wastes\' track, and read each one.',
+    from: 'The field — the Ember Wastes'
+  },
   frith_keeper: {
     id: 'frith_keeper', name: 'Keeper of the Frith', glyph: '🕯️',
     desc: 'Laid twenty-five of the field\'s dead to rest for the anchoress of Ashminster, and had their name cut under the tally in her cell.',

@@ -2441,6 +2441,127 @@ def ash_barricade():
     return m, None
 
 
+def field_standard():
+    """A standard of the Order, fallen on the field: the pole snapped and leaning on its own stump, the banner burnt to a rag on it."""
+    m = Model('field_standard')
+    m.add(tube([(0, 0, 0), (0.02, 0, 0.55)], [0.05, 0.045], sides=6, colors=MIN_CHAR, cap_base=True))           # the stump, still in the ground
+    m.add(tube([(0.05, 0, 0.5), (1.15, 0.2, 1.55)], 0.04, sides=6, colors=MIN_CHAR))                             # the rest, leaning
+    m.add(tube([(1.0, 0.17, 1.4), (1.3, 0.22, 1.75)], [0.03, 0.06], sides=5, colors=('#3a2a14', '#b08a3c')))   # the finial
+    # the banner: a rag hanging from the cross-bar, its edge burnt ragged
+    m.add(tube([(0.75, -0.25, 1.22), (0.95, 0.55, 1.4)], 0.02, sides=4, colors=MIN_CHAR))
+    v, f, t = [], [], []
+    cols, rows = 5, 4
+    r = np.random.default_rng(7)
+    for j in range(rows + 1):
+        for i in range(cols + 1):
+            u, w = i / cols, j / rows
+            hang = 0.75 * w * (1 - 0.35 * r.random()) if j < rows else 0.75 * (0.4 + 0.5 * r.random())
+            v.append((0.75 + 0.2 * u + 0.05 * math.sin(w * 3), -0.25 + 0.8 * u, 1.22 + 0.18 * u - hang)); t.append(1 - w)
+    for j in range(rows):
+        for i in range(cols):
+            a0 = j * (cols + 1) + i
+            f.append((a0, a0 + 1, a0 + cols + 2, a0 + cols + 1))
+    m.add(Part(v, f, t, ('#2a0a0e', '#7a1a22'), smooth=False))
+    # its other face, a hair behind
+    m.add(Part([(x - 0.008, y, z) for (x, y, z) in v], [tuple(reversed(q)) for q in f], t, ('#2a0a0e', '#7a1a22'), smooth=False))
+    # the device on it, a pale ring, half of it gone
+    m.add(trim(tube([(0.86, 0.1 + 0.13 * math.cos(a), 0.98 + 0.13 * math.sin(a)) for a in np.linspace(0.4, 3.9, 8)], 0.014, sides=4, colors=('#c8b890', '#f0e4c0'))))
+    return m, None
+
+
+def field_barrow():
+    """A knight's barrow on the field: a low mound of ash and turf, a kerb of stones, a sword driven in at its head and a helm hung on it."""
+    m = Model('field_barrow')
+    m.add(blob(1.1, 0.6, 0.5, seg=12, rings=6, colors=('#1c1210', '#3a2a22'), jitter=0.06, seed=31).xf(None, (0, 0, -0.1)))
+    for k in range(14):
+        a = TAU * k / 14
+        m.add(box(0.2, 0.14, 0.14, MIN_STONE, (0, 0, 0), jitter=0.2, seed=k + 3).xf(rz(a), (1.18 * math.cos(a), 0.66 * math.sin(a), 0)))
+    m.add(tube([(1.0, 0, 0.18), (1.03, 0, 0.95)], 0.02, sides=4, colors=PEWTER))                                   # the blade
+    m.add(box(0.05, 0.3, 0.04, PEWTER, (1.03, 0, 0.95)))                                                            # the guard
+    m.add(tube([(1.03, 0, 0.99), (1.03, 0, 1.18)], 0.025, sides=5, colors=OAK_DK))                                 # the grip
+    m.add(lathe([(0.0, 0.2), (0.12, 0.19), (0.14, 0.1), (0.13, 0.0)], sides=8, colors=PEWTER, close_top=True).xf(rx(0.3), (1.03, 0.03, 1.03)))   # the helm on the hilt
+    return m, None
+
+
+def field_trench():
+    """A siege trench in the ash: a cut with its spoil heaped along one side, a row of sharpened stakes leaning out, a ladder left in it."""
+    m = Model('field_trench')
+    m.add(box(3.0, 0.5, 0.05, ('#080504', '#120a08'), (0, 0, 0.0)))                                                  # the dark of the cut
+    m.add(blob(1.6, 0.32, 0.22, seg=12, rings=5, colors=('#1c1210', '#3a2a22'), jitter=0.1, seed=4).xf(None, (0, 0.5, 0.0)))   # the spoil
+    r = np.random.default_rng(12)
+    for k in range(9):
+        x = -1.35 + k * 0.34
+        if k in (3, 7): continue
+        m.add(tube([(x, 0.62, 0.1), (x + float(r.uniform(-0.05, 0.05)), 1.0, 0.62)], [0.04, 0.008], sides=5, colors=MIN_CHAR, cap_base=True))
+    for y in (-0.12, 0.12):
+        m.add(tube([(0.8, y, 0.02), (1.15, y, 0.75)], 0.02, sides=4, colors=OAK))                                      # a ladder
+    for z in (0.2, 0.38, 0.56):
+        m.add(tube([(0.8 + 0.35 * z / 0.75, -0.12, z), (0.8 + 0.35 * z / 0.75, 0.12, z)], 0.014, sides=4, colors=OAK))
+    return m, None
+
+
+def field_chapel():
+    """A field chapel: a little single-cell church, its roof burnt off, a bellcote on the west gable with the bell gone."""
+    m, _ = _ruin_house(53, 1.9, 1.3, 'field_chapel')
+    m.add(_gable(1.3, 1.45, 2.1, 0.16, zmax=2.6).xf(None, (-0.95, 0, 0)))
+    m.add(box(0.16, 0.36, 0.5, MIN_STONE, (-0.95, 0, 2.05)))                                                       # the bellcote
+    m.add(_lancet(0.18, 0.36).xf(rz(-math.pi / 2).T, (-1.04, 0, 2.1)))
+    m.add(box(0.18, 0.12, 0.12, MIN_STONE, (-0.95, 0, 2.55)))
+    m.add(_lancet(0.4, 0.9).xf(rz(-math.pi / 2).T, (-1.04, 0, 0)))                                                  # the door
+    return m, None
+
+
+def field_bottle():
+    """A witch-bottle half dug out of a crossroads: a stoneware jug with a bearded face on its neck, on its side in a little pit, its stopper still in."""
+    m = Model('field_bottle')
+    m.add(lathe([(0.75, 0.0), (0.7, 0.04), (0.0, 0.04)], sides=12, colors=('#0a0605', '#1a100c'), close_top=True))  # the pit
+    m.add(blob(0.7, 0.55, 0.14, seg=10, rings=4, colors=('#1c1210', '#3a2a22'), jitter=0.12, seed=9).xf(None, (0.55, 0.15, 0)))   # the spoil
+    jug = lathe([(0.0, 0.0), (0.16, 0.02), (0.22, 0.14), (0.21, 0.26), (0.13, 0.36), (0.07, 0.42), (0.07, 0.5), (0.085, 0.52)], sides=12, colors=('#4a2e18', '#a8783c'), close_top=True)
+    m.add(jug.xf(ry(1.45) @ rz(0.3), (-0.12, 0.02, 0.2)))
+    m.add(blob(0.05, 0.035, 0.05, seg=6, rings=3, colors=('#c8a878', '#f0d8a8')).xf(None, (0.33, 0.12, 0.22)))     # the face on its neck
+    m.add(blob(0.04, 0.04, 0.03, seg=6, rings=3, colors=OAK_DK).xf(None, (0.42, 0.15, 0.22)))                       # the stopper
+    for (x, y) in ((-0.6, -0.4), (0.1, -0.6), (-0.5, 0.45)):
+        m.add(box(0.14, 0.12, 0.09, MIN_STONE, (x, y, 0), jitter=0.2, seed=int(x * 10 + 50)))
+    return m, None
+
+
+def rowan_post():
+    """A charred post at the side of the track, with a little cross of rowan bound in red thread tied to it."""
+    m = Model('rowan_post')
+    m.add(tube([(0, 0, 0), (0.02, 0, 1.1)], [0.05, 0.04], sides=6, colors=MIN_CHAR, cap_base=True))
+    for (a, b) in (((0.0, -0.06, 0.95), (0.0, -0.06, 0.55)), ((0.0, -0.26, 0.82), (0.0, 0.14, 0.82))):
+        m.add(tube([(a[0], a[1], a[2]), (b[0], b[1], b[2])], 0.014, sides=4, colors=('#5a3a20', '#9a6a3a')))
+    for k in range(6):                                                               # the thread, wound where they cross
+        m.add(trim(tube([(0.0, -0.06 + 0.02 * math.cos(a), 0.82 + 0.02 * math.sin(a)) for a in np.linspace(0, TAU, 7)], 0.006, sides=3, colors=('#6a1a14', '#b03a24'))).xf(None, (0, 0, (k - 2.5) * 0.008)))
+    m.add(trim(tube([(0.0, -0.06, 0.82), (0.0, -0.04, 0.6), (0.01, -0.02, 0.45)], 0.004, sides=3, colors=('#6a1a14', '#b03a24'))))   # its loose end
+    for k in range(5):                                                               # rowan leaves and a few berries
+        a = k * 1.3
+        m.add(blob(0.05, 0.015, 0.012, seg=5, rings=3, colors=('#2a4a1a', '#5a7a2a')).xf(rz(a), (0.0, -0.26 + 0.05 * math.cos(a), 0.84 + 0.02 * math.sin(a))))
+    for k in range(4):
+        m.add(trim(blob(0.012, 0.012, 0.012, seg=5, rings=3, colors=('#a0200a', '#f05020')).xf(None, (0.01, 0.12 + 0.01 * k, 0.8 - 0.012 * (k % 2)))))
+    return m, None
+
+
+def field_bell():
+    """A priest's hand-bell, split down one side and half sunk in the ash."""
+    m = Model('field_bell')
+    bell = lathe([(0.0, 0.42), (0.09, 0.41), (0.13, 0.3), (0.16, 0.14), (0.22, 0.0)], sides=12, colors=('#3a2a14', '#a8803a'), close_top=True)
+    m.add(bell.xf(rx(1.2) @ rz(0.4), (0, 0, 0.12)))
+    m.add(tube([(0.05, 0.35, 0.28), (0.1, 0.62, 0.36)], 0.025, sides=5, colors=OAK_DK))       # its handle
+    m.add(blob(0.4, 0.3, 0.06, seg=9, rings=3, colors=('#1c1210', '#3a2a22'), jitter=0.15, seed=2))   # the ash heaped round it
+    return m, None
+
+
+def fingerpost():
+    """A fingerpost at a fork in the Wastes' track: a charred post with three arms, one snapped."""
+    m = Model('fingerpost')
+    m.add(tube([(0, 0, 0), (0, 0, 1.6)], [0.06, 0.05], sides=6, colors=MIN_CHAR, cap_base=True))
+    for (a, z, ln) in ((0.3, 1.45, 0.55), (2.2, 1.3, 0.5), (4.1, 1.15, 0.22)):
+        m.add(box(ln, 0.04, 0.11, OAK_DK, (0, 0, 0)).xf(rz(a), (ln / 2 * math.cos(a), ln / 2 * math.sin(a), z)))
+    m.add(lathe([(0.0, 0.08), (0.075, 0.0)], sides=6, colors=MIN_CHAR, close_top=True).xf(None, (0, 0, 1.6)))
+    return m, None
+
+
 def frith_cross():
     """A frith cross: a plain wayside cross on a block, marking where the minster's peace begins."""
     m = Model('frith_cross')
@@ -2502,7 +2623,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

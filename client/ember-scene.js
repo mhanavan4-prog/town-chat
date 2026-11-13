@@ -83,6 +83,32 @@ const ASH_SPOTS = {
   marks:     { x: TX - 525, y: TY + 440, name: 'marks cut in the stone', icon: '✴️', hint: 'look at the marks cut by the breach' },
   frith:     { x: TX + 70, y: TY + 1710, name: 'the south frith cross', icon: '✝️', hint: 'read the frith cross' },
 };
+// The field (data/emberField.js; test/ember-field.test.js keeps this copy in
+// step): the worn track and its forks, and the twelve things the war left by it.
+const FIELD_TRACK = [[[10000,18350],[9900,16800],[10100,15200],[10000,14400]],[[10000,9300],[10200,7500],[9800,5600],[10000,4300]],[[8300,10900],[7200,9600],[6200,7900],[5800,7300]],[[11700,10800],[12900,9900],[13900,8900]],[[10500,18250],[12800,17600],[14700,16700],[15300,16300]],[[8300,11200],[6500,12100],[4800,12800],[3950,13200]]];
+const FIELD_POSTS = [{"x":10260,"y":18200,"arms":["Ashminster ↑","Emberfall ↗"]},{"x":10180,"y":14420,"arms":["Ashminster ↑","the portal ↓"]},{"x":8250,"y":11050,"arms":["Charhold ↖","the witches' ring ←"]},{"x":10180,"y":9250,"arms":["the Cinder Bazaar ↑"]},{"x":11750,"y":10950,"arms":["the Great Ossuary ↗"]}];
+const FIELD_FINDS = [
+  {"id":"standard_south","name":"A fallen standard","icon":"🚩","model":"em_standard","x":9720,"y":16150,"size":200,"turn":0.4,"hint":"search the fallen standard"},
+  {"id":"bell","name":"A cracked bell","icon":"🔔","model":"em_bell","x":10260,"y":15150,"size":90,"turn":0.5,"hint":"look at the cracked bell"},
+  {"id":"barrow_north","name":"A knight's barrow","icon":"⚱️","model":"em_barrow","x":9600,"y":5000,"size":280,"turn":1.2,"hint":"kneel at the barrow"},
+  {"id":"trench_north","name":"A siege trench","icon":"⛏️","model":"em_trench","x":10350,"y":6650,"size":330,"turn":-0.2,"hint":"climb down into the trench"},
+  {"id":"barrow_west","name":"A knight's barrow","icon":"⚱️","model":"em_barrow","x":6950,"y":9150,"size":280,"turn":-0.6,"hint":"kneel at the barrow"},
+  {"id":"stakes_west","name":"The last line of stakes","icon":"⛏️","model":"em_trench","x":5950,"y":7650,"size":330,"turn":0.9,"hint":"walk the line of stakes"},
+  {"id":"standard_east","name":"A fallen standard","icon":"🚩","model":"em_standard","x":12650,"y":10300,"size":200,"turn":-1.1,"hint":"search the fallen standard"},
+  {"id":"long_grave","name":"The long grave","icon":"🪦","model":"em_barrow","x":13550,"y":9350,"size":520,"turn":0.6,"hint":"stand at the long grave"},
+  {"id":"chapel","name":"The field chapel","icon":"⛪","model":"em_chapel","x":13350,"y":17450,"size":380,"turn":0.3,"hint":"go into the field chapel"},
+  {"id":"wagons","name":"The Order's baggage","icon":"🛞","model":"em_barricade","x":14350,"y":16850,"size":380,"turn":1.8,"hint":"search the burnt wagons"},
+  {"id":"bottle","name":"A witch-bottle at the crossroads","icon":"🏺","model":"em_bottle","x":6050,"y":12350,"size":160,"turn":2.2,"hint":"look at the witch-bottle"},
+  {"id":"rowan","name":"Rowan and red thread","icon":"🧶","model":"em_rowan","x":4650,"y":12980,"size":130,"turn":0.2,"hint":"look at what is tied to the post"},
+];
+function nearTrack(x, z, r) {
+  for (const run of FIELD_TRACK) for (let i = 0; i < run.length - 1; i++) {
+    const [ax, ay] = run[i], [bx, by] = run[i + 1], L2 = (bx - ax) ** 2 + (by - ay) ** 2;
+    const u = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - ay) * (by - ay)) / L2));
+    if (Math.hypot(x - (ax + (bx - ax) * u), z - (ay + (by - ay) * u)) < r) return true;
+  }
+  return FIELD_FINDS.some((f) => Math.hypot(x - f.x, z - f.y) < r + 120) || FIELD_POSTS.some((p) => Math.hypot(x - p.x, z - p.y) < r);
+}
 // How much of each piece is solid: a square about its middle, as a share of its size (a house is walked round, not into).
 const ASH_SOLID = { em_house_a: 0.4, em_house_b: 0.42, em_house_c: 0.36, em_ash_cross: 0.36, prop_well: 0.42, em_frith_cross: 0.18, em_barricade: 0 };
 // What of the minster is solid, in the model's own plan (x along the nave,
@@ -227,7 +253,8 @@ function buildEmberScene() {
     ['rock1', 90, 'fit'], ['rock2', 110, 'fit'], ['rock3', 100, 'fit']
   ];
   // nothing scattered stands in the minster or its yard
-  const inTown = (x, z) => ASH_GROUND.some((g) => Math.hypot(x - g.x, z - g.y) < g.r);
+  // the town, and the track and what lies by it, are kept clear of the scatter
+  const inTown = (x, z) => ASH_GROUND.some((g) => Math.hypot(x - g.x, z - g.y) < g.r) || nearTrack(x, z, 240);
   for (let i = spots.length - 1; i >= 0; i--) if (inTown(spots[i][0], spots[i][1])) spots.splice(i, 1);
   const canKK = KK && KK.staticInstance;
   if (canKK) {
@@ -503,8 +530,65 @@ function buildEmberScene() {
     const pit = new THREE.Mesh(new THREE.CircleGeometry(r * 0.7, 16), new THREE.MeshBasicMaterial({ color: 0x0a0504 }));
     pit.rotation.x = -Math.PI / 2; pit.position.set(TX + dx, 2.6, TY + dy); scene.add(pit);
   }
+  // ── the field: the worn track out from the portal and from Ashminster, a
+  // fingerpost at each fork, waymarker stones along it, and the twelve things
+  // the war left beside it (data/emberField.js)
+  const trackMat = new THREE.MeshLambertMaterial({ color: 0x3a1c13, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const rutMat = new THREE.MeshLambertMaterial({ color: 0x24100b, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const strip = (ax, ay, bx, by, w, mat, y) => {
+    const len = Math.hypot(bx - ax, by - ay);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len + w * 0.6, w), mat);
+    m.rotation.x = -Math.PI / 2; m.rotation.z = -Math.atan2(by - ay, bx - ax);
+    m.position.set((ax + bx) / 2, y, (ay + by) / 2);
+    scene.add(m);
+  };
+  const markerSpots = [];
+  for (const run of FIELD_TRACK) {
+    let carry = 700;
+    for (let i = 0; i < run.length - 1; i++) {
+      const [ax, ay] = run[i], [bx, by] = run[i + 1];
+      strip(ax, ay, bx, by, 210, trackMat, 2.6);
+      const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len;
+      for (const side of [-1, 1]) strip(ax - uy * side * 38, ay + ux * side * 38, bx - uy * side * 38, by + ux * side * 38, 16, rutMat, 2.8);   // cart ruts
+      for (let d = carry; d < len; d += 1400) { const side = markerSpots.length % 2 ? 1 : -1; markerSpots.push([ax + ux * d - uy * side * 135, ay + uy * d + ux * side * 135]); }
+      carry = (carry - len) % 1400; if (carry < 0) carry += 1400;
+    }
+  }
+  const fieldKiosks = [];
+  const fieldPlaced = new Set();
+  const buildField = () => {
+    if (!(KK && KK.has && KK.staticInstance)) return;
+    markerSpots.forEach(([x, y], i) => {
+      const k = 'm' + i; if (fieldPlaced.has(k) || !KK.has('wl_waymarker')) return;
+      const g = KK.staticInstance('wl_waymarker', 110, 'height'); if (!g) return;
+      fieldPlaced.add(k); scorch(g, 0.12); g.rotation.y = i * 1.7; g.position.set(x, 0, y); scene.add(g);
+    });
+    FIELD_POSTS.forEach((p, i) => {
+      const k = 'p' + i; if (fieldPlaced.has(k) || !KK.has('em_fingerpost')) return;
+      const g = KK.staticInstance('em_fingerpost', 175, 'height'); if (!g) return;
+      fieldPlaced.add(k); g.rotation.y = i * 0.9; g.position.set(p.x, 0, p.y); scene.add(g);
+    });
+    FIELD_FINDS.forEach((f) => {
+      if (fieldPlaced.has(f.id) || !KK.has(f.model)) return;
+      const g = KK.staticInstance(f.model, f.size, 'fit'); if (!g) return;
+      fieldPlaced.add(f.id);
+      if (f.model === 'em_barricade' || f.model === 'em_chapel') scorch(g, 0.1);
+      g.rotation.y = f.turn; g.position.set(f.x, 0, f.y); scene.add(g);
+    });
+  };
+  for (const p of FIELD_POSTS) if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🪧 ' + p.arms.join('  ·  ')); l.position.set(p.x, 215, p.y); scene.add(l); }
+  for (const f of FIELD_FINDS) {
+    fieldKiosks.push({ x: f.x, z: f.y, npc: 'field', fieldId: f.id, hint: f.hint, radius: 150 });
+    if (/barrow|chapel/.test(f.model)) { const h = f.size * 0.32; scene.userData.walls.push({ x: f.x - h, y: f.y - h, w: h * 2, h: h * 2 }); }
+    if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, Math.max(130, f.size * 0.55), f.y); scene.add(l); }
+  }
+  buildField();
+  if (KK && fieldPlaced.size < markerSpots.length + FIELD_POSTS.length + FIELD_FINDS.length) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildField).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildField);
+  }
   // what can be stood at and used, each with its name over it
-  const ashKiosks = [];
+  const ashKiosks = [...fieldKiosks];
   for (const id in ASH_SPOTS) {
     const sp = ASH_SPOTS[id];
     ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });
