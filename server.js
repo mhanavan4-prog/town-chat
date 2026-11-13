@@ -10566,6 +10566,7 @@ const EMBER_LANDMARKS = [
 ];
 // Ashminster (data/emberTown.js): the town in the middle of the Wastes. Named to the player like a landmark, but it anchors no spawns and no veins.
 const { EMBER_TOWN } = require('./data/emberTown');
+const emberSolids = require('./lib/emberSolids');
 const { RING: WITCH_RING } = require('./data/witchRing'); // the witches' ring in the west of the Wastes
 function emberLandmarksPublic() {
   return [...EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb })),
@@ -10596,7 +10597,7 @@ const EMBER_MOB_TYPES = {
   // the Wilds' beasts. They keep to their own ground and fight only whoever
   // strikes them (provokeMs), then go back to it. Carrion crows over the
   // field's graves; packs of ash-hounds roaming the empty country.
-  carrion_crow:  { name: 'Carrion Crow',  color: 0x2a2a30, scale: 0.6, maxHealth: 22,  speed: 110, aggroRadius: 0, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1000, xp: 6,
+  carrion_crow:  { name: 'Carrion Crow',  color: 0x2a2a30, scale: 0.6, fly: true, maxHealth: 22,  speed: 110, aggroRadius: 0, strikeRange: 45, dmgMin: 3,  dmgMax: 6,  hitCooldownMs: 1000, xp: 6,
     neutral: true, provokeMs: 15000, leash: 450,
     lootTable: [ { itemId: 'bone_shard', qty: 1, chance: 0.3 }, { gold: true, min: 1, max: 4, chance: 0.5 } ],
     stealChance: 0, stealTable: [] },
@@ -10807,8 +10808,7 @@ function tickEmberWastes(dt) {
         if (anchorDist > 300) m.health = Math.min(preset.maxHealth, m.health + preset.maxHealth * dt * 0.15); // regen on the long walk home
       }
       const nbx = m.x + vx * dt, nby = m.y + vy * dt;
-      if (vx !== 0 && nbx > margin && nbx < EMBER_WORLD_DIMS.width - margin) m.x = nbx;
-      if (vy !== 0 && nby > margin && nby < EMBER_WORLD_DIMS.height - margin) m.y = nby;
+      emberSolids.slide(m, (vx !== 0 && nbx > margin && nbx < EMBER_WORLD_DIMS.width - margin) ? vx * dt : 0, (vy !== 0 && nby > margin && nby < EMBER_WORLD_DIMS.height - margin) ? vy * dt : 0, 60);
       if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
       continue;
     }
@@ -10920,8 +10920,8 @@ function tickEmberWastes(dt) {
       }
     }
     const nx = m.x + vx * dt, ny = m.y + vy * dt;
-    if (vx !== 0 && nx > margin && nx < EMBER_WORLD_DIMS.width - margin) m.x = nx;
-    if (vy !== 0 && ny > margin && ny < EMBER_WORLD_DIMS.height - margin) m.y = ny;
+    // round Ashminster's houses and the ring's stones, not through them (lib/emberSolids.js)
+    if (emberSolids.slide(m, (vx !== 0 && nx > margin && nx < EMBER_WORLD_DIMS.width - margin) ? vx * dt : 0, (vy !== 0 && ny > margin && ny < EMBER_WORLD_DIMS.height - margin) ? vy * dt : 0, preset.fly ? null : 22)) m.wanderTimer = 0;
     // the minster's peace at Ashminster: nothing of the Wastes comes inside the frith crosses (lib/ashminster.js)
     { const out = ashminster.keepOut(m.x, m.y); if (out) { m.x = out.x; m.y = out.y; } }
     if (vx !== 0 || vy !== 0) m.facing = Math.atan2(vx, vy);
