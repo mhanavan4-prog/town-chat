@@ -2388,45 +2388,66 @@ def minster():
     return m, None
 
 
-def _ruin_house(seed, w=2.4, d=1.8, name='ash_house'):
-    """A house of Ashminster with the roof burnt off it: four walls shot down to different heights, a doorway,
-    the chimney-stack still up, and what fell lying inside and out. 1 unit = 100 world units."""
-    m = Model(name)
-    r = np.random.default_rng(seed)
-    H = 1.5
+def _kk_wall(m, p0, p1, hs, th=0.22, foot=0.45):
+    """A shot-down wall in the KayKit idiom: a dark plinth course from p0 to p1 and a run of stout stone blocks on it,
+    each to its own height."""
+    n = len(hs)
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    L = math.hypot(dx, dy); R = rz(math.atan2(dy, dx))
+    low = min(min(hs), foot)
+    m.add(blk(L, th, low, KK_STONE_DK, (p0[0] + dx / 2, p0[1] + dy / 2, 0), R))          # the plinth course, in one
+    for i, h in enumerate(hs):
+        u = (i + 0.5) / n
+        at = (p0[0] + dx * u, p0[1] + dy * u, low)
+        if h > low:
+            m.add(blk(L / n, th - 0.03, h - low, KK_STONE if i % 2 else ('#667279', '#8b999f'), at, R))
 
-    def tops(n, lo, hi, corner0=None, corner1=None):
-        hs = [float(r.uniform(lo, hi)) for _ in range(n)]
-        if corner0 is not None: hs[0] = corner0
-        if corner1 is not None: hs[-1] = corner1
+
+def _ruin_house(seed, w=2.4, d=1.8, name='ash_house'):
+    """A house of Ashminster with the roof burnt off it, in the KayKit idiom: four walls of stout blocks shot down to
+    different heights, a doorway between two jambs, the chimney-stack still up, charred beams fallen in, rubble.
+    1 unit = 100 world units."""
+    m = Model(name)
+    m.bevel = 0.03
+    r = np.random.default_rng(seed)
+    step = lambda lo, hi: round(float(r.uniform(lo, hi)) / 0.25) * 0.25        # heights go by courses
+    c = [step(0.75, 1.5) for _ in range(4)]                                    # the four corners
+    def run(n, lo, c0=None, c1=None):
+        hs = [step(lo, 1.5) for _ in range(n)]
+        if c0 is not None: hs[0] = c0
+        if c1 is not None: hs[-1] = c1
         return hs
-    c = [float(r.uniform(0.7, H)) for _ in range(4)]            # the four corners
-    n = 6
-    xs = list(np.linspace(-w / 2, w / 2, n)); ys = list(np.linspace(-d / 2, d / 2, n))
-    # front wall (-Y) in two lengths, either side of the door
-    door = float(r.uniform(-0.5, 0.5))
-    fx = [x for x in xs if x < door - 0.28] + [door - 0.28]
-    for p in _strip_wall(fx, tops(len(fx), 0.5, H, c[0]), 0.16, zmax=H): m.add(p.xf(None, (0, -d / 2, 0)))
-    fx2 = [door + 0.28] + [x for x in xs if x > door + 0.28]
-    for p in _strip_wall(fx2, tops(len(fx2), 0.5, H, None, c[1]), 0.16, zmax=H): m.add(p.xf(None, (0, -d / 2, 0)))
-    for p in _strip_wall(xs, tops(n, 0.25, H, c[3], c[2]), 0.16, zmax=H): m.add(p.xf(None, (0, d / 2, 0)))
-    for p in _strip_wall(ys, tops(n, 0.3, H, c[0], c[3]), 0.16, zmax=H): m.add(p.xf(rz(math.pi / 2), (-w / 2, 0, 0)))
-    for p in _strip_wall(ys, tops(n, 0.3, H, c[1], c[2]), 0.16, zmax=H): m.add(p.xf(rz(math.pi / 2), (w / 2, 0, 0)))
+    hw, hd = w / 2, d / 2
+    door = float(r.uniform(-0.4, 0.4))
+    nl = max(1, round((door - 0.3 + hw) / 0.45)); nr = max(1, round((hw - door - 0.3) / 0.45))
+    _kk_wall(m, (-hw, -hd), (door - 0.3, -hd), run(nl, 0.5, c[0], 1.25))        # the front, either side of the door
+    _kk_wall(m, (door + 0.3, -hd), (hw, -hd), run(nr, 0.5, 1.25, c[1]))
+    if r.random() < 0.6:                                                       # the lintel, where it has not fallen
+        m.add(blk(0.9, 0.2, 0.14, KK_WOOD_CHAR, (door, -hd, 1.25)))
+    else:
+        m.add(blk(0.8, 0.14, 0.14, KK_WOOD_CHAR, (door + 0.1, -hd - 0.35, 0.0), rz(0.3)))
+    m.add(blk(0.6, 0.3, 0.06, KK_STONE_DK, (door, -hd - 0.02, 0)))             # the doorstep
+    nb = round(w / 0.45); ns = round(d / 0.45)
+    _kk_wall(m, (-hw, hd), (hw, hd), run(nb, 0.25, c[3], c[2]))
+    _kk_wall(m, (-hw, -hd + 0.11), (-hw, hd - 0.11), run(ns, 0.5))
+    _kk_wall(m, (hw, -hd + 0.11), (hw, hd - 0.11), run(ns, 0.5))
     # the stack, at one gable, taller than anything left
     side = 1 if r.random() < 0.5 else -1
-    m.add(box(0.42, 0.42, 2.3, MIN_STONE, (side * (w / 2 - 0.2), float(r.uniform(-0.3, 0.3)), 0)))
-    m.add(box(0.5, 0.5, 0.1, MIN_STONE, (side * (w / 2 - 0.2), m.parts[-1].v[:, 1].mean(), 2.3)))
-    m.add(box(w - 0.2, d - 0.2, 0.04, ('#120e0c', '#1e1814'), (0, 0, 0)))                               # the burnt floor
-    # a roof-timber or two fallen in, and rubble
-    for k in range(int(r.integers(1, 4))):
-        a0 = (float(r.uniform(-w / 2 + 0.2, w / 2 - 0.2)), float(r.uniform(-d / 2 + 0.2, d / 2 - 0.2)), 0.06)
-        a1 = (a0[0] + float(r.uniform(-0.9, 0.9)), a0[1] + float(r.uniform(-0.7, 0.7)), float(r.uniform(0.3, 1.0)))
-        m.add(tube([a0, a1], 0.045, sides=4, colors=MIN_CHAR))
-    for k in range(9):
-        s = float(r.uniform(0.1, 0.24))
-        out = r.random() < 0.5
-        px = float(r.uniform(-w / 2, w / 2)) * (1.25 if out else 0.8); py = float(r.uniform(-d / 2, d / 2)) * (1.35 if out else 0.8)
-        m.add(box(s * 1.4, s, s * 0.8, MIN_STONE, (0, 0, 0), jitter=0.18, seed=int(r.integers(1, 9999))).xf(rz(float(r.uniform(0, 3.1))), (px, py, 0)))
+    cx, cy = side * (hw - 0.22), float(r.uniform(-0.25, 0.25))
+    m.add(blk(0.5, 0.5, 1.2, KK_STONE_DK, (cx, cy, 0)))
+    m.add(blk(0.44, 0.44, 1.0, KK_STONE, (cx, cy, 1.2)))
+    m.add(blk(0.54, 0.54, 0.1, KK_STONE_LT, (cx, cy, 2.2)))
+    m.add(blk(0.3, 0.3, 0.12, KK_STONE_DK, (cx, cy, 2.3)))
+    m.add(blk(0.28, 0.06, 0.3, MIN_DARK, (cx - side * 0.24, cy, 0.12)))        # the hearth, cold
+    m.add(blk(w - 0.2, d - 0.2, 0.04, ('#17120f', '#241c18'), (0, 0, 0)))       # the burnt floor
+    for k in range(int(r.integers(2, 4))):                                     # roof-timbers fallen in
+        ln = float(r.uniform(0.9, 1.5))
+        m.add(blk(ln, 0.1, 0.1, KK_WOOD_CHAR, (float(r.uniform(-hw + 0.5, hw - 0.5)), float(r.uniform(-hd + 0.4, hd - 0.4)), 0.04 + 0.18 * k), rz(float(r.uniform(0, 3.1))) @ ry(float(r.uniform(-0.45, -0.1)))))
+    for k in range(8):                                                         # rubble, in and out
+        s = float(r.uniform(0.16, 0.3))
+        out = r.random() < 0.55
+        px = float(r.uniform(-hw, hw)) * (1.25 if out else 0.7); py = float(r.uniform(-hd, hd)) * (1.35 if out else 0.7)
+        m.add(blk(s * 1.3, s, s * 0.7, KK_STONE if k % 3 else KK_STONE_LT, (px, py, 0), rz(float(r.uniform(0, 3.1)))))
     return m, None
 
 
@@ -2436,62 +2457,64 @@ def ash_house_c(): return _ruin_house(37, 2.9, 1.7, 'ash_house_c')
 
 
 def ash_cross():
-    """The market cross of Ashminster: three steps and a shaft broken off short, the head lying at its foot."""
+    """The market cross of Ashminster in the KayKit idiom: three stout steps and a shaft broken off short, the head lying at its foot."""
     m = Model('ash_cross')
-    for i, (rad, z) in enumerate(((1.0, 0.0), (0.76, 0.18), (0.52, 0.36))):
-        m.add(lathe([(rad, 0), (rad, 0.18), (0, 0.18)], sides=8, colors=MIN_STONE, close_top=True).xf(None, (0, 0, z)))
-    m.add(tube([(0, 0, 0.54), (0.02, 0, 1.5), (0.05, 0.02, 1.95)], [0.13, 0.11, 0.1], sides=8, colors=MIN_STONE, cap_base=True))
-    m.add(blob(0.11, 0.1, 0.07, seg=6, rings=3, colors=MIN_STONE, jitter=0.3, seed=4).xf(None, (0.05, 0.02, 1.96)))     # the break
-    # the head, on the steps: a short length of shaft and the arms
-    m.add(tube([(0.75, -0.5, 0.1), (1.35, -0.75, 0.1)], 0.1, sides=8, colors=MIN_STONE, cap_base=True))
-    m.add(tube([(1.2, -0.95, 0.1), (1.34, -0.5, 0.1)], 0.085, sides=8, colors=MIN_STONE, cap_base=True))
+    m.bevel = 0.035
+    for i, (rad, z, col) in enumerate(((1.0, 0.0, KK_STONE_DK), (0.76, 0.2, KK_STONE), (0.52, 0.4, KK_STONE_LT))):
+        m.add(lathe([(rad, 0), (rad, 0.2)], sides=8, colors=col, close_top=True, close_bottom=True, phase=math.pi / 8).xf(None, (0, 0, z)))
+    m.add(blk(0.36, 0.36, 0.16, KK_STONE_DK, (0, 0, 0.6)))                              # the socket-stone
+    m.add(blk(0.22, 0.22, 1.15, KK_STONE, (0, 0, 0.76)))                                # the shaft
+    m.add(blk(0.2, 0.2, 0.16, KK_STONE_LT, (0.02, 0, 1.88), rz(0.5) @ ry(0.3)))         # the break
+    # the head, where it fell: a length of shaft and the arms
+    R = rz(-0.4)
+    m.add(blk(0.85, 0.2, 0.2, KK_STONE, (1.02, -0.62, 0.0), R))
+    m.add(blk(0.2, 0.62, 0.2, KK_STONE_LT, (1.2, -0.7, 0.0), R))
+    m.add(blk(0.26, 0.2, 0.14, KK_STONE_DK, (-0.82, 0.6, 0.0), rz(0.9)))
     return m, None
 
 
+def _kk_stake(base, tip, rad=0.07, colors=KK_WOOD):
+    """A sharpened stake: stout, four-square, cut to a point."""
+    b, t = np.array(base, float), np.array(tip, float)
+    mid = b + (t - b) * 0.72
+    return tube([tuple(b), tuple(mid), tuple(t)], [rad, rad, rad * 0.12], sides=4, colors=colors, cap_base=True)
+
+
 def ash_barricade():
-    """A barricade thrown across a street in a hurry: a cart on its side, sharpened stakes, a door, sacks."""
+    """A barricade thrown across a street in a hurry, in the KayKit idiom: a cart on its side, sharpened stakes, somebody's door, sacks."""
     m = Model('ash_barricade')
+    m.bevel = 0.025
     r = np.random.default_rng(88)
-    m.add(box(1.5, 0.12, 0.8, OAK_DK, (-0.3, 0, 0.1)).xf(rx(0.18), (0, 0, 0)))                         # the cart-bed, on edge
-    for sx in (-0.85, 0.3):                                                                             # its wheels, one in the air
-        ring = [(sx, 0.2 + 0.36 * math.cos(a) * 0.3, 0.55 + 0.36 * math.sin(a)) for a in np.linspace(0, TAU, 11)]
-        m.add(tube(ring, 0.035, sides=4, colors=MIN_CHAR))
-        for a in (0, 1.05, 2.1):
-            m.add(tube([(sx, 0.2 - 0.1 * math.cos(a), 0.55 - 0.34 * math.sin(a + 0.5)), (sx, 0.2 + 0.1 * math.cos(a), 0.55 + 0.34 * math.sin(a + 0.5))], 0.02, sides=4, colors=MIN_CHAR))
-    for k in range(7):                                                                                  # stakes, pointing out
-        x = -1.6 + k * 0.52 + float(r.uniform(-0.08, 0.08))
-        m.add(tube([(x, 0.25, 0.0), (x + float(r.uniform(-0.1, 0.1)), -0.75, float(r.uniform(0.6, 0.85)))], [0.05, 0.012], sides=5, colors=MIN_CHAR, cap_base=True))
-    m.add(box(0.75, 0.07, 1.3, OAK_DK, (1.25, 0.1, 0)).xf(rx(-0.3), (0, 0, 0)))                         # somebody's door
-    for (x, y) in ((0.9, 0.5), (1.3, 0.45), (1.1, 0.5)):
-        m.add(blob(0.24, 0.16, 0.13, seg=7, rings=4, colors=CANVAS, jitter=0.12, seed=int(x * 10)).xf(None, (x, y, 0.13 if x != 1.1 else 0.36)))
+    m.add(blk(1.6, 0.14, 0.85, KK_WOOD_DK, (-0.3, 0.05, 0.08), rx(0.18)))                # the cart-bed, on edge
+    for z in (0.3, 0.62):
+        m.add(blk(1.64, 0.05, 0.08, KK_WOOD, (-0.3, -0.04 - 0.18 * z * 0.3, z), rx(0.18)))   # its ledges
+    for sx in (-0.9, 0.34):                                                             # its wheels
+        m.add(lathe([(0.4, 0), (0.4, 0.1)], sides=10, colors=KK_WOOD, close_top=True, close_bottom=True).xf(ry(math.pi / 2) @ rz(0.2), (sx - 0.05, 0.32, 0.5)))
+        m.add(lathe([(0.11, 0), (0.11, 0.2)], sides=6, colors=KK_IRON, close_top=True, close_bottom=True).xf(ry(math.pi / 2), (sx - 0.1, 0.32, 0.5)))
+    for k in range(6):                                                                  # stakes, pointing out
+        x = -1.55 + k * 0.6 + float(r.uniform(-0.08, 0.08))
+        m.add(_kk_stake((x, 0.2, 0.0), (x + float(r.uniform(-0.1, 0.1)), -0.8, float(r.uniform(0.6, 0.85))), 0.075, KK_WOOD_CHAR if k % 2 else KK_WOOD_DK))
+    m.add(blk(0.78, 0.09, 1.3, KK_WOOD, (1.25, 0.2, 0), rx(-0.3)))                       # somebody's door
+    for z in (0.3, 0.95):
+        m.add(blk(0.8, 0.03, 0.09, KK_IRON, (1.25, 0.2 + 0.06 + 0.31 * z, z * 0.955), rx(-0.3)))
+    for (x, y, z, a) in ((0.85, 0.72, 0.0, 0.3), (1.4, 0.7, 0.0, -0.2), (1.1, 0.72, 0.2, 0.1)):
+        m.add(blob(0.27, 0.19, 0.14, seg=8, rings=4, colors=('#7a6540', '#b89c68')).xf(rz(a), (x, y, z + 0.13)))
     return m, None
 
 
 def field_standard():
-    """A standard of the Order, fallen on the field: the pole snapped and leaning on its own stump, the banner burnt to a rag on it."""
+    """A standard of the Order, fallen on the field, in the KayKit idiom: the pole snapped and leaning on its own stump, the banner burnt to rags on its cross-bar."""
     m = Model('field_standard')
-    m.add(tube([(0, 0, 0), (0.02, 0, 0.55)], [0.05, 0.045], sides=6, colors=MIN_CHAR, cap_base=True))           # the stump, still in the ground
-    m.add(tube([(0.05, 0, 0.5), (1.15, 0.2, 1.55)], 0.04, sides=6, colors=MIN_CHAR))                             # the rest, leaning
-    m.add(tube([(1.0, 0.17, 1.4), (1.3, 0.22, 1.75)], [0.03, 0.06], sides=5, colors=('#3a2a14', '#b08a3c')))   # the finial
-    # the banner: a rag hanging from the cross-bar, its edge burnt ragged
-    m.add(tube([(0.75, -0.25, 1.22), (0.95, 0.55, 1.4)], 0.02, sides=4, colors=MIN_CHAR))
-    v, f, t = [], [], []
-    cols, rows = 5, 4
-    r = np.random.default_rng(7)
-    for j in range(rows + 1):
-        for i in range(cols + 1):
-            u, w = i / cols, j / rows
-            hang = 0.75 * w * (1 - 0.35 * r.random()) if j < rows else 0.75 * (0.4 + 0.5 * r.random())
-            v.append((0.75 + 0.2 * u + 0.05 * math.sin(w * 3), -0.25 + 0.8 * u, 1.22 + 0.18 * u - hang)); t.append(1 - w)
-    for j in range(rows):
-        for i in range(cols):
-            a0 = j * (cols + 1) + i
-            f.append((a0, a0 + 1, a0 + cols + 2, a0 + cols + 1))
-    m.add(Part(v, f, t, ('#2a0a0e', '#7a1a22'), smooth=False))
-    # its other face, a hair behind
-    m.add(Part([(x - 0.008, y, z) for (x, y, z) in v], [tuple(reversed(q)) for q in f], t, ('#2a0a0e', '#7a1a22'), smooth=False))
-    # the device on it, a pale ring, half of it gone
-    m.add(trim(tube([(0.86, 0.1 + 0.13 * math.cos(a), 0.98 + 0.13 * math.sin(a)) for a in np.linspace(0.4, 3.9, 8)], 0.014, sides=4, colors=('#c8b890', '#f0e4c0'))))
+    m.bevel = 0.02
+    m.add(blk(0.3, 0.3, 0.1, KK_STONE_DK))
+    m.add(blk(0.13, 0.13, 0.5, KK_WOOD_CHAR, (0, 0, 0.08)))                              # the stump, still in the ground
+    m.add(tube([(0.04, 0, 0.5), (1.15, 0.0, 1.55)], 0.055, sides=6, colors=KK_WOOD_DK, cap_base=True))   # the rest, leaning
+    m.add(lathe([(0.0, 0.0), (0.08, 0.08), (0.0, 0.34)], sides=4, colors=('#8a6a2a', '#d8b050'), close_top=True).xf(ry(0.81), (1.13, 0.0, 1.53)))   # the spearhead
+    m.add(blk(0.07, 0.95, 0.07, KK_WOOD_DK, (0.86, 0.0, 1.24)))                          # the cross-bar
+    for (y, ln, wd) in ((-0.31, 0.72, 0.28), (0.0, 0.42, 0.3), (0.3, 0.6, 0.26)):       # the banner, in three burnt tails
+        m.add(blk(0.045, wd, ln, ('#1c0a0c', '#8a1e26'), (0.86, y, 1.26 - ln)))
+    for sx in (-1, 1):                                                                  # the device, a pale ring, half of it gone
+        m.add(trim(tube([(0.86 + sx * 0.03, -0.02 + 0.15 * math.cos(a), 0.98 + 0.15 * math.sin(a)) for a in np.linspace(0.3, 3.4, 8)], 0.02, sides=4, colors=KK_BONE)))
     return m, None
 
 
@@ -2513,71 +2536,92 @@ def field_barrow():
 
 
 def field_trench():
-    """A siege trench in the ash: a cut with its spoil heaped along one side, a row of sharpened stakes leaning out, a ladder left in it."""
+    """A siege trench in the ash, in the KayKit idiom: a cut shored with planks, its spoil heaped along one side, a row of sharpened stakes leaning out, a ladder left in it."""
     m = Model('field_trench')
-    m.add(box(3.0, 0.5, 0.05, ('#080504', '#120a08'), (0, 0, 0.0)))                                                  # the dark of the cut
-    m.add(blob(1.6, 0.32, 0.22, seg=12, rings=5, colors=('#1c1210', '#3a2a22'), jitter=0.1, seed=4).xf(None, (0, 0.5, 0.0)))   # the spoil
+    m.bevel = 0.02
+    m.add(blk(3.0, 0.5, 0.05, ('#0c0807', '#16100d')))                                   # the dark of the cut
+    m.add(blob(1.6, 0.34, 0.26, seg=12, rings=5, colors=('#221a17', '#463830'), jitter=0.03, seed=4).xf(None, (0, 0.55, -0.02)))   # the spoil
+    for k, x in enumerate((-1.0, 0.0, 1.0)):                                            # the shoring
+        m.add(blk(0.96, 0.06, 0.2, KK_WOOD_DK if k % 2 else KK_WOOD, (x, 0.27, 0.0)))
+    for x in (-1.48, -0.5, 0.5, 1.48):
+        m.add(blk(0.09, 0.09, 0.3, KK_WOOD_CHAR, (x, 0.23, 0.0)))
     r = np.random.default_rng(12)
-    for k in range(9):
-        x = -1.35 + k * 0.34
-        if k in (3, 7): continue
-        m.add(tube([(x, 0.62, 0.1), (x + float(r.uniform(-0.05, 0.05)), 1.0, 0.62)], [0.04, 0.008], sides=5, colors=MIN_CHAR, cap_base=True))
-    for y in (-0.12, 0.12):
-        m.add(tube([(0.8, y, 0.02), (1.15, y, 0.75)], 0.02, sides=4, colors=OAK))                                      # a ladder
-    for z in (0.2, 0.38, 0.56):
-        m.add(tube([(0.8 + 0.35 * z / 0.75, -0.12, z), (0.8 + 0.35 * z / 0.75, 0.12, z)], 0.014, sides=4, colors=OAK))
+    for k in range(7):
+        x = -1.35 + k * 0.45
+        if k == 5: continue
+        m.add(_kk_stake((x, 0.6, 0.12), (x + float(r.uniform(-0.05, 0.05)), 1.12, 0.68), 0.065, KK_WOOD_CHAR if k % 2 else KK_WOOD_DK))
+    R = ry(0.437)
+    for y in (-0.14, 0.14):
+        m.add(blk(0.055, 0.055, 0.86, KK_WOOD, (0.78, y, 0.0), R))                       # a ladder
+    for z in (0.2, 0.4, 0.6):
+        m.add(blk(0.045, 0.3, 0.045, KK_WOOD_DK, (0.78 + 0.466 * z, 0, z)))
     return m, None
 
 
 def field_chapel():
-    """A field chapel: a little single-cell church, its roof burnt off, a bellcote on the west gable with the bell gone."""
+    """A field chapel in the KayKit idiom: a little single-cell church, its roof burnt off, a crow-stepped west gable with a bellcote on it and the bell gone."""
     m, _ = _ruin_house(53, 1.9, 1.3, 'field_chapel')
-    m.add(_gable(1.3, 1.45, 2.1, 0.16, zmax=2.6).xf(None, (-0.95, 0, 0)))
-    m.add(box(0.16, 0.36, 0.5, MIN_STONE, (-0.95, 0, 2.05)))                                                       # the bellcote
-    m.add(_lancet(0.18, 0.36).xf(rz(-math.pi / 2).T, (-1.04, 0, 2.1)))
-    m.add(box(0.18, 0.12, 0.12, MIN_STONE, (-0.95, 0, 2.55)))
-    m.add(_lancet(0.4, 0.9).xf(rz(-math.pi / 2).T, (-1.04, 0, 0)))                                                  # the door
+    x = -0.95
+    for (wd, z0, h, col) in ((1.52, 0.0, 1.5, KK_STONE_DK), (1.1, 1.5, 0.3, KK_STONE), (0.72, 1.8, 0.3, KK_STONE)):   # the gable, crow-stepped
+        m.add(blk(0.26, wd, h, col, (x, 0, z0)))
+    for sy in (-0.2, 0.2):                                                              # the bellcote: two cheeks and a cap
+        m.add(blk(0.24, 0.12, 0.42, KK_STONE_LT, (x, sy, 2.1)))
+    m.add(blk(0.3, 0.6, 0.1, KK_STONE_LT, (x, 0, 2.52)))
+    m.add(blk(0.2, 0.3, 0.12, KK_STONE, (x, 0, 2.62)))
+    m.add(blk(0.06, 0.26, 0.06, KK_WOOD_CHAR, (x, 0, 2.4)))                              # the beam the bell hung from
+    m.add(blk(0.06, 0.42, 0.8, MIN_DARK, (x - 0.115, 0, 0.0)))                           # the west door
+    m.add(blk(0.08, 0.54, 0.12, KK_STONE_LT, (x - 0.115, 0, 0.8)))
     return m, None
 
 
 def field_bottle():
-    """A witch-bottle half dug out of a crossroads: a stoneware jug with a bearded face on its neck, on its side in a little pit, its stopper still in."""
+    """A witch-bottle half dug out of a crossroads, in the KayKit idiom: a stout stoneware jug with a bearded face on its neck, on its side in a little pit, its stopper still in; the spade left standing."""
     m = Model('field_bottle')
-    m.add(lathe([(0.75, 0.0), (0.7, 0.04), (0.0, 0.04)], sides=12, colors=('#0a0605', '#1a100c'), close_top=True))  # the pit
-    m.add(blob(0.7, 0.55, 0.14, seg=10, rings=4, colors=('#1c1210', '#3a2a22'), jitter=0.12, seed=9).xf(None, (0.55, 0.15, 0)))   # the spoil
-    jug = lathe([(0.0, 0.0), (0.16, 0.02), (0.22, 0.14), (0.21, 0.26), (0.13, 0.36), (0.07, 0.42), (0.07, 0.5), (0.085, 0.52)], sides=12, colors=('#4a2e18', '#a8783c'), close_top=True)
-    m.add(jug.xf(ry(1.45) @ rz(0.3), (-0.12, 0.02, 0.2)))
-    m.add(blob(0.05, 0.035, 0.05, seg=6, rings=3, colors=('#c8a878', '#f0d8a8')).xf(None, (0.33, 0.12, 0.22)))     # the face on its neck
-    m.add(blob(0.04, 0.04, 0.03, seg=6, rings=3, colors=OAK_DK).xf(None, (0.42, 0.15, 0.22)))                       # the stopper
-    for (x, y) in ((-0.6, -0.4), (0.1, -0.6), (-0.5, 0.45)):
-        m.add(box(0.14, 0.12, 0.09, MIN_STONE, (x, y, 0), jitter=0.2, seed=int(x * 10 + 50)))
+    m.bevel = 0.02
+    m.add(lathe([(0.75, 0.0), (0.7, 0.04), (0.0, 0.04)], sides=10, colors=('#0c0807', '#1a120e'), close_top=True))  # the pit
+    m.add(blob(0.62, 0.48, 0.2, seg=10, rings=4, colors=('#221a17', '#463830'), jitter=0.03, seed=9).xf(None, (0.62, 0.2, -0.03)))   # the spoil
+    jug = lathe([(0.0, 0.0), (0.2, 0.02), (0.27, 0.16), (0.26, 0.3), (0.16, 0.42), (0.09, 0.48), (0.09, 0.58), (0.11, 0.6)], sides=10, colors=('#5a3a1e', '#b8843e'), close_top=True)
+    m.add(jug.xf(ry(1.4) @ rz(0.3), (-0.3, -0.05, 0.25)))
+    m.add(blob(0.065, 0.05, 0.07, seg=6, rings=3, colors=KK_BONE).xf(None, (0.2, -0.04, 0.37)))                     # the face on its neck
+    m.add(lathe([(0.07, 0), (0.06, 0.08)], sides=6, colors=KK_WOOD_DK, close_top=True, close_bottom=True).xf(ry(1.4), (0.28, -0.05, 0.3)))   # the stopper
+    m.add(blk(0.05, 0.05, 0.8, KK_WOOD, (0.7, 0.3, 0.1), ry(0.12)))                                                 # the spade
+    m.add(blk(0.2, 0.04, 0.26, KK_IRON, (0.69, 0.3, -0.06), ry(0.12)))
+    m.add(blk(0.16, 0.05, 0.05, KK_WOOD_DK, (0.8, 0.3, 0.88), ry(0.12)))
+    for (x, y, s, a) in ((-0.62, -0.42, 0.2, 0.4), (0.1, -0.64, 0.16, 1.2), (-0.52, 0.48, 0.18, 2.0)):
+        m.add(blk(s * 1.3, s, s * 0.7, KK_STONE, (x, y, 0), rz(a)))
     return m, None
 
 
 def rowan_post():
-    """A charred post at the side of the track, with a little cross of rowan bound in red thread tied to it."""
+    """A charred post at the side of the track, in the KayKit idiom, with a cross of rowan bound in red thread tied to it."""
     m = Model('rowan_post')
-    m.add(tube([(0, 0, 0), (0.02, 0, 1.1)], [0.05, 0.04], sides=6, colors=MIN_CHAR, cap_base=True))
-    for (a, b) in (((0.0, -0.06, 0.95), (0.0, -0.06, 0.55)), ((0.0, -0.26, 0.82), (0.0, 0.14, 0.82))):
-        m.add(tube([(a[0], a[1], a[2]), (b[0], b[1], b[2])], 0.014, sides=4, colors=('#5a3a20', '#9a6a3a')))
-    for k in range(6):                                                               # the thread, wound where they cross
-        m.add(trim(tube([(0.0, -0.06 + 0.02 * math.cos(a), 0.82 + 0.02 * math.sin(a)) for a in np.linspace(0, TAU, 7)], 0.006, sides=3, colors=('#6a1a14', '#b03a24'))).xf(None, (0, 0, (k - 2.5) * 0.008)))
-    m.add(trim(tube([(0.0, -0.06, 0.82), (0.0, -0.04, 0.6), (0.01, -0.02, 0.45)], 0.004, sides=3, colors=('#6a1a14', '#b03a24'))))   # its loose end
-    for k in range(5):                                                               # rowan leaves and a few berries
-        a = k * 1.3
-        m.add(blob(0.05, 0.015, 0.012, seg=5, rings=3, colors=('#2a4a1a', '#5a7a2a')).xf(rz(a), (0.0, -0.26 + 0.05 * math.cos(a), 0.84 + 0.02 * math.sin(a))))
-    for k in range(4):
-        m.add(trim(blob(0.012, 0.012, 0.012, seg=5, rings=3, colors=('#a0200a', '#f05020')).xf(None, (0.01, 0.12 + 0.01 * k, 0.8 - 0.012 * (k % 2)))))
+    m.bevel = 0.02
+    m.add(blk(0.32, 0.32, 0.1, KK_STONE_DK))
+    m.add(blk(0.14, 0.14, 1.05, KK_WOOD_CHAR, (0, 0, 0.08)))
+    m.add(blk(0.18, 0.18, 0.05, KK_WOOD_DK, (0, 0, 1.13)))
+    y = -0.1
+    m.add(blk(0.045, 0.045, 0.5, ('#7a5230', '#a8763f'), (0, y, 0.5)))                   # the rowan cross
+    m.add(blk(0.42, 0.045, 0.045, ('#7a5230', '#a8763f'), (0, y, 0.8)))
+    m.add(trim(blk(0.085, 0.07, 0.085, ('#8a1e16', '#c8442a'), (0, y - 0.005, 0.78))))   # the red thread, wound where they cross
+    m.add(trim(tube([(0.0, y - 0.03, 0.8), (0.03, y - 0.03, 0.62), (0.02, y - 0.02, 0.48)], 0.01, sides=4, colors=('#8a1e16', '#c8442a'))))   # its loose end
+    for (x, z, a) in ((-0.2, 0.86, 0.5), (-0.13, 0.76, -0.4), (0.21, 0.87, -0.5)):      # leaves
+        m.add(blk(0.1, 0.02, 0.045, KK_MOSS, (x, y, z), ry(a)))
+    for (x, z) in ((0.15, 0.76), (0.19, 0.74), (0.17, 0.71)):                           # and berries
+        m.add(trim(blob(0.026, 0.026, 0.026, seg=5, rings=3, colors=('#b02810', '#f05a26')).xf(None, (x, y - 0.01, z))))
     return m, None
 
 
 def field_bell():
-    """A priest's hand-bell, split down one side and half sunk in the ash."""
+    """A priest's hand-bell in the KayKit idiom, split down one side and half sunk in the ash."""
     m = Model('field_bell')
-    bell = lathe([(0.0, 0.42), (0.09, 0.41), (0.13, 0.3), (0.16, 0.14), (0.22, 0.0)], sides=12, colors=('#3a2a14', '#a8803a'), close_top=True)
-    m.add(bell.xf(rx(1.2) @ rz(0.4), (0, 0, 0.12)))
-    m.add(tube([(0.05, 0.35, 0.28), (0.1, 0.62, 0.36)], 0.025, sides=5, colors=OAK_DK))       # its handle
-    m.add(blob(0.4, 0.3, 0.06, seg=9, rings=3, colors=('#1c1210', '#3a2a22'), jitter=0.15, seed=2))   # the ash heaped round it
+    m.bevel = 0.015
+    m.add(blob(0.5, 0.4, 0.09, seg=9, rings=3, colors=('#221a17', '#463830'), jitter=0.03, seed=2))   # the ash heaped round it
+    bell = lathe([(0.0, 0.5), (0.11, 0.5), (0.16, 0.4), (0.2, 0.18), (0.29, 0.0)], sides=10, colors=('#6a4a1c', '#d0a044'), close_top=True)
+    R = rx(1.2) @ rz(0.4)
+    m.add(bell.xf(R, (0, 0.05, 0.16)))
+    m.add(blk(0.07, 0.07, 0.3, KK_WOOD_DK, (0, 0, 0.5)).xf(R, (0, 0.05, 0.16)))   # its handle
+    m.add(blk(0.03, 0.5, 0.012, MIN_DARK, (0.0, 0.0, 0.0)).xf(rz(0.15), (0.02, -0.2, 0.36)))                        # the split
+    m.add(blk(0.16, 0.13, 0.1, KK_STONE, (-0.38, -0.2, 0.02), rz(0.7)))
     return m, None
 
 
@@ -2613,14 +2657,19 @@ def fingerpost():
 
 
 def frith_cross():
-    """A frith cross: a plain wayside cross on a block, marking where the minster's peace begins."""
+    """A frith cross in the KayKit idiom: a stout wayside cross on a stepped block, a daisy-wheel picked out pale on its face, marking where the minster's peace begins."""
     m = Model('frith_cross')
-    m.add(box(0.6, 0.6, 0.3, MIN_STONE, (0, 0, 0)))
-    m.add(box(0.2, 0.16, 1.5, MIN_STONE, (0, 0, 0.3)))
-    m.add(box(0.7, 0.16, 0.18, MIN_STONE, (0, 0, 1.3)))
-    # a daisy-wheel cut into its face, picked out pale
-    ring = [(0.3 * 0 + 0.0 + 0.14 * math.cos(a), -0.09, 0.85 + 0.14 * math.sin(a)) for a in np.linspace(0, TAU, 13)]
-    m.add(tube(ring, 0.012, sides=4, colors=('#d8d0c0', '#fff8e8')))
+    m.bevel = 0.03
+    m.add(blk(0.7, 0.62, 0.22, KK_STONE_DK))
+    m.add(blk(0.48, 0.42, 0.14, KK_STONE, (0, 0, 0.22)))
+    m.add(blk(0.24, 0.2, 1.45, KK_STONE, (0, 0, 0.36)))
+    m.add(blk(0.78, 0.2, 0.24, KK_STONE_LT, (0, 0, 1.3)))
+    m.add(blk(0.3, 0.24, 0.3, KK_STONE_LT, (0, 0, 1.27)))                                # the boss where they cross
+    ring = [(0.1 * math.cos(a), -0.125, 1.42 + 0.1 * math.sin(a)) for a in np.linspace(0, TAU, 9)]
+    m.add(trim(tube(ring, 0.018, sides=4, colors=KK_BONE)))                             # the daisy-wheel
+    for a in (0, TAU / 6, TAU / 3):
+        m.add(trim(tube([(-0.09 * math.cos(a), -0.125, 1.42 - 0.09 * math.sin(a)), (0.09 * math.cos(a), -0.125, 1.42 + 0.09 * math.sin(a))], 0.012, sides=4, colors=KK_BONE)))
+    m.add(blk(0.2, 0.12, 0.05, KK_MOSS, (-0.2, 0.2, 0.2)))
     return m, None
 
 
