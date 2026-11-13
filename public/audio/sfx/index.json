@@ -243,6 +243,12 @@
       "v": "da8c358b"
     }
   ],
+  "drove_herd": [
+    {
+      "f": "drove_herd.mp3",
+      "v": "2f187392"
+    }
+  ],
   "echo_canyon": [
     {
       "f": "echo_canyon.mp3",
@@ -549,6 +555,12 @@
       "v": "5789e392"
     }
   ],
+  "march_gate": [
+    {
+      "f": "march_gate.mp3",
+      "v": "f26ee876"
+    }
+  ],
   "mending_spirits": [
     {
       "f": "mending_spirits.mp3",
@@ -571,6 +583,12 @@
     {
       "f": "moonlit_mending.mp3",
       "v": "6d54d1bd"
+    }
+  ],
+  "needfire_kindle": [
+    {
+      "f": "needfire_kindle.mp3",
+      "v": "7770ab08"
     }
   ],
   "nightwatch_cloak": [
@@ -607,6 +625,12 @@
     {
       "f": "page_turn.mp3",
       "v": "60c8d458"
+    }
+  ],
+  "passing_bell": [
+    {
+      "f": "passing_bell.mp3",
+      "v": "5506a7c9"
     }
   ],
   "poppet_bind": [
@@ -833,6 +857,12 @@
       "v": "05708f81"
     }
   ],
+  "stance_rest": [
+    {
+      "f": "stance_rest.mp3",
+      "v": "cefccf85"
+    }
+  ],
   "steadfast_march": [
     {
       "f": "steadfast_march.mp3",
@@ -961,10 +991,22 @@
       "v": "42814ce0"
     }
   ],
+  "well_drink": [
+    {
+      "f": "well_drink.mp3",
+      "v": "d640d517"
+    }
+  ],
   "whispered_secret": [
     {
       "f": "whispered_secret.mp3",
       "v": "a235d596"
+    }
+  ],
+  "wind_knot": [
+    {
+      "f": "wind_knot.mp3",
+      "v": "8a6ef59f"
     }
   ],
   "withering_hex": [
