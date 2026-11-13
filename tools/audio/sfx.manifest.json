@@ -17,7 +17,7 @@
       "note": "NEW sound. Needs a trigger in the movement loop: play a round-robin of the variants on a step cadence while the player is moving (and not on every frame). I'll wire that when we integrate." },
 
     { "id": "cast",    "category": "spell", "existing": true, "duration_seconds": 0.7,
-      "prompt": "A witch casting a spell — a quick rising magical shimmer that charges up and releases with a soft sparkle tail. Airy, arcane, bright. No music, no words." },
+      "prompt": "A witch casting a spell at night: a low breathy whisper of air drawn in, a soft hollow swell like wind moaning through a keyhole, then a muffled dark whoomp as it lets go, trailing off into a faint cold sigh. Warm low-mid body, rounded and soft at the edges, eerie rather than bright. No sparkle, no chimes, no bells, no metallic ring, no shrill highs, no hiss, no music, no words." },
     { "id": "summon",  "category": "spell", "existing": true, "duration_seconds": 1.1,
       "prompt": "A dark summoning — the earth splitting with a low rumbling swell, then a dissonant minor chord of energy clawing upward. Ominous, ritual, heavy. No melody, no voice." },
     { "id": "curse",   "category": "spell", "existing": true, "duration_seconds": 0.6,
