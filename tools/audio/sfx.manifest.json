@@ -424,6 +424,32 @@
  "duration_seconds": 1.6,
  "prompt": "A tallow candle held in a dead hand guttering out underground: the flame sputters twice with small wet crackles, goes out with a soft puff, a thin hiss of greasy smoke, and then somewhere close several things shift and scrape on stone as they begin to move again. Cold stone room. No music, no voice."
 }
+,
+{
+ "id": "ash_storm_rise",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 4.5,
+ "prompt": "A dry wind getting up over a vast burnt plain: it starts as a low far-off moan, then a long gust sweeps in and builds, carrying a rising hiss of fine grit and ash skittering over hard ground, and ends still blowing. Bleak, wide and open, a little ominous. No music, no voice, no thunder, no rain."
+},
+{
+ "id": "ash_storm_wind",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "loop": true,
+ "duration_seconds": 20,
+ "prompt": "A steady ash storm over a burnt wasteland, heard from inside it: a deep constant roaring wind with slow gusts that swell and ease, and under it a continuous dry hiss of fine ash and grit driving against stone and cloth. Even in level from start to finish so it can loop seamlessly with no beginning or ending. No music, no voice, no thunder, no rain, no creatures."
+},
+{
+ "id": "ash_storm_end",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 5.0,
+ "prompt": "A dust storm dying away over an empty burnt plain: the roaring wind falls off in one last long sigh, the hiss of blowing grit thins to a soft patter of fine ash settling, and then a wide, dead quiet with a faint far breeze. No music, no voice, no rain, no birds."
+}
  ],
   "_optional_candidates": [
     "ui_click — a soft muffled UI tap/click for menu buttons (new trigger)",

@@ -9197,6 +9197,18 @@ const witchRing = require('./lib/witchRing')({ send, grantXP, players, isNight: 
   tellWastes: (m) => broadcastRoom('ember_wastes', m),
   noteRing: (p) => { if (daybook.note(p, 'ring')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the five, heard at the ring.' }); },
   noteSung: (p) => { daybook.note(p, 'ring_sung'); } });
+// Ash storms in the Ember Wastes (lib/emberStorm.js): the wind gets up every so often, the ash lifts, and nobody can see far.
+const emberStorm = require('./lib/emberStorm')({
+  tellWastes: (m) => broadcastRoom('ember_wastes', m),
+  inWastes: () => [...players.values()].filter((p) => p.room === 'ember_wastes'),
+  onWeathered: (p) => {
+    const { STORM } = require('./data/emberStorm');
+    grantXP(p, STORM.weatherXp);
+    send(p.ws, { type: 'toast', level: 'important', always: true, message: `🌫️ You weathered the storm out in the open. (+${STORM.weatherXp} XP)` });
+    const first = daybook.note(p, 'storm');
+    if (first) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: an ash storm, weathered.' });
+    if (first || (!p.accountKey && !p.stormLoreSeen)) { p.stormLoreSeen = true; send(p.ws, emberStorm.loreBoard()); }   // the lore of it, the first time
+  } });
 // The field in the Ember Wastes (lib/emberField.js): twelve things the war left along the track.
 const emberField = require('./lib/emberField')({ send, grantXP,
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -10760,6 +10772,7 @@ const SKIRMISH_RANGE = 220;
 const SKIRMISH_CHANCE = 0.3; // rolled roughly every 4-8s per idle mob
 
 function tickEmberWastes(dt) {
+  emberStorm.tick();
   const now = Date.now();
   const margin = 60;
   for (const m of emberMobs) {
@@ -10784,7 +10797,7 @@ function tickEmberWastes(dt) {
     if (m.boss) {
       const anchorDist = Math.hypot(m.x - m.spawnX, m.y - m.spawnY);
       const BOSS_LEASH = 2800;
-      const chasing = nearestP && dist < preset.aggroRadius && anchorDist < BOSS_LEASH && !isEvading(nearestP);
+      const chasing = nearestP && dist < preset.aggroRadius * emberStorm.aggroMul() && anchorDist < BOSS_LEASH && !isEvading(nearestP);
       if (chasing) {
         const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
         const inv = dist > 0.01 ? 1 / dist : 0;
@@ -10846,7 +10859,7 @@ function tickEmberWastes(dt) {
         }
         if (!m.paused) { const sp = preset.speed * (preset.pack ? 0.45 : 0.6); vx = Math.sin(m.wanderAngle) * sp; vy = Math.cos(m.wanderAngle) * sp; }
       }
-    } else if (nearestP && dist < preset.aggroRadius && !isEvading(nearestP)) {
+    } else if (nearestP && dist < preset.aggroRadius * emberStorm.aggroMul() && !isEvading(nearestP)) {   // an ash storm halves what they can see
       m.rivalId = null; // a real player threat always wins out over a squabble
       const dx = nearestP.x - m.x, dy = nearestP.y - m.y;
       const inv = dist > 0.01 ? 1 / dist : 0;
@@ -15246,7 +15259,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
     if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
-    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); return; }
+    if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); return; }
     if (msg.type === 'ring_use') { if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
     if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
@@ -17682,6 +17695,7 @@ wss.on('connection', (ws, req) => {
       player.y = retY;
       player.emberReturnX = null;
       player.emberReturnY = null;
+      emberStorm.leave(player);
       send(ws, { type: 'ember_wastes_exited', x: retX, y: retY });
       return;
     }
@@ -18699,7 +18713,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm,
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,

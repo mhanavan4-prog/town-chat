@@ -57,11 +57,29 @@ def filename_for(sfx_id, variant, variants):
     return f"{sfx_id}.mp3" if variants <= 1 else f"{sfx_id}-{variant}.mp3"
 
 
-def generate(api_key, prompt, duration, influence, fmt):
-    """Call the ElevenLabs Sound Effects endpoint; return the raw audio bytes."""
+def generate(api_key, prompt, duration, influence, fmt, loop=False):
+    """Call the ElevenLabs Sound Effects endpoint; return the raw audio bytes.
+    loop: ask for a seamless loop (a manifest entry with "loop": true, played
+    round and round by the client). If the API will not take the flag, the
+    sound is asked for again without it."""
     body = {"text": prompt, "prompt_influence": influence}
     if duration:
         body["duration_seconds"] = duration
+    if loop:
+        body["loop"] = True
+        body["model_id"] = "eleven_text_to_sound_v2"
+        try:
+            return _post(api_key, body, fmt)
+        except urllib.error.HTTPError as e:
+            if e.code not in (400, 422):
+                raise
+            print("(loop flag refused; asking without it)", end=" ", flush=True)
+            body.pop("loop", None)
+            body.pop("model_id", None)
+    return _post(api_key, body, fmt)
+
+
+def _post(api_key, body, fmt):
     req = urllib.request.Request(
         f"{API_URL}?output_format={fmt}",
         data=json.dumps(body).encode("utf-8"),
@@ -122,20 +140,20 @@ def main():
             if fresh:
                 skipped += 1
                 continue
-            planned.append((sid, fn, prompt, duration, influence))
+            planned.append((sid, fn, prompt, duration, influence, bool(sfx.get("loop"))))
 
     if args.dry_run:
         print(f"DRY RUN — {len(planned)} to generate, {skipped} already up to date:")
-        for sid, fn, prompt, duration, influence in planned:
+        for sid, fn, prompt, duration, influence, _loop in planned:
             print(f"  • {fn:<18} ({duration or 'auto'}s, infl {influence})  “{prompt[:70]}{'…' if len(prompt) > 70 else ''}”")
         print("\nNo credits spent. Re-run without --dry-run to generate.")
         return
 
-    for sid, fn, prompt, duration, influence in planned:
+    for sid, fn, prompt, duration, influence, loop in planned:
         out_path = os.path.join(OUT_DIR, fn)
         try:
             print(f"  generating {fn} …", end=" ", flush=True)
-            audio = generate(api_key, prompt, duration, influence, fmt)
+            audio = generate(api_key, prompt, duration, influence, fmt, loop)
             with open(out_path, "wb") as f:
                 f.write(audio)
             cache[fn] = content_key(prompt, duration, influence, int(fn.split("-")[-1].split(".")[0]) if "-" in fn else 1, fmt)
