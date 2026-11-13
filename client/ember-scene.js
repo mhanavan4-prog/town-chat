@@ -157,13 +157,17 @@ function buildEmberScene() {
 
   // Reddened light so the ruby floor smoulders. A touch brighter + redder sun
   // than before to throw a glassy highlight across the gem tiles.
-  scene.add(new THREE.AmbientLight(0xff6a4a, 0.62));
+  const emberAmbientLight = new THREE.AmbientLight(0xff6a4a, 0.62);
+  scene.add(emberAmbientLight);
   const emberSun = new THREE.DirectionalLight(0xffb070, 0.8);
   emberSun.position.set(400, 700, 250);
   scene.add(emberSun);
   // A low red hemisphere fill so the undersides of props + the far gem field
   // keep a warm ember blush instead of going flat black.
-  scene.add(new THREE.HemisphereLight(0xff5533, 0x1a0604, 0.4));
+  const emberHemi = new THREE.HemisphereLight(0xff5533, 0x1a0604, 0.4);
+  scene.add(emberHemi);
+  // what client/ember-storm.js turns down for the night (and back up by day)
+  scene.userData.lights = { ambient: emberAmbientLight, sun: emberSun, hemi: emberHemi, base: { ambient: 0.62, sun: 0.8, hemi: 0.4 } };
 
   // FLAT ember plain. A dead-level bedrock plane (deep ember red) sits just
   // under y=0 so there's always a floor even before the hex tiles stream in;
@@ -206,6 +210,7 @@ function buildEmberScene() {
       specular: 0xff8878, shininess: 70
     });
     const variants = RUBIES.map(c => ({ mat: rubyMat(c), mats: [] }));
+    scene.userData.rubyMats = variants.map((v) => ({ mat: v.mat, base: v.mat.color.clone() }));   // dimmed by night (client/ember-storm.js)
     let fseed = 0x51a5e1;
     const frnd = () => { fseed = (fseed * 1664525 + 1013904223) >>> 0; return fseed / 4294967296; };
     const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), pos = new THREE.Vector3();
@@ -612,6 +617,18 @@ function buildEmberScene() {
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🕯️ ' + w.name); l.position.set(w.x, 70, w.y); scene.add(l); }
   }
   ringKiosks.push({ x: WITCH_RING.x, z: WITCH_RING.y + 60, npc: 'ring', ringId: 'elder', hint: 'go to the elder', radius: 120 });
+  // On a night the ring has not yet sung, it glows (client/ember-storm.js shows and breathes it): a pale
+  // line round the ring of stones on the ground, and a light standing in each of the five places.
+  {
+    const glow = new THREE.Group(); glow.visible = false;
+    const band = new THREE.Mesh(new THREE.RingGeometry(WITCH_RING.stoneR - 18, WITCH_RING.stoneR + 18, 96), new THREE.MeshBasicMaterial({ color: 0x9adf7a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    band.rotation.x = -Math.PI / 2; band.position.set(WITCH_RING.x, 3, WITCH_RING.y); glow.add(band);
+    if (typeof makeGlowTexture === 'function') for (const w of WITCH_FIVE) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xb8f090, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      sp.scale.set(120, 220, 1); sp.position.set(w.x, 90, w.y); glow.add(sp);
+    }
+    scene.add(glow); scene.userData.ringGlow = glow;
+  }
   scene.userData.walls.push({ x: WITCH_RING.x - 40, y: WITCH_RING.y - 40, w: 80, h: 80 });
   if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🌿 The witches\' ring'); l.scale.multiplyScalar(2.5); l.position.set(WITCH_RING.x, 520, WITCH_RING.y); scene.add(l); }
   const ringPlaced = new Set();

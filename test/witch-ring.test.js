@@ -47,8 +47,8 @@ ps[4].x += 500;   // one not yet in her place
 check('four standing is not five', ring.fiveStanding() === null && ring.use(ps[0], 'hazel') === false && sung.length === 0);
 at(ps[4], FIVE[4]);
 const xb = xpOf.b || 0;
-check('five standing, each in a place, and one of them uses hers: the ring sings for all five, and the whole Wastes hear it', ring.use(ps[1], 'morwenna') === true && sung.sort().join() === 'a,b,c,d,e' && xpOf.b === xb + RING.sungXp + RING.voiceXp && banks.e.balance === RING.sungGold && wastes.length === 1);
-check('once a night', (ring.use(ps[2], 'joan'), sung.length === 5 && wastes.length === 1));
+check('five standing, each in a place, and one of them uses hers: the ring sings for all five, and the whole Wastes hear it', ring.use(ps[1], 'morwenna') === true && sung.sort().join() === 'a,b,c,d,e' && xpOf.b === xb + RING.sungXp + RING.voiceXp && banks.e.balance === RING.sungGold && wastes.filter((m) => m.type === 'toast').length === 1 && wastes.some((m) => m.type === 'ring_sung'));
+check('once a night', (ring.use(ps[2], 'joan'), sung.length === 5 && wastes.filter((m) => m.type === 'toast').length === 1));
 ps[1].x = FIVE[0].x + 10; ps[1].y = FIVE[0].y + 10;   // two people crowding one place
 ps[0].x += 600; cycle = 3;
 check('two in one place and one empty is not five', ring.fiveStanding() === null);

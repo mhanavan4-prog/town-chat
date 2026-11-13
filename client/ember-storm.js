@@ -5,13 +5,21 @@
 // fingerpost of the field's track, bright enough to show through it.
 // THREE is global. The server only says which phase it is; how thick the
 // storm looks eases toward that, so nothing jumps.
+//
+// The Wastes' night lives here too, since it works the same air: after dark
+// the sky goes to old blood, the fog draws in, the lights go down, and the
+// track's lanterns are lit every night, storm or none. On a night the
+// witches' ring has not yet sung, it glows (scene.userData.ringGlow).
 // ---------------------------------------------------------------------------
-export default function createEmberStorm({ getScene, getCamera, isActive, makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx, say }) {
+export default function createEmberStorm({ getScene, getCamera, isActive, makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx, say, isNight = () => false }) {
   const TARGET = { calm: 0, gathering: 0.3, storm: 1 };
   const CALM = { near: 900, far: 5200, color: new THREE.Color(0x2a0f0a) };
   const THICK = { near: 60, far: 820, color: new THREE.Color(0x4b403a) };
-  let phase = 'calm', strength = 0, built = null, wind = false, clearUntil = 0;
-  const tmp = new THREE.Color();
+  const NIGHT = { near: 420, far: 3400, color: new THREE.Color(0x0e0405) };
+  const NIGHT_THICK = new THREE.Color(0x231c1a);
+  const NIGHT_LIGHT = { ambient: 0.3, sun: 0.12, hemi: 0.2 };
+  let phase = 'calm', strength = 0, built = null, wind = false, clearUntil = 0, nightK = 0, ringSung = false, wasNight = null;
+  const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 
   function build(scene) {
     if (built && built.scene === scene) return built;
@@ -57,15 +65,34 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
     if (!scene) return;
     const b = build(scene);
     const s = strength;
+    // the night: eased in and out over a dozen seconds; a new night and the ring may sing again
+    const night = !!isNight();
+    if (night && wasNight === false) ringSung = false;   // dusk came while we watched: a new night
+    wasNight = night;
+    nightK += Math.max(-dt * 0.08, Math.min(dt * 0.08, (night ? 1 : 0) - nightK));
+    const n = nightK;
     if (scene.fog) {
-      scene.fog.near = CALM.near + (THICK.near - CALM.near) * s;
-      scene.fog.far = CALM.far + (THICK.far - CALM.far) * s;
-      tmp.copy(CALM.color).lerp(THICK.color, s); scene.fog.color.copy(tmp);
+      const near0 = CALM.near + (NIGHT.near - CALM.near) * n, far0 = CALM.far + (NIGHT.far - CALM.far) * n;
+      scene.fog.near = near0 + (THICK.near - near0) * s;
+      scene.fog.far = far0 + (THICK.far - far0) * s;
+      tmp.copy(CALM.color).lerp(NIGHT.color, n); tmp2.copy(THICK.color).lerp(NIGHT_THICK, n);
+      tmp.lerp(tmp2, s); scene.fog.color.copy(tmp);
       if (scene.background && scene.background.isColor) scene.background.copy(tmp);
+    }
+    const L = scene.userData && scene.userData.lights;
+    if (L) for (const k of ['ambient', 'sun', 'hemi']) if (L[k]) L[k].intensity = L.base[k] + (NIGHT_LIGHT[k] - L.base[k]) * n;
+    // the ruby ground glows less by night
+    for (const r of (scene.userData && scene.userData.rubyMats) || []) { r.mat.color.copy(r.base).multiplyScalar(1 - 0.5 * n); r.mat.emissiveIntensity = 0.4 - 0.25 * n; }
+    const lit = Math.max(s * 1.4, n * 0.9);
+    for (const l of b.lanterns) { l.visible = lit > 0.01; l.material.opacity = Math.min(1, lit); }
+    const ring = scene.userData && scene.userData.ringGlow;
+    if (ring) {
+      const k = ringSung ? 0 : Math.max(0, n * 2 - 1);
+      ring.visible = k > 0.01;
+      if (ring.visible) { const breathe = 0.65 + 0.35 * Math.sin(performance.now() / 900); ring.traverse((o) => { if (o.material) o.material.opacity = (o.isSprite ? 0.7 : 0.5) * k * breathe; }); }
     }
     const show = s > 0.01;
     b.ash.visible = show && here;
-    for (const l of b.lanterns) { l.visible = show; l.material.opacity = Math.min(1, s * 1.4); }
     if (!b.ash.visible) return;
     b.ash.material.opacity = 0.75 * s;
     const cam = getCamera(); if (!cam) return;
@@ -86,5 +113,7 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
   // QA: jump to how thick it will be (a slow headless frame rate would take minutes to get there)
   const settle = () => { strength = TARGET[phase] || 0; };
   const clear = (ms) => { clearUntil = performance.now() + ms; };
-  return { apply, update, settle, clear, phase: () => phase, strength: () => strength };
+  const sung = () => { ringSung = true; };
+  const settleNight = () => { nightK = isNight() ? 1 : 0; };
+  return { apply, update, settle, settleNight, clear, sung, phase: () => phase, strength: () => strength, night: () => nightK };
 }
