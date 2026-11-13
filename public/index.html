@@ -632,7 +632,8 @@
   #chatShowBtn:hover { background:rgba(45,32,24,0.95); }
   #chatLog {
     pointer-events:auto;
-    max-height:260px; min-height:90px; overflow-y:auto; margin-bottom:8px;
+    /* kept low: a tall log stood up over the left of the world (about five lines shown; scroll for more) */
+    max-height:min(172px, 20vh); min-height:72px; overflow-y:auto; margin-bottom:8px;
     display:flex; flex-direction:column; gap:5px;
   }
   #chatPanel.arcadeMode #chatLog { max-height:780px; min-height:270px; }
@@ -790,7 +791,7 @@
   body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
   body:not(.touchMode) #bonfireModal, body:not(.touchMode) #showcaseModal,
   body:not(.touchMode) #oghamModal, body:not(.touchMode) #cordsModal,
-  body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
+  body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal, body:not(.touchMode) #onlineModal,
   body:not(.touchMode) #inventoryPanel {
     left:50% !important; top:50% !important; right:auto !important; bottom:auto !important;
     transform:translate(-50%, -50%) !important;
@@ -813,7 +814,7 @@
   body:not(.touchMode) #moonWellModal, body:not(.touchMode) #runeModal, body:not(.touchMode) #journalModal,
   body:not(.touchMode) #skillsModal, body:not(.touchMode) #attackModal, body:not(.touchMode) #spellbookModal,
   body:not(.touchMode) #bonfireModal, body:not(.touchMode) #showcaseModal, body:not(.touchMode) #oghamModal,
-  body:not(.touchMode) #cordsModal, body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal,
+  body:not(.touchMode) #cordsModal, body:not(.touchMode) #practicesModal, body:not(.touchMode) #oldWaysModal, body:not(.touchMode) #charmBookModal, body:not(.touchMode) #shelfModal, body:not(.touchMode) #onlineModal,
   body:not(.touchMode) #titlesModal > .card, body:not(.touchMode) #loadoutModal > .card, body:not(.touchMode) #wardrobeModal > .card,
   body:not(.touchMode) #achModal > .card, body:not(.touchMode) #codexModal > .card, body:not(.touchMode) #passModal > .card,
   body:not(.touchMode) #boardModal > .card, body:not(.touchMode) #covenModal > .card, body:not(.touchMode) #delveModal > .card,
@@ -833,7 +834,7 @@
   body:not(.touchMode) #moonWellCloseBtn, body:not(.touchMode) #runeCloseBtn, body:not(.touchMode) #journalCloseBtn,
   body:not(.touchMode) #skillsCloseBtn, body:not(.touchMode) #attackCloseBtn, body:not(.touchMode) #spellbookCloseBtn,
   body:not(.touchMode) #bonfireCloseBtn, body:not(.touchMode) #showcaseCloseBtn, body:not(.touchMode) #oghamCloseBtn,
-  body:not(.touchMode) #cordsCloseBtn, body:not(.touchMode) #practicesCloseBtn, body:not(.touchMode) #charmBookCloseBtn, body:not(.touchMode) #shelfCloseBtn,
+  body:not(.touchMode) #cordsCloseBtn, body:not(.touchMode) #practicesCloseBtn, body:not(.touchMode) #charmBookCloseBtn, body:not(.touchMode) #shelfCloseBtn, body:not(.touchMode) #onlineCloseBtn,
   body:not(.touchMode) #titlesCloseBtn, body:not(.touchMode) #loadoutCloseBtn, body:not(.touchMode) #wardrobeCloseBtn,
   body:not(.touchMode) #achCloseBtn, body:not(.touchMode) #codexCloseBtn, body:not(.touchMode) #passModalCloseBtn,
   body:not(.touchMode) #boardCloseBtn, body:not(.touchMode) #covenCloseBtn, body:not(.touchMode) #delveCloseBtn,
@@ -863,7 +864,7 @@
   body:not(.touchMode) #moonWellCloseBtn::before, body:not(.touchMode) #runeCloseBtn::before, body:not(.touchMode) #journalCloseBtn::before,
   body:not(.touchMode) #skillsCloseBtn::before, body:not(.touchMode) #attackCloseBtn::before, body:not(.touchMode) #spellbookCloseBtn::before,
   body:not(.touchMode) #bonfireCloseBtn::before, body:not(.touchMode) #showcaseCloseBtn::before, body:not(.touchMode) #oghamCloseBtn::before,
-  body:not(.touchMode) #cordsCloseBtn::before, body:not(.touchMode) #practicesCloseBtn::before, body:not(.touchMode) #charmBookCloseBtn::before, body:not(.touchMode) #shelfCloseBtn::before,
+  body:not(.touchMode) #cordsCloseBtn::before, body:not(.touchMode) #practicesCloseBtn::before, body:not(.touchMode) #charmBookCloseBtn::before, body:not(.touchMode) #shelfCloseBtn::before, body:not(.touchMode) #onlineCloseBtn::before,
   body:not(.touchMode) #titlesCloseBtn::before, body:not(.touchMode) #loadoutCloseBtn::before, body:not(.touchMode) #wardrobeCloseBtn::before,
   body:not(.touchMode) #achCloseBtn::before, body:not(.touchMode) #codexCloseBtn::before, body:not(.touchMode) #passModalCloseBtn::before,
   body:not(.touchMode) #boardCloseBtn::before, body:not(.touchMode) #covenCloseBtn::before, body:not(.touchMode) #delveCloseBtn::before,
@@ -879,7 +880,7 @@
   body:not(.touchMode) #moonWellModal::after, body:not(.touchMode) #runeModal::after, body:not(.touchMode) #journalModal::after,
   body:not(.touchMode) #skillsModal::after, body:not(.touchMode) #attackModal::after, body:not(.touchMode) #spellbookModal::after,
   body:not(.touchMode) #bonfireModal::after, body:not(.touchMode) #showcaseModal::after, body:not(.touchMode) #oghamModal::after,
-  body:not(.touchMode) #cordsModal::after, body:not(.touchMode) #practicesModal::after, body:not(.touchMode) #oldWaysModal::after, body:not(.touchMode) #charmBookModal::after, body:not(.touchMode) #shelfModal::after,
+  body:not(.touchMode) #cordsModal::after, body:not(.touchMode) #practicesModal::after, body:not(.touchMode) #oldWaysModal::after, body:not(.touchMode) #charmBookModal::after, body:not(.touchMode) #shelfModal::after, body:not(.touchMode) #onlineModal::after,
   body:not(.touchMode) #titlesModal > .card::after, body:not(.touchMode) #loadoutModal > .card::after, body:not(.touchMode) #wardrobeModal > .card::after,
   body:not(.touchMode) #achModal > .card::after, body:not(.touchMode) #codexModal > .card::after, body:not(.touchMode) #passModal > .card::after,
   body:not(.touchMode) #boardModal > .card::after, body:not(.touchMode) #covenModal > .card::after, body:not(.touchMode) #delveModal > .card::after,
@@ -2335,10 +2336,11 @@
   /* The folk-magic panels lay out as a column: header, content filling the
      frame, Close at the bottom — in the uniform desktop frame and full-screen
      on phones alike (a 64vh box inside left a dead band under Close). */
-  #charmBookModal, #oghamModal, #cordsModal, #practicesModal, #oldWaysModal, #shelfModal { display:flex; flex-direction:column; overflow:hidden; }
+  #charmBookModal, #oghamModal, #cordsModal, #practicesModal, #oldWaysModal, #shelfModal, #onlineModal { display:flex; flex-direction:column; overflow:hidden; }
+  #onlineModal > #onlineContent { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   #shelfModal > #shelfContent, #charmBookModal > #charmBookContent, #oghamModal > #oghamContent,
   #cordsModal > #cordsContent, #practicesModal > #practicesContent, #oldWaysModal > #oldWaysContent { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  #charmBookModal > .btn, #oghamModal > .btn, #cordsModal > .btn, #practicesModal > .btn, #oldWaysModal > .btn, #shelfModal > .btn { flex:0 0 auto; }
+  #charmBookModal > .btn, #oghamModal > .btn, #cordsModal > .btn, #practicesModal > .btn, #oldWaysModal > .btn, #shelfModal > .btn, #onlineModal > .btn, #onlineModal > form { flex:0 0 auto; }
   .mobPanelBack { display:none; }
   body.touchMode .mobPanelBack {
     display:inline-flex; align-items:center; flex:0 0 auto;

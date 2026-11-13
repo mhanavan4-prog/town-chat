@@ -70,9 +70,10 @@ function signRoundRect(cx, x, y, w, h, r) {
 // ("… — Press F"); a phone has no F, and its tap prompt already says what to
 // do, so there the bare instruction is dropped and "Press F to enter"
 // becomes "tap to enter".
-export function signTextFor(text, touch) {
-  if (!touch) return text;
-  return String(text).replace(/\s*[—·-]\s*Press F\s*$/, '').replace(/Press F to /g, 'tap to ');
+// A world sign names the place and nothing more: what to press is the prompt's job (the interact
+// hint and the action wheel), on a keyboard and a phone alike. `touch` is kept for callers.
+export function signTextFor(text) {
+  return String(text).replace(/\s*[—·-]\s*Press F(?: to [^—·]*)?\s*$/, '').replace(/\s*[—·-]?\s*Press F to [^—·]*/g, '').trim();
 }
 const SIGN_TOUCH = typeof window !== 'undefined' && (('ontouchstart' in window) || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0));
 
@@ -123,10 +124,18 @@ export function makeSignSprite(text) {
   const sprite = new THREE.Sprite(mat);
   // Same world-units-per-canvas-pixel ratio (256px -> 110 units) every sign has
   // always used, so sizes are unchanged — only a wider canvas renders wider.
-  const scale = 110 / 256;
+  // A quiet sign is only ever read from close by, so it is drawn a size smaller than the old banners were.
+  const scale = 110 / 256 * 0.62;
   sprite.scale.set(width * scale, height * scale, 1);
+  // Quiet: shown only as you come up to the place, and only the nearest (main.js updateQuietSigns).
+  sprite.userData.quietSign = true;
+  sprite.userData.baseScale = sprite.scale.clone();
+  QUIET_SIGNS.add(sprite);
   return sprite;
 }
+// Every world sign: a sign fades in as you come within QUIET_NEAR of it, and of several near, only the
+// nearest shows. A village of banners all at once took the place over.
+export const QUIET_SIGNS = new Set();
 
 // Stylised two-line (or one-line) nameplate for NPC characters.
 // name  — displayed large in warm gold on the top line

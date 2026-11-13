@@ -162,6 +162,9 @@ function buildEmberScene() {
   const emberSun = new THREE.DirectionalLight(0xffb070, 0.8);
   emberSun.position.set(400, 700, 250);
   scene.add(emberSun);
+  // The Wastes are open and seen a long way: the shadow box follows the player at twice the town's size, so its
+  // edge (where shadows stop, and step on and off as you walk) stays off the screen rather than across the near ground.
+  emberSun.userData.shadowSpan = 1440;
   // A low red hemisphere fill so the undersides of props + the far gem field
   // keep a warm ember blush instead of going flat black.
   const emberHemi = new THREE.HemisphereLight(0xff5533, 0x1a0604, 0.4);

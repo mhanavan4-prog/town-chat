@@ -635,7 +635,7 @@ function addVillageBuildings(scene) {
   // hall and left the Artificer squeezed against the blacksmith stall). Each
   // building now sits on its own plot around a roomy commons, with the Artificer
   // given his own corner to the far east (below).
-  placeSolid('vil_hall', VX, VZ, 440, Math.PI, 'fit');                    // Village Hall (big yellow hall) — the anchor, dead center
+  placeSolid('vil_hall', VX, VZ, 440, 0, 'fit');                          // Village Hall (big yellow hall) — the anchor, dead center; its door faces south, to the commons and the Moot Hall's door spot
   const lhSign = makeSignSprite('🏚️ Village Hall');
   lhSign.position.set(VX, 660, VZ); scene.add(lhSign);
   placeSolid('vil_home', VX - 720, VZ - 40, 390, Math.PI / 2, 'fit');     // Barn (far west)
