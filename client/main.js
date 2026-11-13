@@ -3144,6 +3144,9 @@ function onWsMessage(ev) {
   if (msg.type === 'reel_state') { setReelState(msg); return; }
   if (msg.type === 'wanderer_record') { wandererRecord = msg.slain || {}; return; }
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
+  if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
+  if (msg.type === 'whisper') { receiveWhisper(msg); return; }
+  if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
   if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
@@ -4148,6 +4151,7 @@ function makeDraggable(panel, handle) {
   makeDraggable(document.getElementById('runeModal'),       document.querySelector('#runeModal .floatPanelHandle'));
   makeDraggable(document.getElementById('moonWellModal'),   document.querySelector('#moonWellModal .floatPanelHandle'));
   makeDraggable(document.getElementById('tarotModal'),      document.querySelector('#tarotModal .floatPanelHandle'));
+  makeDraggable(document.getElementById('onlineModal'),     document.querySelector('#onlineModal .floatPanelHandle'));
   makeDraggable(document.getElementById('showcaseModal'),   document.querySelector('#showcaseModal .floatPanelHandle'));
   makeDraggable(document.getElementById('bonfireModal'),    document.querySelector('#bonfireModal .floatPanelHandle'));
   makeDraggable(document.getElementById('gardenModal'),     document.querySelector('#gardenModal .floatPanelHandle'));
@@ -4515,6 +4519,111 @@ const _shop = createShop({
   glyph: (id, emoji) => `<span class="rowGi" style="font-size:20px;">${glyphHTML(id, 'rowGi', emoji)}</span>`, // carved icon, emoji fallback
 });
 const { openNpcShopModal, closeNpcShopModal, renderNpcShop, refreshShopSellTab } = _shop;
+
+// ---------------------------------------------------------------------------
+// Players online (O): everyone who is on, roughly where, and a word or an
+// invitation to any of them (lib/online.js on the server). Whispers land in
+// the chat log either way; tap a name there to answer.
+// ---------------------------------------------------------------------------
+let onlineList = null, onlineTo = null, onlineInviteOpen = null, onlineTimer = null;
+function openOnlinePanel(toId) {
+  const modal = document.getElementById('onlineModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  setDefaultFloatPos(modal, 420, 110);
+  Modals.set('onlineOpen', true);
+  onlineInviteOpen = null;
+  if (toId) onlineTo = { id: toId, name: (onlineList && (onlineList.players.find((p) => p.id === toId) || {}).name) || '' };
+  renderOnlinePanel();
+  const ask = () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'online_list' })); };
+  ask();
+  if (onlineTimer) clearInterval(onlineTimer);
+  onlineTimer = setInterval(ask, 5000);   // people come and go while it is open
+  if (toId) setTimeout(() => { const t = document.getElementById('onlineComposeText'); if (t && !MOBILE_UI) t.focus(); }, 50);
+}
+function closeOnlinePanel() {
+  const modal = document.getElementById('onlineModal');
+  if (modal) modal.classList.add('hidden');
+  Modals.set('onlineOpen', false);
+  if (onlineTimer) { clearInterval(onlineTimer); onlineTimer = null; }
+  const t = document.getElementById('onlineComposeText'); if (t) t.blur();
+}
+function onlineSend(type, extra) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type, ...extra })); }
+function renderOnlinePanel() {
+  const el = document.getElementById('onlineContent');
+  if (!el || !Modals.isOpen('onlineOpen')) return;
+  const L = onlineList;
+  const count = document.getElementById('onlineCount'); if (count) count.textContent = L ? `· ${L.count}` : '';
+  el.innerHTML = '';
+  if (!L) { el.innerHTML = '<div class="olEmpty">Looking about…</div>'; }
+  else if (!L.players.length) { el.innerHTML = '<div class="olEmpty">Nobody else is about just now. The candle in the window is yours alone.</div>'; }
+  const signedIn = !!(L && L.me && L.me.account), myCoven = L && L.me && L.me.coven;
+  for (const p of (L ? L.players : [])) {
+    const muted = isMutedName(p.name);
+    const row = document.createElement('div'); row.className = 'olRow' + (muted ? ' olMuted' : '');
+    const who = document.createElement('div'); who.className = 'olWho';
+    const nm = document.createElement('div'); nm.className = 'olName'; nm.style.color = p.color; nm.textContent = p.name;
+    const meta = document.createElement('div'); meta.className = 'olMeta';
+    meta.textContent = [p.cls && `${p.cls} · Lv ${p.level}`, p.where, p.coven && `of ${p.coven}`, !p.account && 'guest'].filter(Boolean).join(' · ');
+    who.append(nm, meta);
+    const btns = document.createElement('div'); btns.className = 'olBtns';
+    const mk = (label, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title; b.addEventListener('click', (e) => { e.stopPropagation(); fn(e); }); return b; };
+    btns.append(
+      mk('💬', 'Send ' + p.name + ' a message', () => { onlineTo = { id: p.id, name: p.name }; renderOnlinePanel(); const t = document.getElementById('onlineComposeText'); if (t) t.focus(); }),
+      mk('✉️', 'Invite ' + p.name, () => { onlineInviteOpen = onlineInviteOpen === p.id ? null : p.id; renderOnlinePanel(); }),
+      mk('⋯', 'Mute or report ' + p.name, (e) => openPlayerMenu({ id: p.id, name: p.name }, e)),
+    );
+    row.append(who, btns);
+    el.appendChild(row);
+    if (onlineInviteOpen === p.id) {
+      const inv = document.createElement('div'); inv.className = 'olInvite';
+      const ib = (label, title, ok, fn) => { const b = mk(label, title, () => { fn(); onlineInviteOpen = null; renderOnlinePanel(); }); if (!ok) { b.disabled = true; } return b; };
+      inv.append(
+        ib('🤝 To your party', 'Fight alongside you and share the spoils', true, () => { inviteToParty(p.id); setUnlockToast(`Party invite sent to ${p.name}.`); }),
+        ib('🌙 To your coven', p.coven ? 'They are in a coven already' : (myCoven ? 'Join your coven' : 'You are not in a coven'), !!myCoven && !p.coven && p.account, () => onlineSend('coven_invite', { targetId: p.id })),
+        ib('🏡 To your cottage', signedIn && p.account ? 'Come and see your cottage' : 'You both need to be signed in', signedIn && p.account, () => onlineSend('cottage_invite', { targetId: p.id })),
+      );
+      el.appendChild(inv);
+    }
+  }
+  // the word being written, and to whom
+  const form = document.getElementById('onlineCompose');
+  if (form) {
+    const live = onlineTo && (!L || L.players.some((p) => p.id === onlineTo.id));
+    form.classList.toggle('hidden', !live);
+    const to = document.getElementById('onlineComposeTo');
+    if (to && live) to.textContent = `🕯️ A whisper to ${onlineTo.name}, for no one else`;
+    if (onlineTo && !live && L) { setUnlockToast(`${onlineTo.name} has gone.`); onlineTo = null; }
+  }
+}
+(function () {
+  const form = document.getElementById('onlineCompose');
+  if (form) form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = document.getElementById('onlineComposeText');
+    const text = t ? t.value.trim() : '';
+    if (!text || !onlineTo) return;
+    onlineSend('whisper', { targetId: onlineTo.id, text });
+    t.value = '';
+  });
+  const cb = document.getElementById('onlineCloseBtn'); if (cb) cb.addEventListener('click', closeOnlinePanel);
+  // Escape in the message box puts the box down (the next one shuts the panel)
+  const tx = document.getElementById('onlineComposeText');
+  if (tx) tx.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); tx.blur(); } });
+})();
+function receiveWhisper(msg) {
+  const other = msg.outgoing ? msg.to : msg.from;
+  if (!other) return;
+  if (!msg.outgoing && isMutedName(other.name)) return;   // a muted name's whispers are not shown
+  worldFeed.push({ whisper: true, outgoing: !!msg.outgoing, otherId: other.id, otherName: other.name, color: other.color, text: msg.text, ts: msg.ts || Date.now(), id: msg.outgoing ? myId : other.id });
+  if (worldFeed.length > 120) worldFeed.shift();
+  if (!msg.outgoing) {
+    if (activeChatTab !== 'world') bumpChatBadge('world');
+    setUnlockToast(`🕯️ ${other.name} whispers: ${msg.text}`, { level: 'important', always: true });
+    if (!Modals.isOpen('onlineOpen')) onlineTo = { id: other.id, name: other.name };   // so O answers them
+  }
+  renderChatLog();
+}
 
 // ---------------------------------------------------------------------------
 // Party system
@@ -6842,6 +6951,17 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// O opens the Players online panel (and shuts it), the same way M does the map.
+window.addEventListener('keydown', (e) => {
+  if ((e.key !== 'o' && e.key !== 'O') || e.repeat || typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (Modals.isOpen('onlineOpen')) { e.preventDefault(); closeOnlinePanel(); return; }
+  const sheet = document.getElementById('menuSheet');
+  const menuUp = sheet && !sheet.classList.contains('hidden');
+  if (!gameStarted || menuUp || Modals.any()) return;
+  e.preventDefault();
+  openOnlinePanel();
+});
+
 // M toggles the full-screen town map. Its own listener (not the movement one,
 // which is suppressed while the map is open) so M can also CLOSE it. Opens only
 // when nothing else is claiming the screen — while any other modal or the ☰
@@ -7848,6 +7968,7 @@ function hydrateMenuRows() {
   on('menuMoonWell', closeSheetAnd(() => { if (!Modals.isOpen('moonWellOpen')) openMoonWellModal(); }));
   on('moonWellCloseBtn', closeMoonWellModal);
   on('menuTarot', closeSheetAnd(() => { if (!Modals.isOpen('tarotOpen')) openTarotModal(); }));
+  on('menuOnline', closeSheetAnd(() => { if (!Modals.isOpen('onlineOpen')) openOnlinePanel(); }));
   on('tarotCloseBtn', closeTarotModal);
   on('showcaseCloseBtn', closeShowcaseModal);
   on('bonfireCloseBtn', closeBonfireModal);
@@ -8878,6 +8999,20 @@ function renderChatLog() {
     }
     // Local mute: hide this viewer's muted names (their own lines always show).
     if (m.name && m.id !== myId && isMutedName(m.name)) continue;
+    if (m.whisper) {
+      // a whisper, to you or from you: tap the other name to answer
+      div.className = 'chatLine whisperLine';
+      const b = document.createElement('b');
+      b.style.color = m.color;
+      b.textContent = m.outgoing ? `🕯️ you → ${m.otherName}:` : `🕯️ ${m.otherName} → you:`;
+      b.title = 'Answer ' + m.otherName;
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); openOnlinePanel(m.otherId); });
+      div.appendChild(b);
+      div.appendChild(document.createTextNode(' ' + m.text));
+      chatLog.appendChild(div);
+      shown++;
+      continue;
+    }
     div.className = 'chatLine';
     const b = document.createElement('b');
     b.style.color = m.color;
@@ -19791,6 +19926,7 @@ window.addEventListener('keydown', (e) => {
     if (window.__fromMenu) backToMenu();
     return;
   }
+  if (Modals.isOpen('onlineOpen') && e.key === 'Escape' && !e.repeat && document.activeElement !== document.getElementById('onlineComposeText')) { closeOnlinePanel(); return; }
   if (Modals.isOpen('tarotOpen') && e.key === 'Escape' && !e.repeat) {
     closeTarotModal();
     if (window.__fromMenu) backToMenu();
@@ -20603,6 +20739,7 @@ function closeCrierModal() {
   const m = document.getElementById('crierModal'); if (m) m.classList.add('hidden');
   try { Modals.set('crierModalOpen', false); } catch (e) {}
 }
+(function () { const pt = document.querySelector('#peopleTag > span'); if (pt) { pt.title = 'Everyone online — message or invite them (O)'; pt.addEventListener('click', () => openOnlinePanel()); } })();
 function renderTownPulse() {
   const cEl = document.getElementById('peopleCount');
   if (!cEl) return;
