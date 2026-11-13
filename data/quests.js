@@ -330,6 +330,31 @@ const QUEST_CATALOG = {
     xpReward: 170, goldReward: 95, itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
     description: '"What walks out there is not the enemy. The enemy went back under. Those are ours: the ones who fell on the field and were never brought in, knights and witches both, got up wrong by what soaked into the ground." A pause, and a cat\'s purr through the stone. "Ten of them. Put them down properly. It is the only burial they will get, and I say the office for each one from in here when I feel it go." Lay ten creatures to rest.'
   },
+  // ── Ashminster's people (data/ashFolk.js), once each is back for you ──
+  // Each can be done again (after the usual rest between quests).
+  kirsty_storm: {
+    npcId: 'npc_windseller', npcName: 'Kirsty Halcrow',
+    name: 'Ash off the Wind',
+    type: 'event', targetEvent: 'storm_weathered', target: 1, requiresLevel: 6,
+    hint: 'Be out in the Ember Wastes when an ash storm breaks, and still there when it drops.',
+    xpReward: 140, goldReward: 70, itemRewards: [{ itemId: 'wind_knot', qty: 2 }],
+    description: '"I cannot tie a wind I have not stood in." Kirsty holds up a cord with no knots in it. "Go out in the next storm, all the way through it, and come back with it in your hair. I will tie two knots of it for you, and one for my trouble."'
+  },
+  wat_graves: {
+    npcId: 'npc_sexton', npcName: 'Wat Ellery',
+    name: 'The Unnamed',
+    type: 'event', targetEvent: 'field_find', target: 3, requiresLevel: 6,
+    hint: 'Search the things the war left along the Wastes\' track: the barrows, the standards, the chapel.',
+    xpReward: 150, goldReward: 80, itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: '"I ring for the ones I know of. There are more out on the field with nobody to say who they were." He gives you a stub of pencil and the back of a hymn sheet. "Go along the track. Wherever the war left something, look for a name, a badge, a ring, anything. Three, and I will ring for them."'
+  },
+  nan_petals: {
+    npcId: 'npc_wellwife', npcName: 'Nan Gethin',
+    name: 'Petals for the Well',
+    type: 'harvest_specific', targetItemId: 'rainbow_petal', target: 3, requiresLevel: 6,
+    xpReward: 120, goldReward: 60, itemRewards: [{ itemId: 'healing_potion', qty: 2 }],
+    description: '"Nothing grows out here to press into the clay. The picture fades by the week." Nan shows you the board over the well, where the petals are going brown. "Bring me three rainbow petals and I will dress it again. Whoever drinks after, it will be you they have to thank."'
+  },
   isolt_watch: {
     npcId: 'npc_anchoress', npcName: 'Dame Isolt',
     name: 'The Long Watch',

@@ -6259,6 +6259,8 @@ function questEligible(prog, qid) {
 function questForNpc(player, npcId) {
   const list = QUEST_BY_NPC[npcId];
   if (!list || !list.length) return null;
+  // Ashminster's people have work only once they have come back, for you (lib/ashFolk.js)
+  { const f = require('./data/ashFolk').FOLK.find((x) => x.npcId === npcId); if (f && !ashFolk.isBack(player, f.id)) return null; }
   if (player.activeQuest) {
     const aq = QUEST_CATALOG[player.activeQuest.questId];
     if (aq && aq.npcId === npcId) return player.activeQuest.questId;
@@ -6300,6 +6302,8 @@ function advanceQuestProgress(player, eventType, itemId) {
   // PvP objectives (the Ashblood Trials): any player defeat out in the Wastes,
   // open-world or by duel, funnels through here as a 'pvp_defeat' event.
   if (quest.type === 'pvp_defeat' && eventType === 'pvp_defeat') matches = true;
+  // A named happening (Ashminster's people's quests): weathering a storm, a find on the field, and the like.
+  if (quest.type === 'event' && eventType === 'event' && itemId === quest.targetEvent) matches = true;
   if (!matches) return;
 
   aq.progress++;
@@ -9208,6 +9212,7 @@ const emberStorm = require('./lib/emberStorm')({
   onWeathered: (p) => {
     const { STORM } = require('./data/emberStorm');
     grantXP(p, STORM.weatherXp);
+    advanceQuestProgress(p, 'event', 'storm_weathered');
     send(p.ws, { type: 'toast', level: 'important', always: true, message: `🌫️ You weathered the storm out in the open. (+${STORM.weatherXp} XP)` });
     const first = daybook.note(p, 'storm');
     if (first) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: an ash storm, weathered.' });
@@ -9224,7 +9229,7 @@ const ashminster = require('./lib/ashminster')({ send,
   onArrive: (p) => { ashFolk.mark(p, 'arrived'); storyEvent(p, 'visit_room', { room: 'ashminster' }); },
   onSpoke: (p) => { ashFolk.mark(p, 'spoke'); storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }); } });
 // Ashminster, living in (lib/ashFolk.js): the people who come back to the town as your own story there goes on.
-const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth,
+const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth, hasQuest: (p, npcId) => !!questForNpc(p, npcId),
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null });
 // The corpse candle that goes down the same road by night (lib/corpseCandle.js).
 const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
@@ -9928,6 +9933,7 @@ function getQuestHint(quest, progress) {
     const item = ITEM_CATALOG[quest.targetItemId];
     return `You need ${item ? item.icon + ' ' + item.name : quest.targetItemId} specifically, not just any plant. ${remaining} more to go.`;
   }
+  if (quest.type === 'event' && quest.hint) return `${quest.hint} ${remaining} more to go.`;
   return `Keep at it — you're ${progress}/${quest.target} of the way there.`;
 }
 
@@ -14020,7 +14026,7 @@ wss.on('connection', (ws, req) => {
       analytics.bump('quest.accept');
       try { analytics.bump('quest.accept.' + questId); } catch (e) {}
       const quest = QUEST_CATALOG[questId];
-      const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId, targetCreature: quest.targetCreature });
+      const where = objectiveWhere({ type: quest.type, targetItemId: quest.targetItemId, targetCreature: quest.targetCreature, where: quest.hint });
       send(ws, { type: 'quest_started', questId, questName: quest.name,
         target: quest.target, description: quest.description, where,
         message: `🗒️ Quest accepted: "${quest.name}" — ${where}` });
@@ -15321,7 +15327,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
-    if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
+    if (msg.type === 'field_use') { if (emberField.use(player, String(msg.id || ''))) { advanceQuestProgress(player, 'event', 'field_find'); saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); send(ws, ashFolk.payload(player)); return; }
     if (msg.type === 'ring_use') { if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
