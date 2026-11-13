@@ -2751,6 +2751,64 @@ def road_kerb():
     return m, None
 
 
+def ruin_hearth():
+    """The gable end of a roofless cottage in the KayKit idiom: the hearth and its stack still up, stubs of the side walls, a shoe on a ledge in the flue (data/byways.js). The hearth opens toward -Y."""
+    m = Model('ruin_hearth')
+    m.bevel = 0.03
+    _kk_wall(m, (-1.3, 0), (-0.55, 0), [1.5, 1.0])                                      # the gable, either side of the stack
+    _kk_wall(m, (0.55, 0), (1.3, 0), [1.25, 0.75])
+    _kk_wall(m, (-1.3, -0.11), (-1.3, -1.3), [1.0, 0.5, 0.25])                          # what is left of the side walls
+    _kk_wall(m, (1.3, -0.11), (1.3, -0.9), [0.75, 0.25])
+    for sx in (-1, 1):                                                                  # the hearth: two jambs and a great lintel
+        m.add(blk(0.26, 0.4, 0.9, KK_STONE_DK, (sx * 0.42, -0.06, 0)))
+    m.add(blk(1.2, 0.44, 0.2, KK_STONE_LT, (0, -0.06, 0.9)))
+    m.add(blk(0.6, 0.1, 0.9, MIN_DARK, (0, 0.06, 0)))                                    # the fire-back, black
+    m.add(blk(0.9, 0.5, 0.06, KK_STONE, (0, -0.2, 0)))                                   # the hearthstone
+    m.add(blk(0.9, 0.4, 0.7, KK_STONE, (0, 0, 1.1)))                                     # the breast, drawing in
+    m.add(blk(0.6, 0.4, 1.0, KK_STONE, (0, 0, 1.8)))                                     # the stack
+    m.add(blk(0.7, 0.5, 0.1, KK_STONE_LT, (0, 0, 2.8)))
+    m.add(blk(0.36, 0.3, 0.14, KK_STONE_DK, (0, 0, 2.9)))
+    m.add(trim(blk(0.2, 0.09, 0.07, KK_WOOD_DK, (0.08, -0.03, 0.72), rz(0.3))))          # the shoe, on its ledge in the flue
+    m.add(trim(blk(0.08, 0.08, 0.1, KK_WOOD_DK, (0.02, -0.05, 0.74), rz(0.3))))
+    m.add(blk(1.0, 0.1, 0.1, KK_WOOD_CHAR, (-0.5, -0.8, 0.0), rz(0.5) @ ry(-0.2)))       # a fallen rafter
+    for (x, y, s, a) in ((0.8, -0.6, 0.24, 0.4), (-0.9, -1.5, 0.2, 1.1), (1.5, -1.2, 0.22, 2.0), (0.3, -1.1, 0.16, 0.2)):
+        m.add(blk(s * 1.3, s, s * 0.7, KK_STONE if a > 1 else KK_STONE_LT, (x, y, 0), rz(a)))
+    m.add(blk(0.3, 0.2, 0.04, KK_MOSS, (-1.3, -0.5, 0.76)))
+    return m, None
+
+
+def devil_stone():
+    """The Devil's stone in the KayKit idiom: a great rounded boulder lying on a green, pale on the side last turned up, with two iron bars left leaning on it (data/byways.js)."""
+    m = Model('devil_stone')
+    m.bevel = 0.03
+    m.add(lathe([(0.0, 0.0), (1.25, 0.0), (1.3, 0.03), (0.0, 0.03)], sides=10, colors=('#4a5a2c', '#647a38')))   # the worn turf it lies on
+    m.add(blob(0.95, 0.66, 0.42, seg=9, rings=5, colors=('#5e6a70', '#aab6ba'), jitter=0.04, seed=13).xf(rz(0.3), (0, 0, 0.36)))
+    m.add(blob(0.5, 0.4, 0.2, seg=8, rings=4, colors=KK_STONE_LT, jitter=0.03, seed=14).xf(rz(0.3), (0.1, 0.05, 0.6)))   # the pale side
+    for (x, y, a, ln) in ((-0.9, -0.45, 0.5, 1.5), (-0.6, -0.75, 0.9, 1.35)):           # the bars
+        R = rz(a) @ ry(1.05)
+        m.add(trim(blk(0.05, 0.05, ln, KK_IRON, (x, y, 0.03), R)))
+    m.add(blk(0.3, 0.22, 0.16, KK_STONE_DK, (-0.55, -0.5, 0), rz(0.7)))                   # the stone they lever against
+    return m, None
+
+
+def hob_hole():
+    """Hob's hole in the KayKit idiom: a low outcrop of stout blocks with a dark mouth in it, a worn step before the mouth, ivy on the brow (data/byways.js). The mouth opens toward -Y."""
+    m = Model('hob_hole')
+    m.bevel = 0.04
+    for (x, y, sx, sy, sz, a, col) in ((-0.95, 0.1, 0.9, 0.9, 1.1, 0.15, KK_STONE_DK), (0.95, 0.1, 0.85, 0.95, 0.95, -0.2, KK_STONE_DK),
+                                       (0.0, 0.55, 1.4, 0.7, 1.3, 0.05, KK_STONE_DK), (0.0, 0.05, 2.0, 1.0, 0.45, 0.04, KK_STONE),
+                                       (-1.5, 0.3, 0.6, 0.6, 0.55, 0.5, KK_STONE), (1.45, 0.4, 0.55, 0.55, 0.5, -0.4, KK_STONE)):
+        z = 0.95 if (sx == 2.0) else 0
+        m.add(blk(sx, sy, sz, col, (x, y, z), rz(a)))
+    m.add(blk(0.9, 0.5, 0.3, KK_STONE_LT, (0.1, 0.2, 1.38), rz(-0.1)))                   # the brow
+    m.add(blk(1.0, 0.5, 0.95, MIN_DARK, (0, 0.0, 0)))                                    # the dark of the mouth
+    m.add(blk(0.9, 0.4, 0.07, KK_STONE_LT, (0, -0.55, 0)))                               # the step, worn
+    for (x, z, w) in ((-0.5, 1.3, 0.5), (0.45, 1.36, 0.36), (-0.9, 1.06, 0.3)):
+        m.add(blk(w, 0.14, 0.12, KK_MOSS, (x, -0.42, z)))
+    m.add(blk(0.22, 0.18, 0.13, KK_STONE, (0.8, -0.8, 0), rz(0.6)))
+    return m, None
+
+
 def scots_pine():
     """A Scots pine as the drovers knew them, in the KayKit idiom: a tall bare red-barked trunk and a flat crown of a few broad pads high up."""
     m = Model('scots_pine')
@@ -2873,7 +2931,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'road_setts': road_setts, 'road_kerb': road_kerb, 'ghost_ox': ghost_ox}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'ruin_hearth': ruin_hearth, 'devil_stone': devil_stone, 'hob_hole': hob_hole, 'road_setts': road_setts, 'road_kerb': road_kerb, 'ghost_ox': ghost_ox}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
