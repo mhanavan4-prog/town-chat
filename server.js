@@ -1574,6 +1574,7 @@ WORLD2.finds = require('./data/wildsFinds').WILDS_FINDS; // caches under cairns 
 // The road north (data/wayside.js): the gibbet, the coin tree and the coffin stone, where the client draws them.
 { const DR = require('./data/droveRoad'); WORLD2.drove = { pts: DR.ROAD.pts, width: DR.ROAD.width, gate: DR.GATE.wilds, stops: DR.STOPS.map(({ id, icon, name, x, y, model, size, hint }) => ({ id, icon, name, x, y, model, size, hint })) }; } // the drove road east to the March gate
 WORLD2.wayside = require('./data/wayside').WAYSIDE.map((w) => ({ id: w.id, x: w.x, y: w.y, model: w.model, size: w.size, name: w.name, icon: w.icon, hint: w.hint }));
+WORLD2.byways = require('./data/byways').BYWAYS.map(({ id, icon, name, x, y, model, size, turn, hint }) => ({ id, icon, name, x, y, model, size, turn, hint })); // three places off the roads (lib/byways.js)
 WORLD2.countless = { ...COUNT.COUNTLESS, stones: COUNT.COUNTLESS_STONES, lore: COUNT.COUNTLESS_LORE, note: COUNT.COUNTLESS_NOTE, source: COUNT.COUNTLESS_SOURCE };
 // Two of each plant, scattered across the 1000x1000 map, clear of the
 // portal landing spot at (500, 880).
@@ -1728,6 +1729,7 @@ WILDS_FLORA_TYPES.push('crotal_stone');
 {
   const keepOff = [
     ...WORLD2.wayside.map((w) => ({ x: w.x, y: w.y, r: 230 })),
+    ...WORLD2.byways.map((w) => ({ x: w.x, y: w.y, r: 260 })),
     ...WORLD2.drove.stops.map((w) => ({ x: w.x, y: w.y, r: 230 })), { x: WORLD2.drove.gate.x, y: WORLD2.drove.gate.y, r: 300 },
     ...WORLD2.drove.pts.slice(1).flatMap((b, i) => { const a = WORLD2.drove.pts[i], n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 150); return Array.from({ length: n }, (_, k) => ({ x: a[0] + (b[0] - a[0]) * k / n, y: a[1] + (b[1] - a[1]) * k / n, r: 130 })); }),
     ...WORLD2.ward.stones.map((s) => ({ x: s.x, y: s.y, r: 150 })),
@@ -9249,6 +9251,10 @@ const corpseCandle = require('./lib/corpseCandle')({ send, grantXP, playerMaxHea
 const wayside = require('./lib/wayside')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
   noteRoad: (p) => { if (daybook.note(p, 'road')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the road north, walked.' }); } });
+// By-ways of the Wilds (lib/byways.js, data/byways.js): the shoe in the chimney, the Devil's stone, Hob's hole.
+const byways = require('./lib/byways')({ send, grantXP, playerMaxHealth,
+  acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null) });
 // The drove road east to the March gate (lib/droveRoad.js, data/droveRoad.js); the crossing itself is the march_gate message below.
 const droveRoad = require('./lib/droveRoad')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
@@ -15305,6 +15311,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_folk_use') { if (ashFolk.use(player, String(msg.id || ''))) { saveAccounts(); } return; }
+    if (msg.type === 'byway_use') { if (byways.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'drove_use') { if (droveRoad.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     // The March gate (data/droveRoad.js): open at any hour, both ways, between the east edge of the Wilds and the west edge of the Ember Wastes.
     if (msg.type === 'march_gate') {

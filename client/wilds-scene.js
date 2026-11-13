@@ -420,6 +420,19 @@ function buildWildsScene(w2) {
     lbl.position.set(w.x, w.id === 'gibbet' ? 205 : 120, w.y); scene.add(lbl);
     WILDS_KIOSKS.push({ x: w.x, z: w.y + (w.id === 'gibbet' ? 40 : 60), npc: 'wayside', waysideId: w.id, hint: w.hint, radius: 120 });
   }
+  // By-ways (data/byways.js): the shoe in the chimney, the Devil's stone, Hob's hole.
+  for (const b of (w2.byways || [])) {
+    const g = kkPlace(scene, b.model, b.x, b.y, b.size, b.turn || 0, 'fit');
+    const gy = (typeof wildsHeightAt === 'function' ? wildsHeightAt(b.x, b.y) : 0);
+    if (g) { g.position.y = gy; g.userData.camFade = b.id !== 'stone'; }
+    const r = b.id === 'stone' ? 40 : 55;
+    WILDS_WALLS.push({ x: b.x - r, y: b.y - r, w: r * 2, h: r * 2 });
+    const lbl = makeSignSprite(`${b.icon} ${b.name}`);
+    lbl.position.set(b.x, gy + (b.id === 'stone' ? 110 : 190), b.y); scene.add(lbl);
+    // stood at from the side the thing faces: the hearth's open side, the hole's mouth
+    const fx = Math.sin(b.turn || 0), fz = Math.cos(b.turn || 0), off = b.id === 'stone' ? 75 : 95;
+    WILDS_KIOSKS.push({ x: b.x + fx * off, z: b.y + fz * off, npc: 'byway', bywayId: b.id, hint: b.hint, radius: 130 });
+  }
   // The drove road east (data/droveRoad.js): a worn green way from the crossroads to the March gate, a
   // milestone, three pines at the stance, a need-fire hearth, and the gate through into the Ember Wastes.
   if (w2.drove) {

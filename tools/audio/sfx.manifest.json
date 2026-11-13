@@ -529,6 +529,30 @@
  "new": true,
  "duration_seconds": 3.5,
  "prompt": "Someone has come home to a ruined town and set up again: a wooden shutter unlatched and swung open on a dry hinge, a trestle set down on stone, and a small hand-bell rung once, warm and bright in a wide empty street. Hopeful but modest. No music, no voice words, no crowd."
+},
+{
+ "id": "byway_shoe",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.0,
+ "prompt": "A head put into a cold stone fireplace to look up the chimney: a soft scrape of a boot on hearthstone, a little trickle of old soot and grit falling down the flue, a hollow breath of wind in the chimney above, and a small dry knock as something light shifts on a ledge. Quiet, close, a little eerie. No music, no voice, no fire."
+},
+{
+ "id": "byway_stone",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "A great boulder levered over on a village green with an iron crowbar: the bar ringing once on stone, a strained creak and grind as the stone lifts and hangs, then a deep heavy thump into turf that shakes the ground, and a last small chink of the bar set down. Weighty and satisfying. No music, no voice, no bells."
+},
+{
+ "id": "byway_hob",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "Words called into the mouth of a small sea cave and the cave answering: a soft hollow echo dying away into the dark, a slow drip of water, then a long low breath of cool air drawn back into the rock as if something had taken what was offered. Gentle, strange, relieving. No music, no voice words, no monster sounds."
 }
  ],
   "_optional_candidates": [

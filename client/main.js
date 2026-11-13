@@ -470,6 +470,7 @@ const KK = (() => {
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
     wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', wd_ghost_ox: 'kk/home/ghost_ox.glb', // the drove road east (data/droveRoad.js)
+    wd_ruin_hearth: 'kk/home/ruin_hearth.glb', wd_devil_stone: 'kk/home/devil_stone.glb', wd_hob_hole: 'kk/home/hob_hole.glb', // the by-ways (data/byways.js)
     rd_setts: 'kk/home/road_setts.glb', rd_kerb: 'kk/home/road_kerb.glb', // an old road's stones (layRoadStones, client/ember-scene.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
@@ -3156,6 +3157,7 @@ function onWsMessage(ev) {
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
   if (msg.type === 'drove_herd') { setDroveHerd(msg); return; }
   if (msg.type === 'drove_state') { droveDone = new Set(msg.done || []); return; }
+  if (msg.type === 'byway_state') { bywayDone = new Set(msg.done || []); return; }   // the by-ways (data/byways.js)
   if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
@@ -3841,7 +3843,7 @@ const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
-const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook' };
+const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal' };
 function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
@@ -4331,6 +4333,7 @@ let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
 let ashFolkBack = new Set();      // who has come back to Ashminster for you (lib/ashFolk.js)
 let droveDone = new Set();        // which of the drove road's four you have used today (data/droveRoad.js)
+let bywayDone = new Set();   // the by-ways used today (byway_state)
 let needfireUntil = 0;             // the need-fire's smoke on you until (lib/droveRoad.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
@@ -19464,6 +19467,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wfind') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wilds_use', id: kiosk.findId })); return; }
   if (kiosk && kiosk.npc === 'wayside') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wayside_use', id: kiosk.waysideId })); return; }
   if (kiosk && kiosk.npc === 'drove') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'drove_use', id: kiosk.droveId })); return; }
+  if (kiosk && kiosk.npc === 'byway') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'byway_use', id: kiosk.bywayId })); return; }
   if (kiosk && kiosk.npc === 'folk') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(kiosk.folkId === 'kirsty' && ashFolkBack.has('kirsty') ? { type: 'npc_shop_open', npcId: 'npc_windseller' } : { type: 'ash_folk_use', id: kiosk.folkId })); return; }
   if (kiosk && kiosk.npc === 'march') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'march_gate' })); return; }
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
@@ -19822,6 +19826,12 @@ function updateInteractHint() {
     // the village's bound fires (data/villageWard.js): lit, or the round closed, pressing reads their history
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} ${wardState.warded || (wardState.lit || []).includes(kiosk.wardId) ? 'read about the bound fires' : 'put fire to the bound stone'}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'byway') {
+    // the by-ways (data/byways.js): done for today, pressing again reads its history
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${bywayDone.has(kiosk.bywayId) ? 'read what this is' : kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.npc === 'drove') {
