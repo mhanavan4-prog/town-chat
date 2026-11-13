@@ -119,6 +119,24 @@
       "v": "0dc201b0"
     }
   ],
+  "byway_hob": [
+    {
+      "f": "byway_hob.mp3",
+      "v": "668d420e"
+    }
+  ],
+  "byway_shoe": [
+    {
+      "f": "byway_shoe.mp3",
+      "v": "61c734df"
+    }
+  ],
+  "byway_stone": [
+    {
+      "f": "byway_stone.mp3",
+      "v": "dbb409cd"
+    }
+  ],
   "cairn_open": [
     {
       "f": "cairn_open.mp3",
@@ -219,6 +237,12 @@
       "v": "b9a45357"
     }
   ],
+  "dead_rise": [
+    {
+      "f": "dead_rise.mp3",
+      "v": "f37e3766"
+    }
+  ],
   "death": [
     {
       "f": "death.mp3",
@@ -307,6 +331,12 @@
     {
       "f": "fireball.mp3",
       "v": "482a1076"
+    }
+  ],
+  "folk_return": [
+    {
+      "f": "folk_return.mp3",
+      "v": "ea08fe05"
     }
   ],
   "footstep": [
@@ -737,6 +767,12 @@
     {
       "f": "reveal.mp3",
       "v": "cfd0d615"
+    }
+  ],
+  "ring_dim": [
+    {
+      "f": "ring_dim.mp3",
+      "v": "db6cf173"
     }
   ],
   "savage_bite": [
