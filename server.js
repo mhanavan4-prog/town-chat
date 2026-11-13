@@ -14410,6 +14410,8 @@ wss.on('connection', (ws, req) => {
     const STRIKE_COOLDOWN_MS = 500;
     const STRIKE_MIN_DMG = 8, STRIKE_MAX_DMG = 14;
     if (msg.type === 'strike') {
+      // Its answers are marked `strike`: a plain blow has its own sounds (swing, then the hit), and the client must
+      // not voice it as the last ability cast (it used to: a spell's shimmer, or the knife, on every swing).
       if (player.isDead) return;
       if (isImmune(player)) { send(ws, { type: 'attack_error', message: 'You are deep in meditation — you can’t attack until it lifts.' }); return; }
       const now = Date.now();
@@ -14421,10 +14423,10 @@ wss.on('connection', (ws, req) => {
       const result = applyDamage(player, targetType, targetId, dmg, STRIKE_RANGE);
       registerPactDot(player, targetType, targetId, result); // Cinderburn etc.
       if (!result.ok) {
-        if (result.pvpBlocked) send(ws, { type: 'attack_result', message: result.ember
+        if (result.pvpBlocked) send(ws, { type: 'attack_result', strike: true, message: result.ember
           ? `🛡️ ${result.name} is in the spawn haven — no fighting there. Draw them out into the Wastes.`
           : `🤝 ${result.name} hasn't agreed to fight. Click them → Challenge to Battle first.` });
-        else if (result.evaded) send(ws, { type: 'attack_result', message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
+        else if (result.evaded) send(ws, { type: 'attack_result', strike: true, message: `💨 ${result.name} slips your strike — their echo still hangs in the air!` });
         else if (result.range) {
           // Striking a target beyond melee reach (STRIKE_RANGE). Sustained hits
           // from one source are a reach/teleport hack, so keep auditing them...
@@ -14448,13 +14450,13 @@ wss.on('connection', (ws, req) => {
       if (targetType === 'player') {
         // Non-lethal PvP hits are silent on the striker's end (the target
         // gets the 'struck' message above) — only a kill gets a toast here.
-        if (result.dead) send(ws, { type: 'attack_result', message: `⚔️ You defeated ${result.name}!${result.lootHint || ''}` });
+        if (result.dead) send(ws, { type: 'attack_result', strike: true, message: `⚔️ You defeated ${result.name}!${result.lootHint || ''}` });
         return;
       }
       const label = result.name ? ` ${result.name}` : '';
       const xpHint = result.xp ? ` (+${result.xp} XP)` : '';
       const verb = result.dead ? 'Killed' : 'Hit';
-      send(ws, { type: 'attack_result', message: `⚔️ ${verb}${label} for ${result.dmg}!${xpHint}${result.lootHint || ''}` });
+      send(ws, { type: 'attack_result', strike: true, message: `⚔️ ${verb}${label} for ${result.dmg}!${xpHint}${result.lootHint || ''}` });
       return;
     }
 
