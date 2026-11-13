@@ -278,7 +278,7 @@ BEVEL_ANGLE = 38         # degrees: edges sharper than this are chamfered
 SHARP_ANGLE = 52         # degrees: what still reads as a hard edge after it
 
 
-def finish(ob, V, bevel=None):
+def finish(ob, V, bevel=None, segments=2):
     import bpy
     me = ob.data
     ext = float(np.max(V.max(axis=0) - V.min(axis=0))) if len(V) else 1.0
@@ -293,7 +293,7 @@ def finish(ob, V, bevel=None):
     bev = ob.modifiers.new('bevel', 'BEVEL')
     # a model built in the chunky KayKit idiom (Model.bevel) names its own, wider chamfer, rounded with two segments
     bev.width = bevel if bevel else BEVEL_WIDTH * min(max(ext, 0.5), 3.2) ** 0.75
-    bev.segments = 2 if bevel else 1
+    bev.segments = segments if bevel else 1
     bev.limit_method = 'ANGLE'
     bev.angle_limit = math.radians(BEVEL_ANGLE)
     bev.use_clamp_overlap = True
@@ -319,6 +319,7 @@ class Model:
         self._node = None
         self.forward_x = forward_x
         self.bevel = None      # the chamfer width for the finishing pass, if this model sets its own
+        self.bevel_segments = 2   # 1 for a very large model (the minster), where a plain chamfer reads the same and weighs half
 
     def node(self, name, pivot=(0, 0, 0)):
         model = self
@@ -409,7 +410,7 @@ class Model:
                 ob = bpy.data.objects.new(oname, me)
                 bpy.context.scene.collection.objects.link(ob)
                 if FINISH and glow is False and self.bevel:
-                    finish(ob, V, self.bevel)
+                    finish(ob, V, self.bevel, self.bevel_segments)
                 if root:
                     ob.parent = root
                     ob.location = tuple(pivot @ turn.T)
