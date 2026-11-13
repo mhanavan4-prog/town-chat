@@ -457,6 +457,54 @@
  "new": true,
  "duration_seconds": 5.0,
  "prompt": "A ghostly herd of cattle passing at night on an empty country road: no hoofbeats at all, only a long low lowing of cattle heard as if from very far away and underwater, a soft breathy wind, the faint far-off clank of a single cow bell, and a man's low wordless call to the beasts fading out. Eerie, hushed, cold and sad. No music, no thunder, no footsteps."
+},
+{
+ "id": "passing_bell",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 6.0,
+ "prompt": "A single old church bell tolled slowly by hand from a ruined stone tower over a silent burnt landscape: three slow heavy strokes, a pause, three more, each stroke a deep cracked bronze note with a long mournful hum dying away into open air. Bleak and solemn. No music, no voices, no birds."
+},
+{
+ "id": "well_drink",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 2.5,
+ "prompt": "Drawing cold water from an old stone well and drinking it: a wooden bucket knocking once against stone, water poured into cupped hands with a clear splash, two quiet swallows, a soft satisfied breath out. Close, quiet and clean. No music, no voice words."
+},
+{
+ "id": "needfire_kindle",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 4.0,
+ "prompt": "Making fire by friction outdoors at night: a wooden spindle turned hard in a wooden socket with a rope, a rapid dry rhythmic creaking and squeaking of wood on wood, rising, then a soft hiss as smoke comes, a tiny crackle as tinder catches, and a small fire breathing into life. No music, no voice."
+},
+{
+ "id": "march_gate",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.0,
+ "prompt": "Passing through an old broken wooden field gate hung on stone posts from green countryside into a burnt wasteland: a heavy wooden gate swinging on a rusty iron hinge with a long low creak, a soft knock as it settles, and the air changing from a gentle grassy breeze to a hot dry hollow wind. No music, no voice, no footsteps."
+},
+{
+ "id": "wind_knot",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.0,
+ "prompt": "A knot in an old cord pulled loose, and a sudden clean wind released from it: a small soft tug and slip of rope, then a fresh cool gust that rises out of nowhere, swirls round the listener and sweeps away hissing dust and ash, leaving clear quiet air. Magical but natural. No music, no voice, no chimes."
+},
+{
+ "id": "stance_rest",
+ "category": "wilds",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "Sitting down to rest with your back against a tall pine tree on an open hill: a soft creak of bark, a long slow breath out, and high above the wind moving steadily through pine needles with a gentle rushing sigh. Calm and restoring. No music, no voice words, no birds."
 }
  ],
   "_optional_candidates": [

@@ -3162,7 +3162,7 @@ function onWsMessage(ev) {
   if (msg.type === 'ring_state') { ringState = msg; if (msg.sung) _emberStorm.sung(); return; }
   if (msg.type === 'ember_storm') { _emberStorm.apply(msg); return; }
   if (msg.type === 'ring_sung') { _emberStorm.sung(); return; }   // the ring has sung tonight: its glow goes out
-  if (msg.type === 'wind_knot') { _emberStorm.clear(msg.ms || 60000); return; }
+  if (msg.type === 'wind_knot') { _emberStorm.clear(msg.ms || 60000); if (typeof playSfx === 'function') playSfx(sfxOrStandIn('wind_knot')); return; }
   if (msg.type === 'ash_folk') {   // who has come back to Ashminster, for you (lib/ashFolk.js)
     ashFolkBack = new Set(msg.back || []);
     const folk = emberScene && emberScene.userData && emberScene.userData.folk;
@@ -3176,7 +3176,7 @@ function onWsMessage(ev) {
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'toast') {
-    if (msg.sfx && typeof playSfx === 'function') playSfx(msg.sfx); // a message may bring its own sound (tools/audio/sfx.manifest.json)
+    if (msg.sfx && typeof playSfx === 'function') playSfx(sfxOrStandIn(msg.sfx)); // a message may bring its own sound (tools/audio/sfx.manifest.json)
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
     return;
   }
@@ -3315,6 +3315,7 @@ function onWsMessage(ev) {
   if (msg.type === 'ember_wastes_exited') {
     // back through the portal into town, or through the March gate into the Wilds (data/droveRoad.js)
     const toWilds = msg.room === 'wilds';
+    if (msg.sfx && typeof playSfx === 'function') playSfx(sfxOrStandIn(msg.sfx));
     if (me) { me.room = toWilds ? 'wilds' : 'outside'; me.x = msg.x; me.y = msg.y; }
     if (toWilds) swapToWildsMap(); else swapToTownMap();
     setUnlockToast(toWilds ? '🚧 You come back through the March gate. Grass under your feet again, and the Wilds.' : 'You step back through the portal into town.');
@@ -3836,6 +3837,10 @@ function isVisuallyLocked(b) {
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
+// A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
+// missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
+const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise' };
+function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
 // sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/

@@ -15311,7 +15311,7 @@ wss.on('connection', (ws, req) => {
         player.x = GATE.arriveWastes.x; player.y = GATE.arriveWastes.y;
         player.emberReturnX = null; player.emberReturnY = null;
         send(ws, { type: 'ember_wastes_entered', spawn: { ...GATE.arriveWastes }, landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(), greeting: null, march: true });
-        send(ws, { type: 'toast', level: 'important', always: true, message: '🚧 You go through the March gate. The grass stops; the ground goes black. You are in the west of the Ember Wastes, where anyone may strike you. The gate behind you is open at any hour.' });
+        send(ws, { type: 'toast', level: 'important', always: true, sfx: 'march_gate', message: '🚧 You go through the March gate. The grass stops; the ground goes black. You are in the west of the Ember Wastes, where anyone may strike you. The gate behind you is open at any hour.' });
         storyEvent(player, 'visit_room', { room: 'ember_wastes' });
         return;
       }
@@ -15322,7 +15322,7 @@ wss.on('connection', (ws, req) => {
         player.x = GATE.arriveWilds.x; player.y = GATE.arriveWilds.y;
         player.emberReturnX = null; player.emberReturnY = null;
         emberStorm.leave(player);
-        send(ws, { type: 'ember_wastes_exited', x: player.x, y: player.y, room: 'wilds' });
+        send(ws, { type: 'ember_wastes_exited', x: player.x, y: player.y, room: 'wilds', sfx: 'march_gate' });
         return;
       }
       send(ws, { type: 'toast', level: 'routine', message: 'Go up to the gate.' });
