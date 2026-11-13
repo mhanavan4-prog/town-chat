@@ -2693,7 +2693,8 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'attack_result') {
-    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
+    // a plain strike is already voiced (the swing, then hit_fx's blow): only an ability's result plays the ability's sound
+    if (!msg.strike && typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
