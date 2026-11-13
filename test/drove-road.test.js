@@ -87,7 +87,7 @@ setTimeout(() => {
   const cg = ember.match(/const MARCH_GATE = \{ x: (\d+), y: (\d+) \}/);
   check('the Wastes side of the gate is where the server says', cg && +cg[1] === GATE.wastes.x && +cg[2] === GATE.wastes.y);
   check('the client draws the road and its stops, and sends the gate and the stops', /if \(w2\.drove\)/.test(wilds) && /npc: 'drove', droveId: st\.id/.test(wilds) && /npc: 'march'/.test(wilds) && /npc: 'march'/.test(ember) && /type: 'march_gate'/.test(main) && /type: 'drove_use', id: kiosk\.droveId/.test(main));
-  check('coming back through the gate puts you in the Wilds, not the town', /const toWilds = msg\.room === 'wilds';\n    if \(me\) \{ me\.room = toWilds \? 'wilds' : 'outside'; me\.x = msg\.x; me\.y = msg\.y; \}\n    if \(toWilds\) swapToWildsMap\(\); else swapToTownMap\(\);\n    setUnlockToast\(toWilds \? '🚧/.test(main));
+  check('coming back through the gate puts you in the Wilds, not the town', /const toWilds = msg\.room === 'wilds';\n    if \(msg\.sfx && typeof playSfx === 'function'\) playSfx\(sfxOrStandIn\(msg\.sfx\)\);\n    if \(me\) \{ me\.room = toWilds \? 'wilds' : 'outside'; me\.x = msg\.x; me\.y = msg\.y; \}\n    if \(toWilds\) swapToWildsMap\(\); else swapToTownMap\(\);\n    setUnlockToast\(toWilds \? '🚧/.test(main));
   check('the four models are in the kit', ['milestone', 'scots_pine', 'needfire', 'march_gate'].every((k) => fs.existsSync(path.join(__dirname, '..', 'public/kk/home', k + '.glb')) && new RegExp(`wd_${k}: 'kk/home/${k}\\.glb'`).test(main)));
   check('the road walked is a line in the daybook', /entry\('drove', '🐄', 'The drove road, walked'/.test(read('lib/daybook.js')));
   console.log(`\n${pass} passed, ${fail} failed`);
