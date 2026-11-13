@@ -561,6 +561,8 @@ function buildEmberScene() {
       carry = (carry - len) % 1400; if (carry < 0) carry += 1400;
     }
   }
+  // where the track's lanterns hang in an ash storm (client/ember-storm.js): on every waymarker and fingerpost
+  scene.userData.stormLights = [...markerSpots.map(([x, y]) => [x, y, 118]), ...FIELD_POSTS.map((p) => [p.x, p.y, 190])];
   const fieldKiosks = [];
   const fieldPlaced = new Set();
   const buildField = () => {

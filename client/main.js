@@ -57,6 +57,7 @@ import createMobMeshes from './mob-meshes.js';
 import createMobsWilds from './mobs-wilds.js';
 import createEmberMobs from './ember-mobs.js';
 import createEmberNodes from './ember-nodes.js';
+import createEmberStorm from './ember-storm.js';
 import createDungeonMobs from './dungeon-mobs.js';
 import createCryptMobs from './crypt-mobs.js';
 import createVillageNpcs from './village-npcs.js';
@@ -3153,6 +3154,7 @@ function onWsMessage(ev) {
   if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
   if (msg.type === 'ring_state') { ringState = msg; return; }
+  if (msg.type === 'ember_storm') { _emberStorm.apply(msg); return; }
   if (msg.type === 'field_state') { fieldDone = new Set(msg.done || []); return; }
   if (msg.type === 'ash_state') { ashSanctuaryUntil = msg.sanctuaryUntil || 0; return; }
   if (msg.type === 'village_ward') { wardState = msg; applyVillageWard(msg); return; }
@@ -3817,7 +3819,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
 // sound by class (Witch/Lich staff → thud, Werewolf claw → rend, Mystic/Knight/
@@ -11029,6 +11031,10 @@ function updatePortals(dt) {
 // Drifting ember field for the Ember Wastes — rises and recentres on the camera
 // so embers surround the player wherever they roam (a full-zone cloud would be
 // mostly wasted beyond the fog). Same Points-with-velocity trick as the Manor.
+// The ash storms (client/ember-storm.js; the server's clock is lib/emberStorm.js).
+const _emberStorm = createEmberStorm({ getScene: () => emberScene, getCamera: () => emberCamera,
+  isActive: () => !!(emberScene && activeScene === emberScene), makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx,
+  say: (m) => setUnlockToast(m, { level: 'important', always: true }) });
 function updateEmberAmbient(dt) {
   if (!emberAmbient || activeScene !== emberScene) return;
   const cam = emberCamera;
@@ -20542,6 +20548,7 @@ function update(dt) {
   updateCryptMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updateEmberAmbient(dt);
+  _emberStorm.update(dt);
   if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
   updateWorldBossVisuals(dt);
   updateMinionVisuals(dt);
@@ -21406,7 +21413,8 @@ if (location.search.includes('testdrive=1')) {
     interact() { tryInteract(); },
     // QA: hold the camera at (x, height, y) looking at (tx, theight, ty), in world coordinates; view() lets it go.
     view(x, h, y, tx, th, ty) { qaView = x == null ? null : [x, h, y, tx, th, ty]; return true; },
-    ember() { enterEmberWastes(); }, // QA: through the temple portal (the server still decides whether it is open)
+    ember() { enterEmberWastes(); },
+    storm(settle) { if (settle) _emberStorm.settle(); return { phase: _emberStorm.phase(), strength: _emberStorm.strength(), fogFar: emberScene && emberScene.fog ? emberScene.fog.far : null }; }, // QA: the ash storm as drawn // QA: through the temple portal (the server still decides whether it is open)
     walls() { return walls.map((w) => [Math.round(w.x), Math.round(w.y), Math.round(w.w), Math.round(w.h)]); }, // what is solid where she stands (for tools/wilds-solids)
     clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },
     face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },

@@ -206,6 +206,40 @@ function playSfxFile(name, vol) {
   } catch (e) { return false; }
 }
 
+// A recorded sound that plays round and round until it is stopped (the ash
+// storm's wind), faded in and out. One loop per id; no synth fallback.
+const sfxLoops = {};
+function startSfxLoop(name, vol, fadeSec) {
+  if (sfxMuted || sfxLoops[name]) return;
+  ensureAudio();
+  if (!audioCtx || !sfxFileGain) return;
+  const go = () => {
+    const bufs = sfxBuffers[name];
+    if (!bufs || !bufs.length || sfxLoops[name] !== 'pending') return;
+    try {
+      const src = audioCtx.createBufferSource(); src.buffer = bufs[0]; src.loop = true;
+      // step over the mp3's padding at either end, so the seam does not click
+      if (bufs[0].duration > 1) { src.loopStart = 0.06; src.loopEnd = bufs[0].duration - 0.06; }
+      const g = audioCtx.createGain(), t = audioCtx.currentTime, to = (vol != null ? vol : 1) * (SFX_FILE_GAIN[name] != null ? SFX_FILE_GAIN[name] : 1);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(to, t + (fadeSec || 3));
+      src.connect(g); g.connect(sfxFileGain); src.start(t);
+      sfxLoops[name] = { src, g };
+    } catch (e) { delete sfxLoops[name]; }
+  };
+  sfxLoops[name] = 'pending';
+  loadSfxId(name).then((ok) => { if (ok) go(); else if (sfxLoops[name] === 'pending') delete sfxLoops[name]; });
+}
+function stopSfxLoop(name, fadeSec) {
+  const l = sfxLoops[name];
+  delete sfxLoops[name];
+  if (!l || l === 'pending' || !audioCtx) return;
+  try {
+    const t = audioCtx.currentTime, f = fadeSec || 3;
+    l.g.gain.cancelScheduledValues(t); l.g.gain.setValueAtTime(l.g.gain.value, t); l.g.gain.linearRampToValueAtTime(0.0001, t + f);
+    l.src.stop(t + f + 0.05);
+  } catch (e) { /* already stopped */ }
+}
+
 // A short synthetic reverb impulse (decaying white noise) for the sfx tail.
 function makeReverbIR(seconds, decay) {
   const rate = audioCtx.sampleRate, len = Math.max(1, Math.floor(rate * seconds));
@@ -564,7 +598,7 @@ if (muteBtn) {
 
   return {
     ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel,
-    playSfx, setSfxMuted,
+    playSfx, setSfxMuted, startSfxLoop, stopSfxLoop,
     // Quest-line narration (voiced offer pitches).
     playNarration, stopNarration, narrationAvailable,
     // True once a recorded file for `id` is loaded — lets callers prefer a

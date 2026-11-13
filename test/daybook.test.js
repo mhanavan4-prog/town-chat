@@ -17,7 +17,7 @@ const ann = { id: 'a', accountKey: 'ann' }, old = { id: 'o', accountKey: 'old' }
 const find = (body, id) => body.leaves.flatMap((l) => l.entries).find((e) => e.id === id);
 
 const b0 = db.body(ann);
-check('the book has five leaves and a line for every Old Way, wanderer, rare room and village door, the balefires, and the three old sites', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds,village' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 12 + Object.keys(require('../data/villageHouses').VILLAGE_HOUSES).length && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
+check('the book has five leaves and a line for every Old Way, wanderer, rare room and village door, the balefires, and the three old sites', b0.leaves.map((l) => l.id).join() === 'ways,wanderers,rare,wilds,village' && b0.of === OLD_WAYS.length + 4 + Object.keys(RARE_ROOMS).length + 13 + Object.keys(require('../data/villageHouses').VILLAGE_HOUSES).length && b0.done === 0 && OLD_WAYS.every((w) => find(b0, 'way:' + w.id)) && [1, 2, 3, 4].every((t) => find(b0, 'wanderer:' + DUNGEON_LORE[t].wanderer.key)));
 check('what is not done says how to come by it, in a line', b0.leaves.flatMap((l) => l.entries).every((e) => !e.done && e.hint.length > 15 && e.hint.length < 140 && e.first === null && e.times === 0) && OLD_WAYS.every((w) => db.WAY_HINT[w.id]));
 check('a guest keeps no daybook, and nothing can be written in one', db.body(guest).isGuest === true && db.note(guest, 'balefires') === false && db.noteWay(guest, 'lead') === false);
 
