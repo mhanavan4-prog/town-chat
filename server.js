@@ -10679,6 +10679,8 @@ const EMBER_MOB_SPAWNS = (() => {
   // The Wastes' own life: crows over the field's graves and its chapel, and three packs of ash-hounds in the empty country between the places.
   for (const f of require('./data/emberField').FINDS.filter((x) => /barrow|chapel/.test(x.model))) for (let i = 0; i < 3; i++) out.push({ x: f.x + Math.cos(i * 2.1) * 260, y: f.y + Math.sin(i * 2.1) * 260, type: 'carrion_crow' });
   for (const [px, py] of [[5600, 16600], [15800, 12300], [13600, 3800]]) for (let i = 0; i < 4; i++) out.push({ x: px + Math.cos(i * 1.6) * 180, y: py + Math.sin(i * 1.6) * 180, type: 'ash_hound', pack: [px, py] });
+  // After dark the field's dead get up: revenants by the graves, the chapel and the standards, gone again at dawn.
+  for (const f of require('./data/emberField').FINDS.filter((x) => /barrow|chapel|standard/.test(x.model))) for (let i = 0; i < 2; i++) out.push({ x: f.x + Math.cos(i * 3.1 + 0.8) * 340, y: f.y + Math.sin(i * 3.1 + 0.8) * 340, type: 'soot_revenant', nightOnly: true });
   for (let pass = 0; pass < 3; pass++) for (const sp of out) for (const g of [...EMBER_TOWN.ground, { x: WITCH_RING.x, y: WITCH_RING.y, r: 1000 }]) {
     const dx = sp.x - g.x, dy = sp.y - g.y, d = Math.hypot(dx, dy);
     if (d < g.r) { const u = d > 1 ? [dx / d, dy / d] : [1, 0]; sp.x = g.x + u[0] * (g.r + 1); sp.y = g.y + u[1] * (g.r + 1); }
@@ -10695,9 +10697,10 @@ const emberMobs = EMBER_MOB_SPAWNS.map((p, i) => ({
   mobType: p.type,
   spawnX: p.x, spawnY: p.y, x: p.x, y: p.y,
   ...(p.pack ? { homeX: p.pack[0], homeY: p.pack[1] } : {}), // a pack keeps to its own country together
+  ...(p.nightOnly ? { nightOnly: true } : {}), // the field's dead: up by night, down by day (they start down)
   facing: Math.random() * Math.PI * 2,
   wanderTimer: Math.random() * 2, wanderAngle: 0, paused: false,
-  health: EMBER_MOB_TYPES[p.type].maxHealth, dead: false, respawnAt: 0,
+  health: EMBER_MOB_TYPES[p.type].maxHealth, dead: !!p.nightOnly, respawnAt: 0,
   lastHitAt: 0, lastStolenAt: 0
 }));
 // The warlord garrisons its landmark — pushed in as a boss-flagged ember mob so
@@ -10791,7 +10794,10 @@ function tickEmberWastes(dt) {
   emberStorm.tick();
   const now = Date.now();
   const margin = 60;
+  const night = isNightNow();
   for (const m of emberMobs) {
+    // the field's dead (nightOnly) lie down at dawn, and do not get up again till dark
+    if (m.nightOnly && !night) { if (!m.dead) { m.dead = true; m.respawnAt = now; m.pendingLoot = null; m.provokedUntil = 0; } continue; }
     if (m.dead) {
       if (now >= m.respawnAt) {
         m.dead = false;

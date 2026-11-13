@@ -3158,8 +3158,9 @@ function onWsMessage(ev) {
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
   if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
-  if (msg.type === 'ring_state') { ringState = msg; return; }
+  if (msg.type === 'ring_state') { ringState = msg; if (msg.sung) _emberStorm.sung(); return; }
   if (msg.type === 'ember_storm') { _emberStorm.apply(msg); return; }
+  if (msg.type === 'ring_sung') { _emberStorm.sung(); return; }   // the ring has sung tonight: its glow goes out
   if (msg.type === 'wind_knot') { _emberStorm.clear(msg.ms || 60000); return; }
   if (msg.type === 'ash_folk') {   // who has come back to Ashminster, for you (lib/ashFolk.js)
     ashFolkBack = new Set(msg.back || []);
@@ -11051,7 +11052,8 @@ function updatePortals(dt) {
 // The ash storms (client/ember-storm.js; the server's clock is lib/emberStorm.js).
 const _emberStorm = createEmberStorm({ getScene: () => emberScene, getCamera: () => emberCamera,
   isActive: () => !!(emberScene && activeScene === emberScene), makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx,
-  say: (m) => setUnlockToast(m, { level: 'important', always: true }) });
+  say: (m) => setUnlockToast(m, { level: 'important', always: true }),
+  isNight: () => { try { return !!getDayNightState().isNight; } catch (e) { return false; } } });
 function updateEmberAmbient(dt) {
   if (!emberAmbient || activeScene !== emberScene) return;
   const cam = emberCamera;
@@ -21464,7 +21466,7 @@ if (location.search.includes('testdrive=1')) {
     // QA: hold the camera at (x, height, y) looking at (tx, theight, ty), in world coordinates; view() lets it go.
     view(x, h, y, tx, th, ty) { qaView = x == null ? null : [x, h, y, tx, th, ty]; return true; },
     ember() { enterEmberWastes(); },
-    storm(settle) { if (settle) _emberStorm.settle(); return { phase: _emberStorm.phase(), strength: _emberStorm.strength(), fogFar: emberScene && emberScene.fog ? emberScene.fog.far : null }; }, // QA: the ash storm as drawn // QA: through the temple portal (the server still decides whether it is open)
+    storm(settle) { if (settle) { _emberStorm.settle(); _emberStorm.settleNight(); } return { night: _emberStorm.night(), phase: _emberStorm.phase(), strength: _emberStorm.strength(), fogFar: emberScene && emberScene.fog ? emberScene.fog.far : null }; }, // QA: the ash storm as drawn // QA: through the temple portal (the server still decides whether it is open)
     walls() { return walls.map((w) => [Math.round(w.x), Math.round(w.y), Math.round(w.w), Math.round(w.h)]); }, // what is solid where she stands (for tools/wilds-solids)
     clips(key) { const m = KK.models[key]; return m ? m.animations.map((c) => c.name) : null; },
     face(angle) { if (me) { me.facing = angle; cameraYawOffset = 0; } },
