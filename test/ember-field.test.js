@@ -43,7 +43,7 @@ g.x = F.x; g.y = F.y; sent.length = 0;
 check('a guest can search, and is paid in XP only', fld.use(g, F.id) === true && !sent.some((m) => /gold/.test(m.message || '')));
 
 const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-check('the server answers a search and saves what it paid', /if \(msg\.type === 'field_use'\) \{ if \(emberField\.use\(player, String\(msg\.id \|\| ''\)\)\) \{ saveAccounts\(\); saveBankAccounts\(\); \} return; \}/.test(server));
+check('the server answers a search and saves what it paid', /if \(msg\.type === 'field_use'\) \{ if \(emberField\.use\(player, String\(msg\.id \|\| ''\)\)\) \{ advanceQuestProgress\(player, 'event', 'field_find'\); saveAccounts\(\); saveBankAccounts\(\); \} return; \}/.test(server));
 check('the client lets each be searched, and the prompt changes once it has been', /type: 'field_use', id: kiosk\.fieldId/.test(main) && /fieldDone\.has\(kiosk\.fieldId\) \? 'read it again' : kiosk\.hint/.test(main));
 check('the scatter keeps off the track and what lies by it', /\|\| nearTrack\(x, z, 240\)/.test(scene));
 check('walking the field has a title', require('../data/titles').TITLES.field_walker && /Ember Wastes/.test(require('../data/titles').TITLES.field_walker.from));

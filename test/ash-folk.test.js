@@ -70,6 +70,29 @@ setTimeout(() => {
   p.health = 5; at(by.nan); s.emit('message', JSON.stringify({ type: 'ash_folk_use', id: 'nan' }));
   check('the dressed well mends you', p.health > 5);
 
+  // their work (data/quests.js): offered once they are back, and done by what they ask
+  const q = require('../data/quests');
+  const CAT = q.QUEST_CATALOG || q;
+  check('each has a job', ['kirsty_storm', 'wat_graves', 'nan_petals'].every((id) => CAT[id] && FOLK.some((f) => f.npcId === CAT[id].npcId)));
+  prog.level = 10;
+  const s2 = makeMockSocket('b'); connHandler(s2); s2.emit('message', JSON.stringify({ type: 'join', name: 'Newcomer' }));
+  const p2 = h.players.get(s2.lastOfType('init').id); h.getProgress(p2).level = 10;
+  s2.emit('message', JSON.stringify({ type: 'quest_talk', npcId: 'npc_sexton', npcName: 'Wat' }));
+  check('nobody gets Wat\'s job before he is back for them', s2.lastOfType('quest_offer') && s2.lastOfType('quest_offer').questId === null);
+  at(by.wat); s.sent.length = 0; s.emit('message', JSON.stringify({ type: 'ash_folk_use', id: 'wat' }));
+  check('rung for today, he offers his job instead of the history', s.sent.some((m) => m.type === 'ash_quest' && m.npcId === 'npc_sexton'));
+  s.emit('message', JSON.stringify({ type: 'quest_accept', npcId: 'npc_sexton' }));
+  check('taken on, it says where', s.lastOfType('quest_started') && /track/.test(s.lastOfType('quest_started').where));
+  for (let k = 0; k < 3; k++) h.advanceQuestProgress(p, 'event', 'field_find');
+  check('three finds on the field and it is done', !p.activeQuest && prog.questsDone.wat_graves === true);
+  s.emit('message', JSON.stringify({ type: 'quest_talk', npcId: 'npc_windseller', npcName: 'Kirsty' }));
+  s.emit('message', JSON.stringify({ type: 'quest_accept', npcId: 'npc_windseller' }));
+  h.advanceQuestProgress(p, 'event', 'field_find');
+  check('Kirsty\'s wants a storm, not a find', p.activeQuest && p.activeQuest.questId === 'kirsty_storm' && p.activeQuest.progress === 0);
+  h.advanceQuestProgress(p, 'event', 'storm_weathered');
+  check('a storm weathered and it is done', !p.activeQuest && prog.questsDone.kirsty_storm === true);
+  check('the storm and the field tell the quests', /advanceQuestProgress\(p, 'event', 'storm_weathered'\)/.test(read('server.js')) && /advanceQuestProgress\(player, 'event', 'field_find'\)/.test(read('server.js')));
+
   const scene = read('client/ember-scene.js'), main = read('client/main.js');
   const m = scene.match(/const ASH_FOLK = (\[[^\n]*\]);/);
   check('the client stands them where the server does', m && JSON.stringify(JSON.parse(m[1])) === JSON.stringify(FOLK.map(({ id, name, icon, charId, x, y, facing }) => ({ id, name, icon, charId, x, y, facing }))));
