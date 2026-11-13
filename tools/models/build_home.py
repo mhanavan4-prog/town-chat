@@ -2219,6 +2219,16 @@ def _strip_wall(xs, hs, thick, colors=MIN_STONE, zmax=None):
     return parts
 
 
+def _kk_strip(xs, hs, thick, colors=None, zmax=None):
+    """A shot-away wall in the KayKit idiom: the same run as _strip_wall, but broken off by courses, each length
+    square-topped at its own height, so the ruin steps down in blocks instead of running to points."""
+    parts = []
+    for i in range(len(xs) - 1):
+        h = max(0.25, round((hs[i] + hs[i + 1]) / 2 / 0.25) * 0.25) if hs[i] != hs[i + 1] else hs[i]
+        parts += _strip_wall([xs[i], xs[i + 1]], [h, h], thick, colors or MIN_STONE, zmax=zmax)
+    return parts
+
+
 def _gable(width, eave, ridge, thick, colors=MIN_STONE, zmax=None):
     """A gable-end wall across Y: a rectangle to the eave and a triangle to the ridge, thick in X."""
     top = zmax or ridge
@@ -2262,125 +2272,128 @@ def minster():
     breached, the north transept down; the south side and the chancel whole, and the east window still in its glass.
     Built along X (tower west at -X, chancel east at +X); 1 unit = 100 world units."""
     m = Model('minster')
+    m.bevel = 0.035; m.bevel_segments = 1                       # the KayKit idiom: stout blocks, stepped where they are broken, chamfered on export
+    ST = ('#4f5b62', '#b2bfc3')           # KayKit stone, sooted at the foot and paler where the rain still reaches
+    SL = ('#2f3742', '#566373')
     r = np.random.default_rng(1917)
     TOP = 7.6
     S, N = -1.5, 1.5                      # the nave's south and north walls
     WH, RIDGE = 2.7, 4.3                  # nave eave and ridge
     # ── nave: south wall whole
-    m.add(_strip_wall([-3.0, 3.0], [WH, WH], 0.24, zmax=TOP), )
+    m.add(_kk_strip([-3.0, 3.0], [WH, WH], 0.24, ST, zmax=TOP), )
     m.parts[-1].xf(None, (0, S, 0))
     # north wall: whole to the west, breached by the crossing
     nx = [-3.0, -0.2, 0.1, 0.45, 0.8, 1.2, 1.5, 1.75, 2.1, 3.0]
     nh = [WH, WH, 2.2, 1.3, 0.55, 0.4, 0.9, 1.7, 2.45, WH]
-    for p in _strip_wall(nx, nh, 0.24, zmax=TOP):
+    for p in _kk_strip(nx, nh, 0.24, ST, zmax=TOP):
         m.add(p.xf(None, (0, N, 0)))
     # windows: five lancets a side, dark; buttresses between
     for i, x in enumerate([-2.4, -1.3, -0.2, 0.9]):
-        m.add(_lancet(0.42, 1.7).xf(None, (x, S - 0.1, 0.75)))
+        m.add(trim(_lancet(0.42, 1.7)).xf(None, (x, S - 0.1, 0.75)))
         if x < -0.3:
-            m.add(_lancet(0.42, 1.7).xf(rz(math.pi), (x, N + 0.1, 0.75)))
+            m.add(trim(_lancet(0.42, 1.7)).xf(rz(math.pi), (x, N + 0.1, 0.75)))
     for x in [-2.95, -1.85, -0.75, 0.35, 1.45]:
         for (y, sgn) in ((S, -1), (N, 1)):
             if sgn == 1 and 0.0 < x < 2.0:
                 continue                   # shot away with the wall
-            m.add(box(0.26, 0.5, 2.1, MIN_STONE, (x, y + sgn * 0.32, 0)))
-            m.add(box(0.26, 0.3, 0.5, MIN_STONE, (x, y + sgn * 0.22, 2.1)))
+            m.add(box(0.26, 0.5, 2.1, ST, (x, y + sgn * 0.32, 0)))
+            m.add(box(0.26, 0.3, 0.5, ST, (x, y + sgn * 0.22, 2.1)))
     # the floor inside, so the breach looks into something
     m.add(box(9.6, 2.8, 0.06, ('#141110', '#221c18'), (0.8, 0, 0)))
     # roof: slates over the western bays; east of that, bare burnt rafters, some down
-    m.add(_roof(2.9, 3.0, WH, RIDGE).xf(None, (-1.55, 0, 0)))
+    m.add(_roof(2.9, 3.0, WH, RIDGE, SL).xf(None, (-1.55, 0, 0)))
     for i, x in enumerate(np.arange(0.15, 2.95, 0.4)):
         gone_n = 0.3 < x < 1.9
         if not (i in (2, 5)):
-            m.add(tube([(x, S, WH), (x, 0, RIDGE)], 0.05, sides=4, colors=MIN_CHAR))
+            m.add(trimtube([(x, S, WH), (x, 0, RIDGE)], 0.07, sides=4, colors=KK_WOOD_CHAR))
         if not gone_n:
-            m.add(tube([(x, N, WH), (x, 0, RIDGE)], 0.05, sides=4, colors=MIN_CHAR))
+            m.add(trimtube([(x, N, WH), (x, 0, RIDGE)], 0.07, sides=4, colors=KK_WOOD_CHAR))
         elif i % 2 == 0:
-            m.add(tube([(x, 0.15 + 0.3 * r.random(), RIDGE - 0.3), (x, 0, RIDGE)], 0.05, sides=4, colors=MIN_CHAR))   # a stump at the ridge
-    m.add(tube([(-0.1, 0, RIDGE), (1.3, 0, RIDGE), (2.0, 0.05, RIDGE - 0.25)], 0.06, sides=4, colors=MIN_CHAR))       # the ridge-piece, sagging where it ends
-    m.add(tube([(1.1, 0.5, 0.1), (2.3, 1.0, 1.5)], 0.055, sides=4, colors=MIN_CHAR))                                    # one come down across the breach
+            m.add(trimtube([(x, 0.15 + 0.3 * r.random(), RIDGE - 0.3), (x, 0, RIDGE)], 0.07, sides=4, colors=KK_WOOD_CHAR))   # a stump at the ridge
+    m.add(trimtube([(-0.1, 0, RIDGE), (1.3, 0, RIDGE), (2.0, 0.05, RIDGE - 0.25)], 0.08, sides=4, colors=KK_WOOD_CHAR))       # the ridge-piece, sagging where it ends
+    m.add(trimtube([(1.1, 0.5, 0.1), (2.3, 1.0, 1.5)], 0.075, sides=4, colors=KK_WOOD_CHAR))                                    # one come down across the breach
     # ── crossing gables
-    m.add(_gable(3.0, WH, RIDGE, 0.24, zmax=TOP).xf(None, (3.0, 0, 0)))
+    m.add(_gable(3.0, WH, RIDGE, 0.24, ST, zmax=TOP).xf(None, (3.0, 0, 0)))
     # rose window in that gable, over the chancel roof: a ring and its broken spokes
     ring = [(3.14, 0.42 * math.cos(a), 3.55 + 0.42 * math.sin(a)) for a in np.linspace(0, TAU, 13)]
-    m.add(tube(ring, 0.05, sides=5, colors=MIN_STONE))
+    m.add(tube(ring, 0.05, sides=5, colors=ST))
     m.add(blob(0.03, 0.4, 0.4, seg=10, rings=4, colors=MIN_DARK).xf(None, (3.13, 0, 3.55)))
     for a in (0.3, 1.4, 2.6, 4.0, 5.2):
-        m.add(tube([(3.15, 0, 3.55), (3.15, 0.4 * math.cos(a), 3.55 + 0.4 * math.sin(a))], 0.022, sides=4, colors=MIN_STONE))
+        m.add(tube([(3.15, 0, 3.55), (3.15, 0.4 * math.cos(a), 3.55 + 0.4 * math.sin(a))], 0.022, sides=4, colors=ST))
     # ── chancel: whole
     CW, CH, CR = 2.3, 2.1, 3.25
     for y in (-CW / 2, CW / 2):
-        m.add(box(1.7, 0.22, CH, MIN_STONE, (3.85, y, 0)))
-    m.add(_gable(CW, CH, CR, 0.24, zmax=TOP).xf(None, (4.7, 0, 0)))
-    m.add(_roof(1.75, CW, CH, CR).xf(None, (3.87, 0, 0)))
+        m.add(box(1.7, 0.22, CH, ST, (3.85, y, 0)))
+    m.add(_gable(CW, CH, CR, 0.24, ST, zmax=TOP).xf(None, (4.7, 0, 0)))
+    m.add(_roof(1.75, CW, CH, CR, SL).xf(None, (3.87, 0, 0)))
     # the east window: three lights, and the glass still in them
     for (y, h) in ((-0.42, 1.25), (0, 1.6), (0.42, 1.25)):
         m.add(glowing(_lancet(0.3, h, MIN_GLASS)).xf(rz(-math.pi / 2), (4.84, y, 0.7)))
     for y in (-0.21, 0.21):
-        m.add(box(0.06, 0.05, 1.3, MIN_STONE, (4.86, y, 0.7)))
+        m.add(box(0.06, 0.05, 1.3, ST, (4.86, y, 0.7)))
     for x in (3.4, 4.2):
-        m.add(_lancet(0.3, 1.2).xf(None, (x, -CW / 2 - 0.1, 0.6)))
-        m.add(_lancet(0.3, 1.2).xf(rz(math.pi), (x, CW / 2 + 0.1, 0.6)))
+        m.add(trim(_lancet(0.3, 1.2)).xf(None, (x, -CW / 2 - 0.1, 0.6)))
+        m.add(trim(_lancet(0.3, 1.2)).xf(rz(math.pi), (x, CW / 2 + 0.1, 0.6)))
     # ── transepts: south whole, north down
     TW, TL, TH, TR = 1.4, 1.2, 2.4, 3.5
     for x in (1.9, 1.9 + TW):
-        m.add(box(0.22, TL, TH, MIN_STONE, (x, S - TL / 2, 0)))
-    g = _gable(TW + 0.22, TH, TR, 0.24, zmax=TOP).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL, 0)); m.add(g)
-    m.add(_roof(TL + 0.3, TW + 0.22, TH, TR).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL / 2 + 0.1, 0)))
-    m.add(_lancet(0.36, 1.5).xf(None, (1.9 + TW / 2, S - TL - 0.14, 0.7)))
+        m.add(box(0.22, TL, TH, ST, (x, S - TL / 2, 0)))
+    g = _gable(TW + 0.22, TH, TR, 0.24, ST, zmax=TOP).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL, 0)); m.add(g)
+    m.add(_roof(TL + 0.3, TW + 0.22, TH, TR, SL).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL / 2 + 0.1, 0)))
+    m.add(trim(_lancet(0.36, 1.5)).xf(None, (1.9 + TW / 2, S - TL - 0.14, 0.7)))
     for (x, hs) in ((1.9, [2.2, 1.5, 0.8, 0.5]), (1.9 + TW, [2.0, 1.6, 1.1, 0.35])):
-        for p in _strip_wall([0, 0.4, 0.8, TL], hs, 0.22, zmax=TOP):
+        for p in _kk_strip([0, 0.4, 0.8, TL], hs, 0.22, ST, zmax=TOP):
             m.add(p.xf(rz(math.pi / 2), (x, N, 0)))
-    for p in _strip_wall([0, 0.5, 0.9, TW], [0.35, 0.7, 0.3, 0.5], 0.22, zmax=TOP):
+    for p in _kk_strip([0, 0.5, 0.9, TW], [0.35, 0.7, 0.3, 0.5], 0.22, ST, zmax=TOP):
         m.add(p.xf(None, (1.9, N + TL, 0)))
     # ── the west tower: four walls, the head shot away unevenly
     TWd = 2.3
     tx = -3.0 - TWd / 2
     st = np.linspace(-TWd / 2, TWd / 2, 6)
     heads = {'s': [7.5, 7.3, 6.9, 6.8, 6.4, 6.6], 'n': [6.2, 5.7, 5.9, 5.2, 5.6, 6.1], 'w': [7.5, 7.1, 6.6, 6.5, 6.0, 6.2], 'e': [6.6, 6.3, 5.8, 5.5, 5.7, 6.1]}
-    for p in _strip_wall(list(st), heads['s'], 0.3, zmax=TOP): m.add(p.xf(None, (tx, -TWd / 2, 0)))
-    for p in _strip_wall(list(st), heads['n'], 0.3, zmax=TOP): m.add(p.xf(None, (tx, TWd / 2, 0)))
-    for p in _strip_wall(list(st), heads['w'], 0.3, zmax=TOP): m.add(p.xf(rz(math.pi / 2), (tx - TWd / 2, 0, 0)))
-    for p in _strip_wall(list(st), heads['e'], 0.3, zmax=TOP): m.add(p.xf(rz(math.pi / 2), (tx + TWd / 2, 0, 0)))
+    for p in _kk_strip(list(st), heads['s'], 0.3, ST, zmax=TOP): m.add(p.xf(None, (tx, -TWd / 2, 0)))
+    for p in _kk_strip(list(st), heads['n'], 0.3, ST, zmax=TOP): m.add(p.xf(None, (tx, TWd / 2, 0)))
+    for p in _kk_strip(list(st), heads['w'], 0.3, ST, zmax=TOP): m.add(p.xf(rz(math.pi / 2), (tx - TWd / 2, 0, 0)))
+    for p in _kk_strip(list(st), heads['e'], 0.3, ST, zmax=TOP): m.add(p.xf(rz(math.pi / 2), (tx + TWd / 2, 0, 0)))
     m.add(box(TWd - 0.3, TWd - 0.3, 5.0, MIN_DARK, (tx, 0, 0)))                      # the dark inside, seen through the openings
     for z in (2.7, 4.5):                                                             # string courses
-        m.add(box(TWd + 0.5, TWd + 0.5, 0.12, MIN_STONE, (tx, 0, z)))
+        m.add(box(TWd + 0.5, TWd + 0.5, 0.12, ST, (tx, 0, z)))
     for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):                            # corner buttresses
-        m.add(box(0.5, 0.5, 4.5, MIN_STONE, (tx + dx * (TWd / 2 + 0.05), dy * (TWd / 2 + 0.05), 0)))
+        m.add(box(0.5, 0.5, 4.5, ST, (tx + dx * (TWd / 2 + 0.05), dy * (TWd / 2 + 0.05), 0)))
     # belfry lights, two a face on the south and west, where the wall still reaches
     for dx in (-0.45, 0.45):
-        m.add(_lancet(0.34, 1.2).xf(None, (tx + dx, -TWd / 2 - 0.17, 4.8)))
-        m.add(_lancet(0.34, 1.2).xf(rz(-math.pi / 2).T, (tx - TWd / 2 - 0.17, dx, 4.8)))
+        m.add(trim(_lancet(0.34, 1.2)).xf(None, (tx + dx, -TWd / 2 - 0.17, 4.8)))
+        m.add(trim(_lancet(0.34, 1.2)).xf(rz(-math.pi / 2).T, (tx - TWd / 2 - 0.17, dx, 4.8)))
     # and lower down on the north and east faces, which lost more
     for dx in (-0.45, 0.45):
-        m.add(_lancet(0.34, 1.1).xf(rz(math.pi), (tx + dx, TWd / 2 + 0.17, 3.2)))
+        m.add(trim(_lancet(0.34, 1.1)).xf(rz(math.pi), (tx + dx, TWd / 2 + 0.17, 3.2)))
     # the west door, and a shell-hole in the south face
-    m.add(_lancet(0.95, 1.7).xf(rz(-math.pi / 2).T, (tx - TWd / 2 - 0.17, 0, 0)))
+    m.add(trim(_lancet(0.95, 1.7)).xf(rz(-math.pi / 2).T, (tx - TWd / 2 - 0.17, 0, 0)))
     m.add(box(0.06, 0.42, 1.2, OAK_DK, (tx - TWd / 2 - 0.24, -0.2, 0)).xf(rz(0.0), (0, 0, 0)))
     m.add(blob(0.5, 0.06, 0.42, seg=7, rings=4, colors=MIN_DARK, jitter=0.25, seed=5).xf(None, (tx + 0.25, -TWd / 2 - 0.15, 3.5)))
     # ── the spire, lying north of the tower in two lengths, its cross still on it
     def spire_len(base, tip, r0, r1):
-        return tube([base, tip], [r0, r1], sides=4, colors=MIN_SLATE, cap_base=True)
+        return tube([base, tip], [r0, r1], sides=4, colors=SL, cap_base=True)
     m.add(spire_len((-5.2, 2.3, 0.45), (-3.2, 3.4, 0.3), 0.62, 0.3))
     m.add(spire_len((-2.7, 3.75, 0.2), (-1.4, 4.3, 0.1), 0.26, 0.03))
     m.add(tube([(-1.4, 4.3, 0.1), (-1.0, 4.47, 0.1)], 0.025, sides=4, colors=IRON))
     m.add(tube([(-1.22, 4.25, 0.1), (-1.12, 4.55, 0.1)], 0.025, sides=4, colors=IRON))
     # ── rubble: under the breach, round the tower's foot, where the transept fell
-    for (cx, cy, n, spread, sz) in ((0.9, 2.0, 16, 0.9, 0.24), (2.6, 3.0, 12, 0.8, 0.22), (-4.4, -1.9, 8, 0.6, 0.2), (-3.4, 1.9, 10, 0.7, 0.22), (1.0, 0.6, 7, 0.6, 0.18)):
+    for (cx, cy, n, spread, sz) in ((0.9, 2.0, 9, 0.9, 0.32), (2.6, 3.0, 7, 0.8, 0.3), (-4.4, -1.9, 5, 0.6, 0.28), (-3.4, 1.9, 6, 0.7, 0.3), (1.0, 0.6, 4, 0.6, 0.24)):
         for k in range(n):
             a, d = r.uniform(0, TAU), abs(r.normal(0, spread))
             s = sz * r.uniform(0.6, 1.5)
-            m.add(box(s * 1.4, s, s * 0.8, MIN_STONE, (0, 0, 0), jitter=0.18, seed=int(r.integers(1, 9999))).xf(rz(r.uniform(0, 3.1)), (cx + d * math.cos(a), cy + d * math.sin(a), 0)))
+            m.add(box(s * 1.4, s, s * 0.8, KK_STONE if k % 3 else KK_STONE_LT).xf(rz(r.uniform(0, 3.1)), (cx + d * math.cos(a), cy + d * math.sin(a), 0)))
     # ── the bell, where it came down
     bell = lathe([(0.0, 0.62), (0.16, 0.6), (0.24, 0.42), (0.3, 0.18), (0.4, 0.0)], sides=10, colors=('#3a2a14', '#8a6a2c'), close_top=True)
     m.add(bell.xf(rx(1.25) @ rz(0.6), (-3.6, -2.0, 0.28)))
     # ── the anchorhold: a cell built against the nave's whole side, between two buttresses, with no door.
     # Its squint looks into the nave, and there is a light behind it.
-    m.add(box(0.8, 0.85, 1.25, MIN_STONE, (0.9, S - 0.55, 0)))
+    m.add(box(0.8, 0.85, 1.25, ST, (0.9, S - 0.55, 0)))
     v = [(0.48, S - 1.0, 1.25), (1.32, S - 1.0, 1.25), (1.32, S - 0.1, 1.75), (0.48, S - 0.1, 1.75), (0.48, S - 0.1, 1.25), (1.32, S - 0.1, 1.25)]
-    m.add(Part(v, [(0, 1, 2, 3), (0, 3, 4), (1, 5, 2), (0, 4, 5, 1)], [0, 0, 1, 1, 0, 0], MIN_SLATE, smooth=False))
+    m.add(Part(v, [(0, 1, 2, 3), (0, 3, 4), (1, 5, 2), (0, 4, 5, 1)], [0, 0, 1, 1, 0, 0], SL, smooth=False))
     m.add(glowing(box(0.16, 0.06, 0.3, ('#c8641e', '#ffd27a'), (0.9, S + 0.13, 0.62))))            # the squint, from inside the nave
-    m.add(box(0.3, 0.05, 0.05, MIN_STONE, (0.9, S + 0.15, 0.55)))                                     # its sill
+    m.add(box(0.3, 0.05, 0.05, ST, (0.9, S + 0.15, 0.55)))                                     # its sill
     m.add(glowing(box(0.1, 0.05, 0.22, ('#c8641e', '#ffd27a'), (0.9, S - 0.99, 0.7))))             # and the slit to the world outside
     # ── the sanctuary knocker on the west door
     kx = tx - TWd / 2 - 0.3
@@ -2389,9 +2402,9 @@ def minster():
     # ── the graveyard on the south side: stones at all angles, one cross standing
     for k in range(9):
         gx, gy = -2.2 + 0.75 * (k % 5) + r.uniform(-0.15, 0.15), -2.9 - 0.7 * (k // 5) + r.uniform(-0.12, 0.12)
-        m.add(box(0.34, 0.08, r.uniform(0.4, 0.62), MIN_STONE, (0, 0, 0)).xf(rx(r.uniform(-0.3, 0.3)) @ ry(r.uniform(-0.22, 0.22)), (gx, gy, 0)))
-    m.add(box(0.09, 0.09, 1.0, MIN_STONE, (1.35, -3.3, 0)))
-    m.add(box(0.5, 0.09, 0.09, MIN_STONE, (1.35, -3.3, 0.68)))
+        m.add(box(0.34, 0.08, r.uniform(0.4, 0.62), ST, (0, 0, 0)).xf(rx(r.uniform(-0.3, 0.3)) @ ry(r.uniform(-0.22, 0.22)), (gx, gy, 0)))
+    m.add(box(0.09, 0.09, 1.0, ST, (1.35, -3.3, 0)))
+    m.add(box(0.5, 0.09, 0.09, ST, (1.35, -3.3, 0.68)))
     return m, None
 
 
