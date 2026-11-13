@@ -53,9 +53,13 @@ setTimeout(() => {
   s.emit('message', JSON.stringify({ type: 'march_gate' }));
   check('from too far off, the gate does nothing', p.room === 'wilds');
   at(GATE.wilds.x - 40, GATE.wilds.y);
+  h.setTemplePortal(false); s.sent.length = 0;
+  s.emit('message', JSON.stringify({ type: 'march_gate' }));
+  check('with the temple torches out, it will not open inward', p.room === 'wilds' && s.sent.some((m) => m.type === 'toast' && /will not open from this side/.test(m.message)));
+  h.setTemplePortal(true);
   s.emit('message', JSON.stringify({ type: 'march_gate' }));
   const ent = s.lastOfType('ember_wastes_entered');
-  check('through the gate from the Wilds: into the west of the Ember Wastes, at any hour', p.room === 'ember_wastes' && p.x === GATE.arriveWastes.x && ent && ent.march === true && ent.spawn.x === GATE.arriveWastes.x);
+  check('with them lit, through the gate from the Wilds into the west of the Ember Wastes', p.room === 'ember_wastes' && p.x === GATE.arriveWastes.x && ent && ent.march === true && ent.spawn.x === GATE.arriveWastes.x);
   check('nothing of the Wastes rises near the gate', h.EMBER_MOB_SPAWNS.every((m) => Math.hypot(m.x - GATE.arriveWastes.x, m.y - GATE.arriveWastes.y) >= GATE.quiet - 1));
 
   // the smoke: a creature of the Wastes bites less
@@ -77,6 +81,7 @@ setTimeout(() => {
   check('in the need-fire\'s smoke the Wastes\' creatures bite you less', smoked < plain && plain > 0, { plain, smoked });
   hound.dead = true; hound.respawnAt = Date.now() + 1e9;
 
+  h.setTemplePortal(false);   // out is open whether the torches burn or not
   at(GATE.wastes.x + 50, GATE.wastes.y, 'ember_wastes'); s.sent.length = 0;
   s.emit('message', JSON.stringify({ type: 'march_gate' }));
   const ex = s.lastOfType('ember_wastes_exited');

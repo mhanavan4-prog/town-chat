@@ -472,7 +472,7 @@ function buildWildsScene(w2) {
     }
     const gl = makeSignSprite('🚧 The March gate: the Ember Wastes');
     gl.position.set(G.x, H(G.x, G.y) + 290, G.y); scene.add(gl);
-    WILDS_KIOSKS.push({ x: G.x - 40, z: G.y, npc: 'march', hint: 'go through the March gate into the Ember Wastes (anyone may strike you there)', radius: 140 });
+    WILDS_KIOSKS.push({ x: G.x - 40, z: G.y, npc: 'march', hint: 'go through the March gate into the Ember Wastes (open while the temple torches burn)', radius: 140 });
   }
   // The dancing ground by the Unbound Circle: where hands are taken for the reel (the Old Ways, data/oldWays.js REEL).
   WILDS_KIOSKS.push({ x: 2200, z: 5240, npc: 'oldways', npcName: '💃 the dancing ground', hint: 'take hands for the reel, and the other old ways', radius: 90 });

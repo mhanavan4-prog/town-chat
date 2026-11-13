@@ -15305,6 +15305,11 @@ wss.on('connection', (ws, req) => {
       const { GATE } = require('./data/droveRoad');
       if (player.isDead || (player.instance || '') !== '') return;
       if (player.room === 'wilds' && Math.hypot(player.x - GATE.wilds.x, player.y - GATE.wilds.y) <= 240) {
+        // In only while the temple's four torches are lit (the portal open); out is open at any hour.
+        if (!templePortalOpen()) {
+          send(ws, { type: 'toast', level: 'important', always: true, message: '🚧 The March gate will not open from this side. Through the bars the air over the black ground is dead still. It opens inward only while the four torches burn at the temple in town; the way back out is never shut.' });
+          return;
+        }
         clearDuels(player);
         player.room = 'ember_wastes';
         player.roomLockUntil = Date.now() + 1500;
@@ -18790,7 +18795,7 @@ global.__testHooks = {
   VOICE_CM_EVADE_MS, VOICE_CM_SCARE_MS, VOICE_CM_COOLDOWN_MS, VOICE_CM_RADIUS,
   ATTACKED_RECENT_MS, SNAP_RANGE,
   // Pacing / progression
-  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad, ashFolk, ghostDrove,
+  XP_THRESHOLDS, MAX_LEVEL, CHAPTER_LEVEL_GATES, grantXP, shopDiscountFor, NPC_SHOPS, shopTrade, sellValueFor, SELL_VALUE_MAP, villageWard, tonightLines, mootBoardLines, oldWays, ashminster, online, emberField, witchRing, tickEmberWastes, emberStorm, droveRoad, ashFolk, ghostDrove, setTemplePortal: (v) => { templePortalIsOpen = !!v; },
   QUEST_BY_NPC, QUEST_COOLDOWN_MS, isNightNow, CYCLE_MS, DAY_MS,
   // Social + juice
   EMOTE_SET, STREAK_WINDOW_MS, registerHuntKill,
