@@ -38,7 +38,7 @@ const FIELD = {
 const FINDS = [
   { id: 'standard_south', name: 'A fallen standard', icon: '🚩', model: 'em_standard', x: 9720, y: 16150, size: 200, turn: 0.4,
     hint: 'search the fallen standard',
-    says: 'The pole was snapped by a blow, not burnt through. Wound tight round the stump, under the rag of the banner, is a strip of linen with a line written on it in a careful hand: "Third night. They are still singing inside. We hold till they stop."' },
+    says: 'The pole was snapped by a blow, not burnt through. Wound tight round the stump, under the rag of the banner, is a strip of linen with a line written on it in a careful hand: "Third night. We can hear them singing from here, out at the ring in the west. We hold till they stop."' },
   { id: 'bell', name: 'A cracked bell', icon: '🔔', model: 'em_bell', x: 10260, y: 15150, size: 90, turn: 0.5,
     hint: 'look at the cracked bell',
     says: 'A hand-bell, the kind a priest carries before the dead, split down one side and half buried. Scratched inside the lip is the name of a field chapel to the east and a date nobody now keeps. Somebody rang it for every one carried in, until there were too many to carry.' },

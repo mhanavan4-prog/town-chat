@@ -109,6 +109,13 @@ function nearTrack(x, z, r) {
   }
   return FIELD_FINDS.some((f) => Math.hypot(x - f.x, z - f.y) < r + 120) || FIELD_POSTS.some((p) => Math.hypot(x - p.x, z - p.y) < r);
 }
+// The witches' ring in the west (data/witchRing.js; test/witch-ring.test.js keeps this copy in step).
+const WITCH_RING = { x: 3000, y: 13600, stoneR: 560, stones: 13 };
+const WITCH_FIVE = [
+  { id: 'hazel', name: 'Hazel', x: 3000, y: 13300 }, { id: 'morwenna', name: 'Morwenna Tarrant', x: 3285, y: 13507 },
+  { id: 'joan', name: 'Joan Ashby', x: 3176, y: 13843 }, { id: 'tamsin', name: 'Tamsin Rook', x: 2824, y: 13843 },
+  { id: 'elspet', name: 'Elspet Grey', x: 2715, y: 13507 },
+];
 // How much of each piece is solid: a square about its middle, as a share of its size (a house is walked round, not into).
 const ASH_SOLID = { em_house_a: 0.4, em_house_b: 0.42, em_house_c: 0.36, em_ash_cross: 0.36, prop_well: 0.42, em_frith_cross: 0.18, em_barricade: 0 };
 // What of the minster is solid, in the model's own plan (x along the nave,
@@ -241,7 +248,7 @@ function buildEmberScene() {
     ? getEmberLandmarks()
     : [{ x: 5000, y: 6000 }, { x: 15000, y: 8000 }, { x: 10000, y: 3000 }, { x: 16500, y: 15800 }];
   for (const lm of landmarks) {
-    if (lm.town) continue;   // Ashminster is dressed below, as a town
+    if (lm.town || lm.ring) continue;   // Ashminster and the ring are dressed below
     for (let i = 0; i < 44; i++) spots.push([lm.x + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400), lm.y + (rnd() - 0.5) * (lm.radius ? lm.radius * 1.6 : 2400)]);
   }
   // Pool of scorched KayKit keys (all in the gating set, already loaded) with a
@@ -254,7 +261,7 @@ function buildEmberScene() {
   ];
   // nothing scattered stands in the minster or its yard
   // the town, and the track and what lies by it, are kept clear of the scatter
-  const inTown = (x, z) => ASH_GROUND.some((g) => Math.hypot(x - g.x, z - g.y) < g.r) || nearTrack(x, z, 240);
+  const inTown = (x, z) => ASH_GROUND.some((g) => Math.hypot(x - g.x, z - g.y) < g.r) || nearTrack(x, z, 240) || Math.hypot(x - WITCH_RING.x, z - WITCH_RING.y) < 1000;
   for (let i = spots.length - 1; i >= 0; i--) if (inTown(spots[i][0], spots[i][1])) spots.splice(i, 1);
   const canKK = KK && KK.staticInstance;
   if (canKK) {
@@ -284,7 +291,7 @@ function buildEmberScene() {
   // look of a long-dead necropolis on the ember flat.
   if (canKK) {
     for (const lm of landmarks) {
-      if (lm.x === undefined || lm.town) continue;
+      if (lm.x === undefined || lm.town || lm.ring) continue;
       const tombs = [['prop_crypt', 110, 'fit'], ['prop_grave_a', 30, 'height'], ['prop_grave_b', 30, 'height'], ['prop_arch', 150, 'fit']];
       for (let i = 0; i < 8; i++) {
         const [key, size, mode] = tombs[i % tombs.length];
@@ -336,7 +343,7 @@ function buildEmberScene() {
     // Crystal fields scattered the whole zone over, so bare floor is rare.
     for (let i = 0; i < 80; i++) gemCluster(m + rnd() * (W - m * 2), m + rnd() * (Hh - m * 2), 3 + Math.floor(rnd() * 4), 90 + rnd() * 130);
     // A dense ruby reef beside each non-warlord POI.
-    for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord && !lm.town) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
+    for (const lm of landmarks) { if (lm.x !== undefined && !lm.warlord && !lm.town && !lm.ring) gemCluster(lm.x + 500, lm.y + 300, 7, 150); }
   }
 
   // ── The Ashlord's Citadel ────────────────────────────────────────────────
@@ -437,7 +444,7 @@ function buildEmberScene() {
   // by across the vast zone, and the name once you draw near. The warlord's
   // throne gets a taller, redder spire.
   for (const lm of landmarks) {
-    if (lm.x === undefined || lm.town) continue;   // the minster is its own beacon
+    if (lm.x === undefined || lm.town || lm.ring) continue;   // the minster and the ring are their own beacons
     const warlord = !!lm.warlord;
     const beacon = new THREE.Group();
     const h = warlord ? 420 : 300;
@@ -587,8 +594,48 @@ function buildEmberScene() {
     if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildField).catch(() => {});
     if (KK.onAssetLoad) KK.onAssetLoad(buildField);
   }
+  // ── the witches' ring: thirteen stones, the five worn places, and the elder
+  // in the middle, green, the one living thing out here
+  const ringKiosks = [];
+  for (const w of WITCH_FIVE) {
+    const hollow = new THREE.Mesh(new THREE.CircleGeometry(62, 20), new THREE.MeshLambertMaterial({ color: 0x0c0605, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+    hollow.rotation.x = -Math.PI / 2; hollow.position.set(w.x, 2.8, w.y); scene.add(hollow);
+    const rim = new THREE.Mesh(new THREE.RingGeometry(62, 74, 24), new THREE.MeshBasicMaterial({ color: 0x9a7a5a, side: THREE.DoubleSide, transparent: true, opacity: 0.55, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+    rim.rotation.x = -Math.PI / 2; rim.position.set(w.x, 2.9, w.y); scene.add(rim);
+    ringKiosks.push({ x: w.x, z: w.y, npc: 'ring', ringId: w.id, hint: `stand in ${w.name}'s place`, radius: 85 });
+    if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🕯️ ' + w.name); l.position.set(w.x, 70, w.y); scene.add(l); }
+  }
+  ringKiosks.push({ x: WITCH_RING.x, z: WITCH_RING.y + 60, npc: 'ring', ringId: 'elder', hint: 'go to the elder', radius: 120 });
+  scene.userData.walls.push({ x: WITCH_RING.x - 40, y: WITCH_RING.y - 40, w: 80, h: 80 });
+  if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🌿 The witches\' ring'); l.scale.multiplyScalar(2.5); l.position.set(WITCH_RING.x, 520, WITCH_RING.y); scene.add(l); }
+  const ringPlaced = new Set();
+  const buildRing = () => {
+    if (!(KK && KK.has && KK.staticInstance)) return;
+    for (let i = 0; i < WITCH_RING.stones; i++) {
+      if (ringPlaced.has(i) || !KK.has('em_ring_stone')) continue;
+      const a = (i / WITCH_RING.stones) * Math.PI * 2;
+      const g = KK.staticInstance('em_ring_stone', 170 + ((i * 37) % 60), 'height'); if (!g) continue;
+      ringPlaced.add(i);
+      g.rotation.y = -a + Math.PI / 2; g.position.set(WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, 0, WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR);
+      scene.add(g);
+      const half = 40, sx = WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, sz = WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR;
+      scene.userData.walls.push({ x: sx - half, y: sz - half, w: half * 2, h: half * 2 });
+    }
+    if (!ringPlaced.has('elder') && KK.has('gv_elder')) {
+      const g = KK.staticInstance('gv_elder', 300, 'height');
+      if (g) {
+        ringPlaced.add('elder'); g.position.set(WITCH_RING.x, 0, WITCH_RING.y); scene.add(g);
+        const glow = new THREE.PointLight(0x9adf7a, 0.7, 700); glow.position.set(WITCH_RING.x, 200, WITCH_RING.y); scene.add(glow);
+      }
+    }
+  };
+  buildRing();
+  if (KK && ringPlaced.size < WITCH_RING.stones + 1) {
+    if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildRing).catch(() => {});
+    if (KK.onAssetLoad) KK.onAssetLoad(buildRing);
+  }
   // what can be stood at and used, each with its name over it
-  const ashKiosks = [...fieldKiosks];
+  const ashKiosks = [...fieldKiosks, ...ringKiosks];
   for (const id in ASH_SPOTS) {
     const sp = ASH_SPOTS[id];
     ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });
