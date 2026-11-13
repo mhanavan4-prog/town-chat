@@ -10836,11 +10836,13 @@ function tickEmberWastes(dt) {
         m.provokedUntil = 0;
         const hx = m.homeX != null ? m.homeX : m.spawnX, hy = m.homeY != null ? m.homeY : m.spawnY;
         m.wanderTimer -= dt;
-        if (m.wanderTimer <= 0) {
+        if (Math.hypot(m.x - hx, m.y - hy) > preset.leash) {
+          // strayed past its own ground: no dawdling, straight back home
+          m.paused = false; m.wanderAngle = Math.atan2(hx - m.x, hy - m.y);
+        } else if (m.wanderTimer <= 0) {
           m.wanderTimer = 1.2 + Math.random() * 2.2;
           m.paused = Math.random() < (preset.pack ? 0.25 : 0.4);
-          const away = Math.hypot(m.x - hx, m.y - hy);
-          m.wanderAngle = away > preset.leash ? Math.atan2(hx - m.x, hy - m.y) + (Math.random() - 0.5) * 0.6 : Math.random() * Math.PI * 2;
+          m.wanderAngle = Math.random() * Math.PI * 2;
         }
         if (!m.paused) { const sp = preset.speed * (preset.pack ? 0.45 : 0.6); vx = Math.sin(m.wanderAngle) * sp; vy = Math.cos(m.wanderAngle) * sp; }
       }
