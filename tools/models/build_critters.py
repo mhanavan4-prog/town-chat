@@ -732,10 +732,37 @@ CRITTERS = {'rabbit': rabbit, 'embermoth': embermoth, 'thistlehog': hedgehog, 'd
             'bat': bat, 'rat': rat, 'rat_king': rat_king, 'spider': spider, 'beetle': beetle, 'centipede': centipede, 'slug': slug, 'adder': adder, 'dragon': dragon, 'black_dog': black_dog,
             'cat': cat, 'toad': toad, 'hare': hare, 'hound': hound, 'polecat': polecat}
 
+# ── The KayKit idiom, for creatures ────────────────────────────────────────
+# KayKit's figures are toys: a big head, stout limbs, large plain eyes. Each creature here is built to its
+# natural proportions and then given the toy's, part by part about its own joint, so the game's animation
+# (which turns the same joints) is unchanged. Creatures whose legs are jointed sticks reaching sideways
+# (spider, beetle, centipede, moth) or that have none keep their limbs and take the head only.
+TOY = {'head': 1.24, 'leg': 1.55, 'tail': 1.3}
+TOY_PLAIN_LIMBS = {'spider', 'beetle', 'centipede', 'embermoth', 'bat', 'slug', 'adder', 'dragon', 'rat_king'}
+TOY_HEAD = {'spider': 1.0, 'beetle': 1.0, 'centipede': 1.0, 'embermoth': 1.0, 'slug': 1.0, 'rat_king': 1.0, 'adder': 1.15, 'dragon': 1.15, 'bat': 1.15}
+
+
+def toyify(m, name):
+    for p in m.parts:
+        if not p.node or p.node not in m.pivots: continue
+        c = m.pivots[p.node]
+        if p.node.startswith('head'):
+            k = TOY_HEAD.get(name, TOY['head'])
+            p.v = c + (p.v - c) * k
+        elif p.node.startswith('leg') and name not in TOY_PLAIN_LIMBS:
+            p.v = p.v.copy()
+            for a_ in (0, 1): p.v[:, a_] = c[a_] + (p.v[:, a_] - c[a_]) * TOY['leg']
+        elif p.node.startswith('tail') and name not in TOY_PLAIN_LIMBS:
+            p.v = p.v.copy()
+            for a_ in (1, 2): p.v[:, a_] = c[a_] + (p.v[:, a_] - c[a_]) * TOY['tail']
+    return m
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     for n in (sys.argv[1:] or list(CRITTERS)):
         m, glow = CRITTERS[n]()
+        toyify(m, n)
         path = os.path.abspath(os.path.join(OUT, n + '.glb'))
         m.export(path, glow_color=glow or '#ffffff')
         print(n, m.tris(), 'tris', os.path.getsize(path), 'bytes')

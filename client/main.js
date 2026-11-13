@@ -469,6 +469,7 @@ const KK = (() => {
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
     wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', wd_ghost_ox: 'kk/home/ghost_ox.glb', // the drove road east (data/droveRoad.js)
+    rd_setts: 'kk/home/road_setts.glb', rd_kerb: 'kk/home/road_kerb.glb', // an old road's stones (layRoadStones, client/ember-scene.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
     em_minster: 'kk/home/minster.glb', // Ashminster, in the Ember Wastes (data/emberTown.js)
     em_house_a: 'kk/home/ash_house_a.glb', em_house_b: 'kk/home/ash_house_b.glb', em_house_c: 'kk/home/ash_house_c.glb',

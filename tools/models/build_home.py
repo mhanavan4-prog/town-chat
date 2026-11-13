@@ -2731,6 +2731,26 @@ def coffinstone():
 GREYSTONE = ('#36332f', '#a8a296')
 
 
+def road_setts():
+    """A patch of an old road in the KayKit idiom: a few worn flagstones sunk in the way, set close, no two alike."""
+    m = Model('road_setts')
+    m.bevel = 0.03; m.bevel_segments = 1
+    for (x, y, sx, sy, a, col) in ((-0.42, 0.2, 0.62, 0.5, 0.1, KK_STONE), (0.3, 0.3, 0.7, 0.46, -0.08, KK_STONE_LT), (-0.2, -0.36, 0.5, 0.52, 0.3, KK_STONE_DK),
+                                   (0.46, -0.28, 0.56, 0.5, -0.2, KK_STONE), (0.0, 0.0, 0.3, 0.26, 0.6, KK_STONE_LT)):
+        m.add(blk(sx, sy, 0.07, col, (x, y, -0.015), rz(a)))
+    return m, None
+
+
+def road_kerb():
+    """Kerb stones of an old road in the KayKit idiom: one long stone on edge and a short one beside it, a little out of line."""
+    m = Model('road_kerb')
+    m.bevel = 0.035
+    m.add(blk(0.7, 0.26, 0.2, KK_STONE, (-0.2, 0, -0.02), rz(0.06)))
+    m.add(blk(0.36, 0.24, 0.15, KK_STONE_DK, (0.42, 0.03, -0.02), rz(-0.12)))
+    m.add(blk(0.2, 0.1, 0.03, KK_MOSS, (-0.3, 0.02, 0.175), rz(0.06)))
+    return m, None
+
+
 def scots_pine():
     """A Scots pine as the drovers knew them, in the KayKit idiom: a tall bare red-barked trunk and a flat crown of a few broad pads high up."""
     m = Model('scots_pine')
@@ -2815,19 +2835,19 @@ def milestone():
 
 
 def ghost_ox():
-    """A black cow of the old droves, to be drawn pale and seen through: a deep body, a heavy head carried low, wide horns, short legs."""
+    """A black cow of the old droves, to be drawn pale and seen through, in the toy proportions of the KayKit idiom: a deep body, a big heavy head carried low, wide horns, short stout legs."""
     m = Model('ghost_ox')
     HIDE = ('#2a2622', '#8a8076')
-    m.add(blob(0.62, 0.3, 0.32, seg=12, rings=8, colors=HIDE, jitter=0.04, seed=3).xf(None, (0, 0, 0.78)))          # body, nose along +x
-    m.add(blob(0.26, 0.24, 0.27, seg=10, rings=6, colors=HIDE, jitter=0.03, seed=4).xf(None, (0.42, 0, 0.84)))      # shoulders
-    m.add(blob(0.2, 0.13, 0.15, seg=10, rings=6, colors=HIDE, jitter=0.03, seed=5).xf(ry(0.5), (0.84, 0, 0.74)))   # head, carried low
-    m.add(blob(0.09, 0.1, 0.08, seg=8, rings=5, colors=('#3a3430', '#a0968c'), jitter=0.02, seed=6).xf(None, (1.0, 0, 0.62)))   # muzzle
+    m.add(blob(0.62, 0.3, 0.32, seg=12, rings=8, colors=HIDE, jitter=0.0, seed=3).xf(None, (0, 0, 0.78)))          # body, nose along +x
+    m.add(blob(0.26, 0.24, 0.27, seg=10, rings=6, colors=HIDE, jitter=0.0, seed=4).xf(None, (0.42, 0, 0.84)))      # shoulders
+    m.add(blob(0.25, 0.17, 0.19, seg=10, rings=6, colors=HIDE).xf(ry(0.5), (0.84, 0, 0.74)))   # head, carried low
+    m.add(blob(0.11, 0.12, 0.1, seg=8, rings=5, colors=('#3a3430', '#a0968c')).xf(None, (1.03, 0, 0.6)))   # muzzle
     for sy in (-1, 1):
-        m.add(tube([(0.8, 0.09 * sy, 0.86), (0.82, 0.3 * sy, 0.92), (0.9, 0.42 * sy, 1.06)], [0.04, 0.03, 0.012], sides=6, colors=('#b8ad98', '#efe6d2')))   # horns
-        m.add(blob(0.06, 0.03, 0.04, seg=6, rings=4, colors=HIDE).xf(None, (0.78, 0.17 * sy, 0.82)))   # ears
+        m.add(tube([(0.8, 0.11 * sy, 0.9), (0.82, 0.34 * sy, 0.96), (0.9, 0.46 * sy, 1.12)], [0.055, 0.04, 0.015], sides=6, colors=('#b8ad98', '#efe6d2')))   # horns
+        m.add(blob(0.07, 0.035, 0.05, seg=6, rings=4, colors=HIDE).xf(None, (0.76, 0.2 * sy, 0.84)))   # ears
     for lx in (0.38, -0.4):
         for sy in (-1, 1):
-            m.add(tube([(lx, 0.17 * sy, 0.6), (lx + 0.02, 0.18 * sy, 0.3), (lx, 0.18 * sy, 0.02)], [0.075, 0.06, 0.05], sides=6, colors=HIDE, cap_base=True))
+            m.add(tube([(lx, 0.17 * sy, 0.6), (lx + 0.02, 0.18 * sy, 0.3), (lx, 0.18 * sy, 0.02)], [0.11, 0.095, 0.085], sides=6, colors=HIDE, cap_base=True))
     m.add(tube([(-0.6, 0, 0.92), (-0.72, 0, 0.6), (-0.7, 0.02, 0.36)], [0.025, 0.02, 0.015], sides=5, colors=HIDE))   # tail
     m.add(blob(0.05, 0.05, 0.08, seg=6, rings=4, colors=HIDE).xf(None, (-0.7, 0.02, 0.32)))
     return m, None
@@ -2853,7 +2873,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'ghost_ox': ghost_ox}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'road_setts': road_setts, 'road_kerb': road_kerb, 'ghost_ox': ghost_ox}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
