@@ -61,11 +61,11 @@ setTimeout(() => {
   const FLORA_BREWS = ['barkbind_salve', 'capwood_elixir', 'nightsight_draught',
     'fernstep_philtre', 'bramble_poultice', 'witchwood_balm'];
   check('init ships the authoritative usable-item list',
-    // Every plant-catalog consumable, plus the craftable Tome of Insight.
+    // Every plant-catalog consumable, plus the craftable Tome of Insight and Kirsty's knot of wind.
     Array.isArray(init.usableItems)
       && Object.keys(PLANT_CATALOG).every(id => init.usableItems.includes(id))
-      && init.usableItems.includes('tome_insight')
-      && init.usableItems.length === Object.keys(PLANT_CATALOG).length + 1);
+      && init.usableItems.includes('tome_insight') && init.usableItems.includes('wind_knot')
+      && init.usableItems.length === Object.keys(PLANT_CATALOG).length + 2);
   check('every flora brew is advertised as usable (no more "can\'t be equipped")',
     FLORA_BREWS.every(id => init.usableItems.includes(id)),
     FLORA_BREWS.filter(id => !init.usableItems.includes(id)));

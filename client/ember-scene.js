@@ -655,8 +655,24 @@ function buildEmberScene() {
   buildMarch();
   if (KK && !marchPlaced) { if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildMarch).catch(() => {}); if (KK.onAssetLoad) KK.onAssetLoad(buildMarch); }
 
+  // ── Ashminster, living in (data/ashFolk.js; test/ash-folk.test.js keeps this copy in step): the
+  // people who come back to the town. Each stands in a holder the game shows only once she or he is
+  // back for you (the ash_folk message); the KayKit body is swapped in inside the holder when it loads.
+  const ASH_FOLK = [{"id":"kirsty","name":"Kirsty Halcrow, the wind-seller","icon":"🪢","charId":0,"x":10270,"y":13060,"facing":3.141592653589793},{"id":"wat","name":"Wat Ellery, the sexton","icon":"🔔","charId":4,"x":10900,"y":11520,"facing":-1.5707963267948966},{"id":"nan","name":"Nan Gethin, who keeps the well","icon":"🌸","charId":2,"x":10420,"y":13230,"facing":2.356194490192345}];
+  scene.userData.folk = {};
+  const folkKiosks = [];
+  for (const f of ASH_FOLK) {
+    const holder = new THREE.Group(); holder.visible = false; scene.add(holder);
+    if (typeof createStaticNpc === 'function') {
+      try { const npc = createStaticNpc(f.charId); if (npc && npc.group) { npc.group.position.set(f.x, 0, f.y); npc.group.rotation.y = f.facing; holder.add(npc.group); } } catch (e) { /* the kiosk still works */ }
+    }
+    if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, 100, f.y); holder.add(l); }
+    scene.userData.folk[f.id] = holder;
+    folkKiosks.push({ x: f.x, z: f.y + 70, npc: 'folk', folkId: f.id, radius: 130 });
+  }
+
   // what can be stood at and used, each with its name over it
-  const ashKiosks = [...fieldKiosks, ...ringKiosks, ...marchKiosks];
+  const ashKiosks = [...fieldKiosks, ...ringKiosks, ...marchKiosks, ...folkKiosks];
   for (const id in ASH_SPOTS) {
     const sp = ASH_SPOTS[id];
     ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });
