@@ -40,9 +40,9 @@ setTimeout(() => {
   W.s.sent.length = 0; W.s.emit('message', JSON.stringify({ type: 'ash_use', id: 'anchoress' }));
   check('once: after it she speaks as she always did', !toasts(W.s).some((t) => t.includes('two lamps lit')) && toasts(W.s).length >= 1);
   const nan = FOLK_BY_ID.nan;
-  at(W.p, nan.x + 20, nan.y); W.s.sent.length = 0;
+  at(W.p, nan.x + 20, nan.y); W.s.sent.length = 0; W.p.health = 5;
   W.s.emit('message', JSON.stringify({ type: 'ash_folk_use', id: 'nan' }));
-  check('Nan at the well tells her who came', toasts(W.s).some((t) => t.includes('campion')), toasts(W.s));
+  check('Nan at the well tells her who came, and the well still mends her', toasts(W.s).some((t) => t.includes('campion')) && W.p.health > 5, toasts(W.s));
   W.s.sent.length = 0; W.s.emit('message', JSON.stringify({ type: 'ash_folk_use', id: 'nan' }));
   check('and then the well is the well again', !toasts(W.s).some((t) => t.includes('campion')));
   at(W.p, RING.x + 80, RING.y); W.s.sent.length = 0;
