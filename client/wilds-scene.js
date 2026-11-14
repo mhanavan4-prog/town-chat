@@ -26,6 +26,7 @@ function applyVillageWard(msg) {
 let wildsFinds = {}, lastWildsFinds = null;
 // The grass standing round you, and the ground it takes its season from (client/wilds-ground.js); null on 'low'.
 let wildsGrass = null, wildsGround = null;
+function wildsGrassCounts() { return wildsGrass ? wildsGrass.counts() : null; }
 function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); }
 function applyWildsFinds(msg) {
   lastWildsFinds = msg;
@@ -1383,5 +1384,5 @@ function buildWildsNPCs(scene) {
   }
 }
 
-  return { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround };
+  return { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts };
 }

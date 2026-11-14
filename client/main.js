@@ -14519,7 +14519,7 @@ function exitRefuge() {
 // THREE global; layout tables, prop makers, mob/decor helpers injected; scene/
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
-const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround } = createWildsScene({
+const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts } = createWildsScene({
   getVillageHouses: () => villageHouseCatalog,
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
@@ -21333,6 +21333,7 @@ if (location.search.includes('testdrive=1')) {
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
+    grass() { return wildsGrassCounts(); },   // how many tufts each ring of the Wilds' grass is drawing
     legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },
     wear(eq) { wearOverride = eq || null; if (myId && players[myId]) applyEquipVisual(myId, players[myId]); const k = visuals[myId] && visuals[myId].kk; return k ? { hats: (k.embeddedHats || []).map((h) => h.name + ':' + h.visible), head: !!(visuals[myId].headMesh && visuals[myId].headMesh.userData.gear) } : null; },
