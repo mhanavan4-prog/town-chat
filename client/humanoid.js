@@ -357,7 +357,7 @@ function createKayKitHumanoid(charId, appearance) {
     return actions[name] || null;
   }
   const kk = {
-    mixer, act, inst, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
+    mixer, act, inst, charId, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
     embeddedWeapons,
     embeddedHats,
     handR: inst.getObjectByName('handslotr') || null,
