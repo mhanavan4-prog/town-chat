@@ -1,3 +1,4 @@
+import { applyMenuGates, menuPointedAt } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
 import createCollision from './collision.js';
@@ -1999,6 +2000,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'xp_gain') {
     if (me) { me.xp = msg.xp; me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    applyMenuGates(msg.level);
     updateXPDisplay();
     updateSkillsBadge();
     if (Modals.isOpen('skillsOpen')) renderSkills();
@@ -2007,6 +2009,8 @@ function onWsMessage(ev) {
 
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
+    { const fresh = applyMenuGates(msg.level);   // the menu opens up as you rise (client/menu-gates.js)
+      if (fresh.length) setTimeout(() => { const t = `☰ New in your menu: ${fresh.join(', ')}.`; setUnlockToast(t); appendSystemChatLine(t); }, 2600); }
     if (typeof playSfx === 'function') playSfx('levelup');
     updateXPDisplay();
     updateSkillsBadge();
@@ -6130,6 +6134,7 @@ function _scheduleToastFade(el, wrap, ms) {
 function setUnlockToast(text, opts) {
   const wrap = document.getElementById('unlockToast');
   if (!wrap || !text) return;
+  menuPointedAt(text);   // a notice that names a menu entry opens it, whatever your level (client/menu-gates.js)
   const level = (opts && opts.level) || classifyToast(text);
   logMessage(text, level);
   // Remember the latest line so systemChatNotif() doesn't repeat it as a banner
@@ -7965,12 +7970,12 @@ function hydrateMenuRows() {
     else if (myAttackCatalog) { if (!Modals.isOpen('attackPanelOpen')) openAttackPanel(); }
   });
   on('chatToggleBtn', () => toggleMobileChat());
-  on('menuBtn', () => { if (typeof playSfx === 'function') playSfx('ui_click'); document.getElementById('menuSheet').classList.remove('hidden'); });
+  on('menuBtn', () => { if (typeof playSfx === 'function') playSfx('ui_click'); applyMenuGates((me && me.level) || 1); document.getElementById('menuSheet').classList.remove('hidden'); });
   // Desktop's ☰ chip opens the very same sheet — one menu for both platforms.
   // __fromMenu tracks whether the open panel was launched from the ☰ menu, so
   // Escape can step back INTO the menu rather than closing everything (the menu
   // and every panel share one shape, so it reads as the content swapping).
-  on('pcMenuBtn', () => { document.getElementById('menuSheet').classList.remove('hidden'); window.__fromMenu = false; });
+  on('pcMenuBtn', () => { applyMenuGates((me && me.level) || 1); document.getElementById('menuSheet').classList.remove('hidden'); window.__fromMenu = false; });
   on('menuCloseBtn', () => { document.getElementById('menuSheet').classList.add('hidden'); window.__fromMenu = false; });
   const sheet = document.getElementById('menuSheet');
   if (sheet) sheet.addEventListener('click', (e) => { if (e.target === sheet) { sheet.classList.add('hidden'); window.__fromMenu = false; } });
@@ -8164,7 +8169,7 @@ function hydrateMenuRows() {
 // game → ☰ menu → panel, and ‹ Menu walks you back the way you came.
 (function mobileFullscreenPanels() {
   if (!MOBILE_UI) return;
-  const openMenuSheet = () => document.getElementById('menuSheet').classList.remove('hidden');
+  const openMenuSheet = () => { applyMenuGates((me && me.level) || 1); document.getElementById('menuSheet').classList.remove('hidden'); };
   const makeBack = (label, onTap) => {
     const b = document.createElement('button');
     b.className = 'mobPanelBack';
