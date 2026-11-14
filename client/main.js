@@ -52,6 +52,8 @@ import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES, QUIET_SIGNS } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
 import { wildsWaters } from './wilds-water.js';
+import { makeGroundNoise } from './wilds-ground.js';
+import { dressTownTiles } from './town-ground.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
@@ -10467,7 +10469,9 @@ function initScene(w) {
       for (let q = Math.floor(-2 - r / 2); q <= Math.ceil(18 - r / 2); q++) {
         const k = key(q, r), wld = axToWorld(q, r);
         pos.set(wld.x, 0, wld.z);
-        if (WATER.has(k) && waterGM) { qt.identity(); m4.compose(pos, qt, waterScl); waterM.push(m4.clone()); continue; }
+        // (the water tile's top is 20 below the grass at this scale, which put it under the backstop plane at -6: the pond
+        //  had only ever shown that plane's dark grey. Lifted so the water lies a step below the turf.)
+        if (WATER.has(k) && waterGM) { qt.identity(); pos.y = 18.5; m4.compose(pos, qt, waterScl); waterM.push(m4.clone()); pos.y = 0; continue; }
         const pick = roadEdges.has(k) ? pickTile(roadEdges.get(k)) : null;
         if (pick && KK.has(pick[0])) {
           const [tk, kRot] = pick;
@@ -10494,6 +10498,15 @@ function initScene(w) {
       scene.add(g);
     }
     for (const tk of Object.keys(roadM)) addInst(roadGM[tk], roadM[tk]);
+    // Country over the board (client/town-ground.js): turf that varies, paths with grit, a pond that moves. Not on 'low'.
+    if (GFX.st.quality !== 'low') {
+      try {
+        const tn = makeGroundNoise(THREE).tex;
+        dressTownTiles(THREE, [grassGM && grassGM[1], ...Object.values(roadGM).map((gm) => gm && gm[1])], tn, 'turf');
+        const pond = waterGM ? dressTownTiles(THREE, [waterGM[1]], tn, 'pond') : null;
+        if (pond) floorScene.userData.pondTick = () => pond.tick(performance.now() * 0.001);
+      } catch (e) { console.error('town ground: the board left plain', e); }
+    }
   };
   buildHexFloor(); // warm load: tiles already cached → build immediately
   if (!hexFloorBuilt && KK) {
@@ -14427,7 +14440,7 @@ const { applyMinionState, updateMinionVisuals, destroyMinions } = createMinions(
 // visuals written back via get/set. ──
 let emberAmbient = null; // { points, vel, RAD, CEIL } — drifting embers, ticked in the render loop
 const { buildEmberScene } = createEmberScene({
-  makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK,
+  makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, GFX,
   makeGlowTexture, setEmberAmbient: (e) => { emberAmbient = e; },
   setEmberScene: (s) => { emberScene = s; },
   setEmberCamera: (c) => { emberCamera = c; },
@@ -20912,6 +20925,7 @@ function update(dt) {
   updateCottageDressing(dt);
   _wildsSeason.update(dt);
   if (activeScene === wildsScene && me) updateWildsGround(me.x, me.y, performance.now() * 0.001);   // grass round you (client/wilds-ground.js)
+  if (activeScene && activeScene.userData && activeScene.userData.pondTick) activeScene.userData.pondTick();   // the town pond's ripples (client/town-ground.js)
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();

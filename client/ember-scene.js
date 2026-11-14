@@ -5,7 +5,9 @@ import { bakeGeometry } from './bake-geometry.js';
 // outdoor map behind the temple portal. THREE global; prop-helpers + EMBER_WORLD
 // injected; scene/camera/kiosk-lists/mob-visuals written back via get/set.
 // ---------------------------------------------------------------------------
-export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc }) {
+import { makeGroundNoise } from './wilds-ground.js';
+import { dressEmberTiles, makeLavaPool } from './ember-ground.js';
+export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc, GFX }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 // Burnt-over any mesh: pull its colours toward charcoal/scorch so KayKit's
 // bright pack tints read as ember-scorched without needing new textures.
@@ -197,6 +199,9 @@ function buildEmberScene() {
   // Phong specular + red emissive so they smoulder under the ember sun.
   // Built lazily: tiles are in the gating set, so on a warm load KK.settled is
   // already true and it builds at once; on a cold load it waits for KK.
+  const emberRich = !(GFX && GFX.st && GFX.st.quality === 'low');
+  const emberNoise = emberRich ? makeGroundNoise(THREE).tex : null, emberClock = { value: 0 };
+  let emberTiles = null;
   let rubyFloorBuilt = false;
   const buildRubyFloor = () => {
     if (rubyFloorBuilt || !(KK && KK.settled && KK.has && KK.has('tile_grass') && KK.models && KK.models.tile_grass)) return;
@@ -217,6 +222,7 @@ function buildEmberScene() {
     });
     const variants = RUBIES.map(c => ({ mat: rubyMat(c), mats: [] }));
     scene.userData.rubyMats = variants.map((v) => ({ mat: v.mat, base: v.mat.color.clone() }));   // dimmed by night (client/ember-storm.js)
+    if (emberNoise) { try { emberTiles = dressEmberTiles(THREE, variants.map((v) => v.mat), emberNoise); } catch (e) { console.error('ember ground: tiles left plain', e); } }   // scorch, ash and seams (client/ember-ground.js)
     let fseed = 0x51a5e1;
     const frnd = () => { fseed = (fseed * 1664525 + 1013904223) >>> 0; return fseed / 4294967296; };
     const m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), pos = new THREE.Vector3();
@@ -240,6 +246,7 @@ function buildEmberScene() {
       im.frustumCulled = false;
       for (let i = 0; i < v.mats.length; i++) im.setMatrixAt(i, v.mats[i]);
       im.instanceMatrix.needsUpdate = true;
+      im.onBeforeRender = () => { emberClock.value = performance.now() * 0.001; if (emberTiles) emberTiles.tick(emberClock.value); };
       scene.add(im);
     }
   };
@@ -408,6 +415,7 @@ function buildEmberScene() {
     const x = m + rnd() * (W - m * 2), z = m + rnd() * (Hh - m * 2), rad = 90 + rnd() * 170;
     const ox = (rnd() - 0.5) * rad * 0.3, oz = (rnd() - 0.5) * rad * 0.3;
     if (inTown(x, z)) continue;   // the town stands on cold ground
+    if (emberNoise) { scene.add(makeLavaPool(THREE, emberNoise, x, z, rad + 36, emberClock)); continue; }   // one sheet of moving melt (client/ember-ground.js); the random draws above are untouched
     const crust = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 36, 26), new THREE.MeshBasicMaterial({ color: 0x2e0c06, side: THREE.DoubleSide }));
     crust.rotation.x = -Math.PI / 2; crust.position.set(x, 1.4, z); scene.add(crust);
     const pool = new THREE.Mesh(new THREE.CircleGeometry(rad, 24), new THREE.MeshBasicMaterial({ color: 0xff5a1e }));
