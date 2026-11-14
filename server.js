@@ -6503,8 +6503,9 @@ function objectiveGoal(obj) {
   // temple portal is, and the objective's own words say the rest. (A wrong arrow is worse than none.)
   if (obj.room === 'ashminster' || obj.npcId === 'npc_anchoress') return { kind: 'room', room: 'outside' };
   // The same for the rest of the Wastes (the witches' ring, the things on the field); the March gate is at the east edge of the Wilds.
-  if (obj.room === 'witch_ring' || /^field_/.test(obj.room || '')) return { kind: 'room', room: 'outside' };
-  if (obj.room === 'march_gate') return { kind: 'room', room: 'wilds' };
+  if (obj.room === 'witch_ring' || /^(field|ash|lore)_/.test(obj.room || '')) return { kind: 'room', room: 'outside' };
+  if (obj.room === 'march_gate' || /^(drove|byway)_/.test(obj.room || '')) return { kind: 'room', room: 'wilds' };
+  if (obj.room === 'crypt') return { kind: 'room', room: 'wilds' };   // the crypt is under the Wilds: any of the old tombs there is a door down
   if (obj.type === 'talk_npc') return { kind: 'npc', npcId: obj.npcId, room: NPC_ROOM[obj.npcId] || null };
   if (obj.type === 'visit_room') return { kind: 'room', room: obj.room };
   if (obj.type === 'harvest_plant' || obj.type === 'harvest_specific') return { kind: 'room', room: 'wilds' };
@@ -6669,6 +6670,14 @@ function objectiveMatches(obj, eventType, detail) {
 // (talks, room visits, ability casts, crafting). Deliberately separate
 // from player.activeQuest so a side quest and a chapter can both tick off
 // the same kill.
+// Coming up to a thing that is already in the world (a stop on the drove road, a by-way, a spot in Ashminster, one
+// of the stones on the field) is a place found, for a story chapter that sends you to it (data/quests.js Episode IV):
+// 'drove_<id>', 'byway_<id>', 'ash_<id>', 'lore_<id>'. Whether or not the thing itself has anything new to say.
+function storyPlace(player, prefix, at, range, room) {
+  if (!at || !player || player.isDead || player.room !== room) return;
+  if (Math.hypot(player.x - at.x, player.y - at.y) > range) return;
+  storyEvent(player, 'visit_room', { room: prefix + at.id });
+}
 function storyEvent(player, eventType, detail = {}) {
   // Progression: ability usage. Both cast sites (cast_spell / cast_attack) route
   // through here, so one counter here covers all casts — total + by class
@@ -15354,7 +15363,9 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'dungeon_use') { dungeonFinds.use(player, msg.id); return; }
     if (msg.type === 'wilds_use') { wildsFinds.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_folk_use') { if (ashFolk.use(player, String(msg.id || ''))) { saveAccounts(); } return; }
+    if (msg.type === 'byway_use') { { const { BYWAYS_BY_ID, BYWAY } = require('./data/byways'); storyPlace(player, 'byway_', BYWAYS_BY_ID[String(msg.id || '')], BYWAY.range, 'wilds'); } }
     if (msg.type === 'byway_use') { if (byways.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
+    if (msg.type === 'drove_use') { { const { STOPS_BY_ID, ROAD } = require('./data/droveRoad'); storyPlace(player, 'drove_', STOPS_BY_ID[String(msg.id || '')], ROAD.range, 'wilds'); } }
     if (msg.type === 'drove_use') { if (droveRoad.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     // The March gate (data/droveRoad.js): open at any hour, both ways, between the east edge of the Wilds and the west edge of the Ember Wastes.
     if (msg.type === 'march_gate') {
@@ -15393,7 +15404,9 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wayside_use') { if (wayside.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); } return; }
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'ash_use') { { const { ASH_SPOTS, EMBER_TOWN } = require('./data/emberTown'); const id = String(msg.id || ''); if (Object.prototype.hasOwnProperty.call(ASH_SPOTS, id)) storyPlace(player, 'ash_', { id, ...ASH_SPOTS[id] }, EMBER_TOWN.range, 'ember_wastes'); } }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'ember_lore_use') { { const { EMBER_LORE_BY_ID, LORE } = require('./data/emberLore'); storyPlace(player, 'lore_', EMBER_LORE_BY_ID[String(msg.id || '')], LORE.range, 'ember_wastes'); } }
     if (msg.type === 'ember_lore_use') { if (emberLore.use(player, String(msg.id || ''))) saveAccounts(); return; }
     if (msg.type === 'field_use') {
       // Coming up to a thing on the field is a place found, for a story chapter that sends you to it (data/quests.js

@@ -23,7 +23,7 @@ setTimeout(() => {
   const line = h.STORYLINES[5];
 
   // ── The questline exists, like every other class, and is ritual-themed ──
-  check('the Necromancer has his own storyline: nine chapters and the three of Episode III', line && line.chapters.length === 12, line && line.chapters.length);
+  check('the Necromancer has his own storyline: nine chapters, the three of Episode III and the three of Episode IV', line && line.chapters.length === 15, line && line.chapters.length);
   check('it is The Sixth Rite', line && line.title === 'The Sixth Rite');
   check('the base campaign capstone grants a relic staff', line.chapters[5].itemRewards.some(r => r.itemId === 'void_staff'));
   const ep2 = line.chapters.slice(6, 9).map(c => c.objective.type);
