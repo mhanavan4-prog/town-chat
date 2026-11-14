@@ -2809,6 +2809,39 @@ def hob_hole():
     return m, None
 
 
+def sin_stone():
+    """The sin-eater's stone in the KayKit idiom: a flat stone on two stubs by the graves, a hard loaf and a wooden bowl left on it, a stool beside (data/emberLore.js). Faces -Y."""
+    m = Model('sin_stone')
+    m.bevel = 0.035
+    m.add(blk(1.3, 0.7, 0.16, KK_STONE_LT, (0, 0, 0.4), rz(0.03)))
+    for sx in (-0.42, 0.42):
+        m.add(blk(0.34, 0.56, 0.4, KK_STONE_DK, (sx, 0, 0)))
+    m.add(lathe([(0.0, 0.0), (0.2, 0.0), (0.22, 0.07), (0.14, 0.13), (0.0, 0.15)], sides=8, colors=('#5e4a30', '#8f7850'), close_top=True).xf(None, (-0.28, 0.02, 0.56)))   # the loaf, gone hard
+    m.add(lathe([(0.0, 0.0), (0.1, 0.0), (0.17, 0.09), (0.15, 0.09), (0.09, 0.02), (0.0, 0.02)], sides=8, colors=KK_WOOD).xf(None, (0.3, -0.05, 0.56)))                     # the bowl
+    m.add(trim(lathe([(0.0, 0.0), (0.11, 0.0), (0.11, 0.008)], sides=8, colors=('#2a1c10', '#3a2818'), close_top=True).xf(None, (0.3, -0.05, 0.6))))                           # dregs
+    m.add(blk(0.34, 0.3, 0.05, KK_WOOD_DK, (0.2, -0.75, 0.3)))                                                                    # a stool
+    for (x, y) in ((0.08, -0.85), (0.32, -0.85), (0.2, -0.64)):
+        m.add(blk(0.05, 0.05, 0.3, KK_WOOD_DK, (x, y, 0)))
+    m.add(blk(0.2, 0.14, 0.03, KK_MOSS, (-0.5, 0.2, 0.56)))
+    return m, None
+
+
+def watch_stone():
+    """The watching place in the KayKit idiom: a seat-stone on a rise with a back-stone behind it, a shepherd's crook leaning there and a lantern set down (data/emberLore.js). Faces -Y."""
+    m = Model('watch_stone')
+    m.bevel = 0.04
+    m.add(blk(0.9, 0.6, 0.42, KK_STONE, (0, 0, 0), rz(0.05)))
+    m.add(blk(0.8, 0.3, 1.0, KK_STONE_DK, (0.02, 0.42, 0), rz(-0.04)))
+    m.add(blk(0.6, 0.26, 0.3, KK_STONE, (0.0, 0.42, 1.0), rz(0.08)))
+    m.add(blk(0.3, 0.24, 0.16, KK_STONE_LT, (0.7, -0.2, 0), rz(0.6)))
+    m.add(tube([(-0.6, 0.15, 0.0), (-0.52, 0.3, 1.25), (-0.48, 0.32, 1.42), (-0.38, 0.3, 1.5), (-0.3, 0.26, 1.42)], [0.035, 0.03, 0.03, 0.028, 0.02], sides=5, colors=KK_WOOD, cap_base=True))   # the crook
+    m.add(blk(0.16, 0.16, 0.04, KK_IRON, (0.55, -0.45, 0)))                                  # the lantern, gone out
+    m.add(trim(blk(0.12, 0.12, 0.18, ('#5a4a30', '#8a7448'), (0.55, -0.45, 0.04))))
+    m.add(lathe([(0.11, 0.0), (0.0, 0.1)], sides=4, colors=KK_IRON, close_top=True, phase=math.pi / 4).xf(None, (0.55, -0.45, 0.22)))
+    m.add(blk(0.24, 0.16, 0.03, KK_MOSS, (-0.2, 0.42, 1.3)))
+    return m, None
+
+
 def scots_pine():
     """A Scots pine as the drovers knew them, in the KayKit idiom: a tall bare red-barked trunk and a flat crown of a few broad pads high up."""
     m = Model('scots_pine')
@@ -2931,7 +2964,7 @@ HOME = {'fp_foxglove': foxgloves, 'fp_meadow': meadow, 'fp_harebell': harebells,
         'kern_baby': kern_baby, 'sheaf_hung': sheaf_hung, 'skeleton_key': skeleton_key, 'vault_door': vault_door, 'coin_hoard': coin_hoard, 'scry_table': scry_table, 'stone_altar': stone_altar, 'besom': besom, 'cream_bowl': cream_bowl, 'bee_skep': bee_skep,
         'keep_shelf': keep_shelf, 'keep_bone': keep_bone, 'keep_bellrope': keep_bellrope, 'keep_cobalt': keep_cobalt, 'keep_claw': keep_claw,
         'rare_marks': rare_marks, 'rare_vault': rare_vault, 'rare_vault_open': rare_vault_open, 'rare_well': rare_well,
-        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'ruin_hearth': ruin_hearth, 'devil_stone': devil_stone, 'hob_hole': hob_hole, 'road_setts': road_setts, 'road_kerb': road_kerb, 'ghost_ox': ghost_ox}
+        'gibbet': gibbet, 'cointree': cointree, 'coffinstone': coffinstone, 'boundstone': boundstone, 'minster': minster, 'ash_house_a': ash_house_a, 'ash_house_b': ash_house_b, 'ash_house_c': ash_house_c, 'ash_cross': ash_cross, 'ash_barricade': ash_barricade, 'frith_cross': frith_cross, 'field_standard': field_standard, 'field_barrow': field_barrow, 'field_trench': field_trench, 'field_chapel': field_chapel, 'field_bottle': field_bottle, 'fingerpost': fingerpost, 'rowan_post': rowan_post, 'field_bell': field_bell, 'ring_stone': ring_stone, 'scots_pine': scots_pine, 'needfire': needfire, 'march_gate': march_gate, 'milestone': milestone, 'sin_stone': sin_stone, 'watch_stone': watch_stone, 'ruin_hearth': ruin_hearth, 'devil_stone': devil_stone, 'hob_hole': hob_hole, 'road_setts': road_setts, 'road_kerb': road_kerb, 'ghost_ox': ghost_ox}
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

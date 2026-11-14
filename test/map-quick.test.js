@@ -21,5 +21,6 @@ check('each opening starts on yourself, zoomed so the zone is wider than the scr
 check('names are set down by weight and never across one another; phone names are larger', /const LABEL_PX = PHONE \? 12 : 10;/.test(main) && /labelQ\.sort\(\(a, b\) => b\.weight - a\.weight \|\| a\.n - b\.n\)/.test(main) && /if \(!ok\) continue;/.test(main));
 check('the Wilds map shows the drove road, its stops and gate, the road north\'s three and the by-ways', /world2\.drove\.pts\.forEach/.test(main) && /for \(const w of \(world2\.byways \|\| \[\]\)\) pips\.push\(w\);/.test(main) && /for \(const w of \(world2\.wayside \|\| \[\]\)\) pips\.push\(w\);/.test(main) && /name: 'The March gate'/.test(main));
 check('only on a touch screen', /\nif \(MOBILE_UI\) \{\n {2}const PINCH_TOGETHER_MS = 250;/.test(main) && /const tellShortWays = \(\) => \{\n {4}if \(!MOBILE_UI\) return;/.test(main));
+check('the Wastes map shows its tracks, the things on the field and the March gate', /map: emberMapPublic\(\)/.test(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')) && /emberMapExtras = msg\.map \|\| null/.test(main) && /for \(const run of \(ex\.tracks \|\| \[\]\)\)/.test(main) && /for \(const w of \(ex\.places \|\| \[\]\)\)/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

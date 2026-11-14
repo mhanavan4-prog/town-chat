@@ -89,6 +89,11 @@ const ASH_SPOTS = {
 // step): the worn track and its forks, and the twelve things the war left by it.
 const FIELD_TRACK = [[[10000,18350],[9900,16800],[10100,15200],[10000,14400]],[[10000,9300],[10200,7500],[9800,5600],[10000,4300]],[[8300,10900],[7200,9600],[6200,7900],[5800,7300]],[[11700,10800],[12900,9900],[13900,8900]],[[10500,18250],[12800,17600],[14700,16700],[15300,16300]],[[8300,11200],[6500,12100],[4800,12800],[3950,13200]],[[3950,13200],[2900,12400],[1800,12650],[900,13100]]];
 const FIELD_POSTS = [{"x":4050,"y":13420,"arms":["the March gate ↖","the witches' ring ↙","Ashminster →"]},{"x":10260,"y":18200,"arms":["Ashminster ↑","Emberfall ↗"]},{"x":10180,"y":14420,"arms":["Ashminster ↑","the portal ↓"]},{"x":8250,"y":11050,"arms":["Charhold ↖","the witches' ring ←"]},{"x":10180,"y":9250,"arms":["the Cinder Bazaar ↑"]},{"x":11750,"y":10950,"arms":["the Great Ossuary ↗"]}];
+// The two reading places (data/emberLore.js; test/ember-lore.test.js holds these to the server's).
+const EMBER_LORE = [
+  { id: 'sin', icon: '🍞', name: 'The sin-eater\'s stone', x: 11300, y: 11650, model: 'em_sin_stone', size: 170, turn: 0.5, hint: 'look at what has been left on the stone' },
+  { id: 'watch', icon: '🌫️', name: 'The watching place', x: 11900, y: 7200, model: 'em_watch_stone', size: 170, turn: 3.6, hint: 'sit where the shepherds sat, and watch the field' },
+];
 const FIELD_FINDS = [
   {"id":"standard_south","name":"A fallen standard","icon":"🚩","model":"em_standard","x":9720,"y":16150,"size":200,"turn":0.4,"hint":"search the fallen standard"},
   {"id":"bell","name":"A cracked bell","icon":"🔔","model":"em_bell","x":10260,"y":15150,"size":90,"turn":0.5,"hint":"look at the cracked bell"},
@@ -588,6 +593,12 @@ function buildEmberScene() {
       const g = KK.staticInstance('em_fingerpost', 175, 'height'); if (!g) return;
       fieldPlaced.add(k); g.rotation.y = i * 0.9; g.position.set(p.x, 0, p.y); scene.add(g);
     });
+    EMBER_LORE.forEach((f) => {
+      if (fieldPlaced.has('lore_' + f.id) || !KK.has(f.model)) return;
+      const g = KK.staticInstance(f.model, f.size, 'fit'); if (!g) return;
+      fieldPlaced.add('lore_' + f.id); scorch(g, 0.08);
+      g.rotation.y = f.turn; g.position.set(f.x, H(f.x, f.y), f.y); scene.add(g);
+    });
     FIELD_FINDS.forEach((f) => {
       if (fieldPlaced.has(f.id) || !KK.has(f.model)) return;
       const g = KK.staticInstance(f.model, f.size, 'fit'); if (!g) return;
@@ -597,13 +608,18 @@ function buildEmberScene() {
     });
   };
   for (const p of FIELD_POSTS) if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🪧 ' + p.arms.join('  ·  ')); l.position.set(p.x, 215, p.y); scene.add(l); }
+  for (const f of EMBER_LORE) {
+    fieldKiosks.push({ x: f.x + Math.sin(f.turn) * 70, z: f.y + Math.cos(f.turn) * 70, npc: 'emlore', loreId: f.id, hint: f.hint, radius: 140 });
+    scene.userData.walls.push({ x: f.x - 38, y: f.y - 38, w: 76, h: 76 });
+    if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, 130, f.y); scene.add(l); }
+  }
   for (const f of FIELD_FINDS) {
     fieldKiosks.push({ x: f.x, z: f.y, npc: 'field', fieldId: f.id, hint: f.hint, radius: 150 });
     if (/barrow|chapel/.test(f.model)) { const h = f.size * 0.32; scene.userData.walls.push({ x: f.x - h, y: f.y - h, w: h * 2, h: h * 2 }); }
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, Math.max(130, f.size * 0.55), f.y); scene.add(l); }
   }
   buildField();
-  if (KK && fieldPlaced.size < markerSpots.length + FIELD_POSTS.length + FIELD_FINDS.length) {
+  if (KK && fieldPlaced.size < markerSpots.length + FIELD_POSTS.length + FIELD_FINDS.length + EMBER_LORE.length) {
     if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildField).catch(() => {});
     if (KK.onAssetLoad) KK.onAssetLoad(buildField);
   }

@@ -470,6 +470,7 @@ const KK = (() => {
     tw_pyre: 'kk/home/pyre.glb', tw_key: 'kk/home/skeleton_key.glb',
     wd_gibbet: 'kk/home/gibbet.glb', wd_cointree: 'kk/home/cointree.glb', wd_coffinstone: 'kk/home/coffinstone.glb', // the road north (data/wayside.js)
     wd_milestone: 'kk/home/milestone.glb', wd_scots_pine: 'kk/home/scots_pine.glb', wd_needfire: 'kk/home/needfire.glb', wd_march_gate: 'kk/home/march_gate.glb', wd_ghost_ox: 'kk/home/ghost_ox.glb', // the drove road east (data/droveRoad.js)
+    em_sin_stone: 'kk/home/sin_stone.glb', em_watch_stone: 'kk/home/watch_stone.glb', // the Wastes' reading places (data/emberLore.js)
     wd_ruin_hearth: 'kk/home/ruin_hearth.glb', wd_devil_stone: 'kk/home/devil_stone.glb', wd_hob_hole: 'kk/home/hob_hole.glb', // the by-ways (data/byways.js)
     rd_setts: 'kk/home/road_setts.glb', rd_kerb: 'kk/home/road_kerb.glb', // an old road's stones (layRoadStones, client/ember-scene.js)
     wd_boundstone: 'kk/home/boundstone.glb', // the village's bound fires (data/villageWard.js)
@@ -2622,7 +2623,7 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'spell_result') {
-    if (typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
+    voiceResult(msg, typeof SPELL_CATALOG !== 'undefined' ? SPELL_CATALOG : null);
     if (Modals.isOpen('spellbookOpen')) document.getElementById('spellbookErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -2694,7 +2695,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'attack_result') {
     // a plain strike is already voiced (the swing, then hit_fx's blow): only an ability's result plays the ability's sound
-    if (!msg.strike && typeof playSfx === 'function') playSfx(sfxForAbility(lastCastAtk, lastCastId));
+    voiceResult(msg, typeof myAttackCatalog !== 'undefined' ? myAttackCatalog : null);
     if (Modals.isOpen('attackPanelOpen')) document.getElementById('attackErr').textContent = '';
     setUnlockToast(msg.message);
     if (msg.revealTargetId) showGlimpseBeacon(msg.revealTargetId);
@@ -3020,6 +3021,7 @@ function onWsMessage(ev) {
     document.getElementById('plaqueBoss').textContent = '';
     for (const id of ['plaqueWanderer', 'plaqueRare']) { const e = document.getElementById(id); if (e) e.textContent = ''; }
     document.getElementById('plaqueModal').classList.remove('hidden');
+    if (msg.sfx && typeof playSfx === 'function') playSfx(sfxOrStandIn(msg.sfx));   // a board that comes with a sound of its own (the shoe in the chimney)
     return;
   }
 
@@ -3158,7 +3160,8 @@ function onWsMessage(ev) {
   if (msg.type === 'wayside_state') { waysideDone = new Set(msg.done || []); return; }
   if (msg.type === 'drove_herd') { setDroveHerd(msg); return; }
   if (msg.type === 'drove_state') { droveDone = new Set(msg.done || []); return; }
-  if (msg.type === 'byway_state') { bywayDone = new Set(msg.done || []); return; }   // the by-ways (data/byways.js)
+  if (msg.type === 'byway_state') { bywayDone = new Set(msg.done || []); return; }
+  if (msg.type === 'ember_lore_state') { emberLoreDone = new Set(msg.done || []); return; }   // the by-ways (data/byways.js)
   if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
@@ -3303,6 +3306,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'ember_wastes_entered') {
     emberLandmarks = msg.landmarks || [];
+    emberMapExtras = msg.map || null;   // the tracks, the field's finds and the March gate, for the map
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'field_state' }));
     emberDiscovered = {};
     if (me) { me.room = 'ember_wastes'; me.x = msg.spawn.x; me.y = msg.spawn.y; }
@@ -4334,7 +4338,8 @@ let ashSanctuaryUntil = 0; // sanctuary at Ashminster, till when (lib/ashminster
 let wardState = { lit: [], warded: false }; // the village's bound fires tonight (lib/villageWard.js)
 let ashFolkBack = new Set();      // who has come back to Ashminster for you (lib/ashFolk.js)
 let droveDone = new Set();        // which of the drove road's four you have used today (data/droveRoad.js)
-let bywayDone = new Set();   // the by-ways used today (byway_state)
+let bywayDone = new Set();
+let emberLoreDone = new Set();   // the Wastes' reading places come to today (ember_lore_state)   // the by-ways used today (byway_state)
 let needfireUntil = 0;             // the need-fire's smoke on you until (lib/droveRoad.js)
 let waysideDone = new Set();      // which of the road's three you have used today (data/wayside.js)
 let wandererRecord = {};          // wanderer key -> { slain, firstAt } for this account (the plaque shows it)
@@ -14282,6 +14287,7 @@ let EMBER_STATIC_KIOSKS = []; // the fixed exit portal, built once
 let EMBER_KIOSKS = [];        // static + live mobs, rebuilt each tick
 let emberNodeKiosks = [];     // harvestable resource veins (folded into EMBER_KIOSKS each rebuild)
 let emberLandmarks = [];      // named POIs from ember_wastes_entered
+let emberMapExtras = null;
 let emberDiscovered = {};     // landmark id -> true once the player has drawn near this visit
 // Folding node kiosks into whatever the mob/scene code writes back keeps the
 // resource veins interactable even though EMBER_KIOSKS is rebuilt every tick.
@@ -18067,11 +18073,24 @@ const { openNotifModal } = _notif;
       ctx.strokeStyle = 'rgba(126,240,195,0.35)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       propMarker(ctx, px, py, 'haven', 'Safe haven', '#7ef0c3', emberPropS);
     }
+    // The tracks under everything; then the things on the field and the March gate, a pip and a name each.
+    const ex = (typeof emberMapExtras !== 'undefined' && emberMapExtras) || null;
+    if (ex) {
+      ctx.save(); ctx.strokeStyle = 'rgba(190,170,150,0.4)'; ctx.lineWidth = Math.max(2, 210 * mapScale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const run of (ex.tracks || [])) { ctx.beginPath(); run.forEach((q, i) => (i ? ctx.lineTo(PX(q[0]), PY(q[1])) : ctx.moveTo(PX(q[0]), PY(q[1])))); ctx.stroke(); }
+      ctx.restore();
+      for (const w of (ex.places || [])) {
+        const x = PX(w.x), y = PY(w.y);
+        ctx.fillStyle = '#e0b84a'; ctx.strokeStyle = '#2a1408'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        label(`${w.icon || ''} ${w.name || ''}`.trim(), x, y + 8, '#e6d6a8', 3);
+      }
+    }
     // Named POIs streamed in on entry (warlord = the boss).
     if (typeof emberLandmarks !== 'undefined' && Array.isArray(emberLandmarks)) {
       for (const lm of emberLandmarks) {
         if (typeof lm.x !== 'number') continue;
-        propMarker(ctx, PX(lm.x), PY(lm.y), lm.warlord ? 'boss' : 'ember_crag', lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a', lm.warlord ? emberPropS * 1.15 : emberPropS);
+        propMarker(ctx, PX(lm.x), PY(lm.y), lm.warlord ? 'boss' : 'ember_crag', lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a', lm.warlord ? emberPropS * 1.15 : emberPropS, { weight: (lm.town || lm.ring || lm.warlord) ? 8 : 6 });
       }
     }
     drawPlayers(ctx, PX, PY, 'ember_wastes');
@@ -18610,6 +18629,18 @@ function nearestBuilding() {
 // keep the generic cast whoosh — their impact is voiced separately by hit_fx.
 let lastCastAtk = null;
 let lastCastId = null; // the ability id of the last cast — lets sfxForAbility pick a per-ability sound
+// The sound for an ability's result. A result that names its own spell is voiced as that spell, not as whatever
+// was cast last (an answer can come long after: a consent, a photo). A `strike` or `quiet` result is not voiced as
+// an ability at all: a plain blow has its swing and its hit, and a late follow-up (a scent trail gone cold, a
+// pocket picked) was heard when it was begun. A result may carry a sound of its own instead (`sfx`).
+function voiceResult(msg, catalog) {
+  if (typeof playSfx !== 'function') return;
+  if (msg.sfx) { if (typeof sfxAvailable !== 'function' || sfxAvailable(msg.sfx)) playSfx(msg.sfx); return; }
+  if (msg.strike || msg.quiet) return;
+  const id = msg.spellId || msg.attackId;
+  if (id && catalog && catalog[id]) { playSfx(sfxForAbility(catalog[id], id)); return; }
+  playSfx(sfxForAbility(lastCastAtk, lastCastId));
+}
 function sfxForAbility(atk, id) {
   if (!atk) return 'cast';
   // Per-ability sound: every ability id doubles as a sound id (they're globally
@@ -19547,6 +19578,7 @@ function tryInteract() {
   if (kiosk && kiosk.npc === 'wardstone') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ward_use', id: kiosk.wardId })); return; }
   if (kiosk && kiosk.npc === 'ash') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ash_use', id: kiosk.ashId })); return; }
   if (kiosk && kiosk.npc === 'field') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'field_use', id: kiosk.fieldId })); return; }
+  if (kiosk && kiosk.npc === 'emlore') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ember_lore_use', id: kiosk.loreId })); return; }
   if (kiosk && kiosk.npc === 'ring') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ring_use', id: kiosk.ringId })); return; }
   if (kiosk && kiosk.npc === 'packman') { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'npc_shop_open', npcId: 'npc_packman' })); return; }
   if (kiosk && kiosk.npc === 'quest') { openQuestDialogue(kiosk.npcId, kiosk.npcName); return; }
@@ -19876,6 +19908,12 @@ function updateInteractHint() {
     hint.classList.remove('hidden');
     const heard = ringState.heard && ringState.heard.includes(kiosk.ringId);
     document.getElementById('interactHintText').textContent = `${interactVerb()} ${heard ? 'read of the ring' : kiosk.hint}`;
+    return;
+  }
+  if (kiosk && kiosk.npc === 'emlore') {
+    // the Wastes' reading places (data/emberLore.js)
+    hint.classList.remove('hidden');
+    document.getElementById('interactHintText').textContent = `${interactVerb()} ${emberLoreDone.has(kiosk.loreId) ? 'read it again' : kiosk.hint}`;
     return;
   }
   if (kiosk && kiosk.npc === 'field') {

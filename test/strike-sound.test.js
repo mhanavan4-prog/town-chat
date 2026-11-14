@@ -13,7 +13,9 @@ function makeMockSocket(label) {
     lastOfType(type) { for (let i = this.sent.length - 1; i >= 0; i--) if (this.sent[i].type === type) return this.sent[i]; return null; } };
 }
 const main = fs.readFileSync(path.join(__dirname, '..', 'client/main.js'), 'utf8');
-check('the client plays an ability\'s sound only for an ability\'s result', /if \(!msg\.strike && typeof playSfx === 'function'\) playSfx\(sfxForAbility\(lastCastAtk, lastCastId\)\);/.test(main));
+check('the client plays an ability\'s sound only for an ability\'s result, and by the result\'s own spell where it names one', /if \(msg\.strike \|\| msg\.quiet\) return;/.test(main) && /const id = msg\.spellId \|\| msg\.attackId;/.test(main) && /voiceResult\(msg, typeof myAttackCatalog/.test(main) && /voiceResult\(msg, typeof SPELL_CATALOG/.test(main));
+const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+check('late follow-ups are not voiced as the last ability: a pocket picked, a scent trail\'s answer', (server.match(/type: 'attack_result', quiet: true/g) || []).length >= 6);
 check('a strike still has its swing, and its blow when it lands', /playSfx\('swing'\); \/\/ weapon whoosh on the swing/.test(main) && /playSfx\(msg\.dead \? 'kill' : meleeHitSfx\(\)\); \/\/ my blow landed/.test(main));
 require('../server.js');
 setTimeout(() => {
