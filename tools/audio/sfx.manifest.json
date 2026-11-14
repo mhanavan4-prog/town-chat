@@ -577,7 +577,8 @@
  "new": true,
  "duration_seconds": 3.5,
  "prompt": "A quiet word spoken at the end of a long story: one low warm note like breath over the mouth of a clay jar, swelling gently and settling, with a faint crackle of a lamp flame beneath it. Soft, grave, kind, a little sad. No music melody, no voice words, no chimes, no bells, no metal, no shrill highs."
-}
+},
+    {"id": "wade", "category": "movement", "existing": false, "new": true, "duration_seconds": 1.0, "prompt": "A single footstep wading through shallow running water over pebbles: one soft splash and slosh as a boot goes in ankle-deep and lifts out, a few drips after. Close, natural, gentle, outdoors. One step only. No music, no voice, no reverb, no big plunge or swimming."}
  ],
   "_optional_candidates": [
     "ui_click — a soft muffled UI tap/click for menu buttons (new trigger)",
