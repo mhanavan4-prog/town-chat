@@ -6,8 +6,9 @@
 // plumbing in main.js treats a village room as it treats the crypt.
 // ---------------------------------------------------------------------------
 import { makeHearthFire } from './hearth-fire.js';
+import { plankTexture, roomSurface, roomCaster } from './room-light.js';
 
-export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid }) {
+export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid, GFX }) {
   const built = {}; // house id -> { scene, camera }
 
   const LOOK = {
@@ -27,16 +28,22 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 1, 2200);
     built[house.id] = { scene, camera };
 
-    scene.add(new THREE.AmbientLight(L.amb, 0.5));
-    const fill = new THREE.DirectionalLight(0xfff0d8, 0.22);
+    // Light that shows (client/room-light.js): the floor and walls are shaded at every pixel so fire and lamps pool on
+    // them, the room's own light is turned down to leave the corners dim, and a soft overhead light casts the shadows.
+    const rich = !(GFX && GFX.st && GFX.st.quality === 'low');
+    scene.add(new THREE.AmbientLight(L.amb, rich ? 0.36 : 0.5));
+    const fill = new THREE.DirectionalLight(0xfff0d8, rich ? 0.26 : 0.22);
     fill.position.set(W / 2, 360, D * 0.7); fill.userData.noShadowCaster = true;
     scene.add(fill);
+    if (rich) roomCaster(THREE, scene, fill, W, D, 0.6);
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W + 80, D + 80), new THREE.MeshLambertMaterial({ color: L.floor }));
+    const boards = rich ? plankTexture(THREE, house.id === 'tower' ? 'flag' : 'plank').tex : null;
+    if (boards) boards.repeat.set((W + 80) / 240, (D + 80) / 240);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W + 80, D + 80), roomSurface(THREE, rich ? new THREE.Color(L.floor).multiplyScalar(1.7).getHex() : L.floor, { rich, map: boards }));
     floor.rotation.x = -Math.PI / 2; floor.position.set(W / 2, 0, D / 2);
     scene.add(floor);
     // the shell: four walls and a roof, set back so the camera never clips them
-    const wallMat = new THREE.MeshLambertMaterial({ color: L.wall });
+    const wallMat = roomSurface(THREE, L.wall, { rich });
     for (const [wx, wy, wz, ww, wh, wd] of [
       [W / 2, L.h / 2, -24, W + 120, L.h, 44], [W / 2, L.h / 2, D + 60, W + 120, L.h, 44],
       [-24, L.h / 2, D / 2, 44, L.h, D + 120], [W + 24, L.h / 2, D / 2, 44, L.h, D + 120],
@@ -52,7 +59,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     const sign = (text, x, y, z) => { const s = makeSignSprite(text); s.position.set(x, y, z); scene.add(s); };
     const spot = (id) => house.spots.find((s) => s.id === id);
     // a hearth against the north wall with its fire lit (the model is the stonework and the logs; the fire is drawn)
-    const hearth = (x, z, size, power) => { kkPlace(scene, 'furn_hearth', x, z, size, 0, 'fit'); const f = makeHearthFire(THREE, size / 190); f.position.set(x, 9 * size / 190, z + 3); f.userData.light.intensity *= (power || 1); f.userData.light.color.set(L.light); scene.add(f); };
+    const hearth = (x, z, size, power) => { kkPlace(scene, 'furn_hearth', x, z, size, 0, 'fit'); const f = makeHearthFire(THREE, size / 190); f.position.set(x, 9 * size / 190, z + 3); const fl = f.userData.light; fl.userData.base *= (power || 1) * (rich ? 1.45 : 1); fl.color.set(L.light); if (rich) { fl.position.set(0, 62 * size / 190, 64 * size / 190); fl.distance *= 1.25; } scene.add(f); };   // (rich: lifted and out from the fire-back, so it falls on the boards before it)
 
     if (house.id === 'barn') {
       lamp(W * 0.25, D / 2); lamp(W * 0.75, D / 2); lamp(W / 2, 120, 150);

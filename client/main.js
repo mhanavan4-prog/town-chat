@@ -11946,7 +11946,7 @@ function exitCrypt() {
 let villageHouseCatalog = {};     // id -> { room, name, door, width, height, spawn, spots, … }
 const VH_WORLDS = {};             // id -> { width, height, buildings: [], spawn }
 let vhScene = null, vhId = null;
-const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid });
+const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid, GFX });
 function isVHRoom(room) { return typeof room === 'string' && room.startsWith('vh_'); }
 function vhIdOf(room) { for (const h of Object.values(villageHouseCatalog)) if (h.room === room) return h.id; return null; }
 function vhKiosks() {
