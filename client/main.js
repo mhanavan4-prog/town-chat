@@ -14519,7 +14519,7 @@ function exitRefuge() {
 // THREE global; layout tables, prop makers, mob/decor helpers injected; scene/
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
-const { buildWildsScene, applyWildsFinds, applyVillageWard } = createWildsScene({
+const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround } = createWildsScene({
   getVillageHouses: () => villageHouseCatalog,
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
@@ -20899,6 +20899,7 @@ function update(dt) {
   updateManorEmbers(dt);
   updateCottageDressing(dt);
   _wildsSeason.update(dt);
+  if (activeScene === wildsScene && me) updateWildsGround(me.x, me.y, performance.now() * 0.001);   // grass round you (client/wilds-ground.js)
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
