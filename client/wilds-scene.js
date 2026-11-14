@@ -11,7 +11,8 @@ import { makeCountlessRing } from './props-countless.js';
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
-import { dressWildsGround, createWildsGrass, wander } from './wilds-ground.js';
+import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
+import { wildsWaters, refineGround, buildWildsWater } from './wilds-water.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
@@ -26,8 +27,10 @@ function applyVillageWard(msg) {
 let wildsFinds = {}, lastWildsFinds = null;
 // The grass standing round you, and the ground it takes its season from (client/wilds-ground.js); null on 'low'.
 let wildsGrass = null, wildsGround = null;
+// The beck and the mere, as drawn (client/wilds-water.js), and where their sky colour comes from.
+let wildsWater = null, wildsWaterSky = null;
 function wildsGrassCounts() { return wildsGrass ? wildsGrass.counts() : null; }
-function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); }
+function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); if (wildsWater) wildsWater.update(t, wildsWaterSky && wildsWaterSky(), m ? m.color : null); }
 function applyWildsFinds(msg) {
   lastWildsFinds = msg;
   const used = new Set(msg.used || []), lit = new Set(msg.lit || []);
@@ -95,6 +98,15 @@ function buildWildsScene(w2) {
       groundGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       tinted = true;
     }
+  }
+  // The beck and its mere (client/wilds-water.js) are cut into the heightfield; the mesh is too coarse to show a
+  // channel, so the cells the water touches are swapped for fine ones.
+  let beck = null;
+  if (typeof wildsHeightAt === 'function') {
+    try {
+      wildsHeightAt(0, 0); beck = wildsWaters();
+      refineGround(THREE, groundGeo, 160, (x, z) => wildsHeightAt(cx0 + x, cz0 + z), (x, z, pad) => beck.near(cx0 + x, cz0 + z, pad));
+    } catch (e) { console.error('wilds water: ground left coarse', e); }
   }
   const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: grassTex, vertexColors: tinted }));
   ground.name = 'wildsGround'; // the season dyes it (client/wilds-season.js)
@@ -200,6 +212,7 @@ function buildWildsScene(w2) {
     let gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     [gx, gz] = nudgeOffLandmarks(gx, gz);
     const size = 55 + grand() * 120;
+    if (beck) [gx, gz] = beck.pushOff(gx, gz, size * 0.7);          // no glyph burns under water
     glyphSpots.push({ x: gx, y: gz, r: size * 0.66, w: 0.9 });   // scorched earth under it: nothing grows on a glyph
     const rot = grand() * Math.PI * 2;
     const pick = sigilTex[(grand() * sigilTex.length) | 0];
@@ -238,6 +251,7 @@ function buildWildsScene(w2) {
         way([[4500, 2900], [3250, 2980], [2300, 2250]], 11, 0.65),                                   // by the Manor to the cave
         way([[6300, 7250], [6450, 6500]], 10, 0.6),                                                  // off the drove road to the great tree
       ];
+      if (beck) for (const b of beck.each) { const pts = []; for (let i = 0; i < b.n; i += 3) pts.push([b.sx[i], b.sz[i]]); ways.push({ pts, half: b.B.half + 6, w: 1 }); }   // the beds: bare earth and stones
       if (w2.drove) {
         const P = w2.drove.pts;
         const off = (d) => P.map(([x, y], i) => { const [bx, by] = P[Math.min(i + 1, P.length - 1)], [ax, ay] = P[Math.max(i - 1, 0)], L = Math.hypot(bx - ax, by - ay) || 1; return [x - (by - ay) / L * d, y + (bx - ax) / L * d]; });
@@ -249,12 +263,24 @@ function buildWildsScene(w2) {
         { x: 2200, y: 5000, r: 330, w: 0.5 }, { x: 7800, y: 5000, r: 330, w: 0.5 },
         ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 105, w: 0.8 })),
         ...glyphSpots,
+        ...(beck ? beck.each.map((b) => ({ x: b.B.mere.x, y: b.B.mere.y, r: b.B.mere.r * 1.12, w: 1 })) : []),
         ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 30, w: 0.28 }] : []),
       ];
       richGround = dressWildsGround(THREE, ground, { world: w2, heightAt: wildsHeightAt, ways, places });
       wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, quality: GFX && GFX.st ? GFX.st.quality : 'high' });
       wildsGround = ground;
     } catch (e) { console.error('wilds ground: kept the old floor', e); richGround = null; wildsGrass = null; }
+  }
+
+  wildsWater = null;
+  if (beck) {
+    try {
+      const noiseTex = richGround ? richGround.noise.tex : makeGroundNoise(THREE).tex;
+      const drawn = beck.each.map((b) => buildWildsWater(THREE, scene, b, wildsHeightAt, noiseTex, GFX && GFX.st ? GFX.st.quality : 'high'));
+      wildsWater = { update: (t, sky, tint) => { for (const d of drawn) d.update(t, sky, tint); }, reeds: drawn.reduce((n, d) => n + d.reeds, 0) };
+      wildsGround = ground;
+      wildsWaterSky = () => (scene.fog ? scene.fog.color : null);
+    } catch (e) { console.error('wilds water: none drawn', e); wildsWater = null; }
   }
 
   // ── Spirit-wisps — small will-o'-the-wisp motes that drift and bob slowly
