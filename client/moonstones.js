@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 import { Modals } from './modals.js';
 
-export default function createMoonstones({ getMyMoonstones, getBankState, getMsPacksCatalog, getMe, getSavedAccount, getPaymentsEnabled, requestResumeToken, apiUrlMaybe }) {
+export default function createMoonstones({ getMyMoonstones, getBankState, getMsPacksCatalog, getMe, getSavedAccount, getPaymentsEnabled, requestResumeToken, apiUrlMaybe, sendWs = null }) {
 function refreshMsUI() {
   const n = getMyMoonstones();
   const menuVal = document.getElementById('menuMsVal');
@@ -58,6 +58,38 @@ function updateGoldReadouts() {
     else aucLine.innerHTML = 'You have <span class="coin"></span> <b>' + gold + '</b> (bank) · 💎 <b>' + getMyMoonstones() + '</b>';
   }
 }
+// The time-savers: each a card with what it skips, a choice where it needs one, and a button that must be
+// tapped twice (the second tap is the spending), so a stray thumb costs nothing.
+function renderBoons(body) {
+  const list = document.getElementById('msBoonList');
+  if (!list) return;
+  list.textContent = '';
+  if (!body || !body.boons) { list.textContent = 'Asking what can be had…'; return; }
+  for (const b of body.boons) {
+    const card = document.createElement('div'); card.className = 'msBoon';
+    const head = document.createElement('div'); head.className = 'msBoonHead';
+    const nm = document.createElement('span'); nm.textContent = b.icon + ' ' + b.name;
+    const pr = document.createElement('span'); pr.textContent = b.cost + ' 💎';
+    head.appendChild(nm); head.appendChild(pr);
+    const bl = document.createElement('div'); bl.className = 'msBoonBlurb'; bl.textContent = b.blurb;
+    card.appendChild(head); card.appendChild(bl);
+    let sel = null;
+    if (b.choices) {
+      sel = document.createElement('select');
+      for (const c of b.choices) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); }
+      card.appendChild(sel);
+    }
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Spend ' + b.cost + ' 💎';
+    let armed = 0;
+    btn.addEventListener('click', () => {
+      if (!armed) { armed = setTimeout(() => { armed = 0; btn.classList.remove('sure'); btn.textContent = 'Spend ' + b.cost + ' 💎'; }, 4000); btn.classList.add('sure'); btn.textContent = 'Tap again to spend ' + b.cost + ' 💎'; return; }
+      clearTimeout(armed); armed = 0; btn.classList.remove('sure'); btn.textContent = 'Spend ' + b.cost + ' 💎';
+      if (sendWs) sendWs({ type: 'ms_boon', id: b.id, choice: sel ? sel.value : undefined });
+    });
+    card.appendChild(btn);
+    list.appendChild(card);
+  }
+}
 function msPriceLabel(cents) { return '$' + (cents / 100).toFixed(2); }
 function openMsModal() {
   const modal = document.getElementById('msModal');
@@ -86,6 +118,8 @@ function openMsModal() {
       list.textContent = 'The Moonstone ledger hasn\u2019t opened yet — join the town first.';
     }
   }
+  renderBoons(null);
+  if (sendWs) sendWs({ type: 'ms_boons' });   // the time-savers (data/msBoons.js)
   refreshMsUI();
   modal.classList.remove('hidden');
   Modals.set('msModalOpen', true);
@@ -141,5 +175,5 @@ async function buyMoonstonePack(packId, btn) {
     });
 }
 
-  return { refreshMsUI, updateGoldReadouts, openMsModal, closeMsModal };
+  return { refreshMsUI, updateGoldReadouts, openMsModal, renderBoons, closeMsModal };
 }

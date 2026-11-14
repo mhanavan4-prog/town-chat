@@ -2897,6 +2897,8 @@ function onWsMessage(ev) {
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // adorn UI shows balance
     return;
   }
+  if (msg.type === 'ms_boons_state') { _moonstones.renderBoons(msg); const e = document.getElementById('msModalErr'); if (e) e.textContent = ''; return; }   // the time-savers (data/msBoons.js)
+  if (msg.type === 'rested_state') { restedUntil = msg.restedUntil || 0; updateXPDisplay(); return; }
   if (msg.type === 'ms_error') {
     const legendErr = document.getElementById('legendErr');
     const msErr = document.getElementById('msModalErr');
@@ -18228,6 +18230,7 @@ function openPassModal() {
 // ── 💎 Moonstones UI — extracted to client/moonstones.js (Phase C). Built
 // before the legend shop below, which injects openMsModal/refreshMsUI. ──
 const _moonstones = createMoonstones({
+  sendWs: (m) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); },
   getMyMoonstones: () => myMoonstones,
   getBankState: () => lastBankState,
   getMsPacksCatalog: () => msPacksCatalog,

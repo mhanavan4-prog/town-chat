@@ -10648,6 +10648,13 @@ function emberMapPublic() {
   return { tracks: TRACK.map((t) => t.pts),
     places: [...FINDS.map((f) => ({ x: f.x, y: f.y, icon: f.icon, name: f.name })), ...require('./data/emberLore').EMBER_LORE.map((f) => ({ x: f.x, y: f.y, icon: f.icon, name: f.name })), { x: GATE.wastes.x, y: GATE.wastes.y, icon: '🚧', name: 'The March gate' }] };
 }
+// The time-savers as the Moonstones panel lists them (data/msBoons.js).
+function msBoonsBody(player) {
+  const { MS_BOONS, ROUNDS } = require('./data/msBoons');
+  return { boons: MS_BOONS.map((b) => ({ id: b.id, icon: b.icon, name: b.name, cost: b.cost, blurb: b.blurb,
+    choices: b.choose === 'landing' ? oldWays.D.BESOM_LANDINGS.map((l) => ({ id: l.id, name: l.name })) : b.choose === 'round' ? ROUNDS.map((r) => ({ id: r.id, name: r.name })) : null })),
+    balance: player.accountKey ? msBalance(player.accountKey) : 0 };
+}
 function emberLandmarksPublic() {
   return [...EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb })),
     { id: EMBER_TOWN.id, name: EMBER_TOWN.name, x: EMBER_TOWN.x, y: EMBER_TOWN.y, radius: EMBER_TOWN.radius, warlord: false, town: true, blurb: EMBER_TOWN.blurb },
@@ -11195,8 +11202,10 @@ function updateTemplePortalState() {
   if (TORCH_NPCS.every(n => n.working)) templePortalIsOpen = true;
   else if (TORCH_NPCS.every(n => n.praying)) templePortalIsOpen = false;
 }
+// Lit for moonstones (data/msBoons.js 'torches'): the way stands open until this time whatever the keepers are about.
+let templePortalHeldUntil = 0;
 function templePortalOpen() {
-  return templePortalIsOpen;
+  return templePortalIsOpen || Date.now() < templePortalHeldUntil;
 }
 
 const WITCH_SHOP_TIERS = [
@@ -17651,6 +17660,66 @@ wss.on('connection', (ws, req) => {
     // the longer 60-minute cycle. Backdates plantedAt so the bed reads ready
     // (and harvests) exactly as if it had matured; the yield is unchanged (it's
     // locked to the moon tier at PLANTING, so rushing never pays better).
+    // 💎 Moonstone time-savers (data/msBoons.js): each skips a wait already in the game. Nothing here grants
+    // experience, gold or gear directly.
+    if (msg.type === 'ms_boons') { send(ws, { type: 'ms_boons_state', ...msBoonsBody(player) }); return; }
+    if (msg.type === 'ms_boon') {
+      const { MS_BOONS_BY_ID, ROUNDS, TORCH_HOLD_MS } = require('./data/msBoons');
+      const b = MS_BOONS_BY_ID[String(msg.id || '')];
+      const fail = (message) => send(ws, { type: 'ms_error', message });
+      if (!b) return;
+      if (!player.accountKey) { fail('Log into an account to spend Moonstones.'); return; }
+      if (player.isDead) { fail('Not as you are.'); return; }
+      if (msBalance(player.accountKey) < b.cost) { fail(`${b.name} is ${b.cost} 💎 — you carry ${msBalance(player.accountKey)}.`); return; }
+      const now = Date.now(), acct = accounts[player.accountKey];
+      let told = null, after = null;
+      if (b.id === 'rested') {
+        if (player.restedUntil && now < player.restedUntil) { fail('You are rested already. Spend it when this rest has run out.'); return; }
+        after = () => { player.restedUntil = now + REST_MS; getProgress(player).lastRestedAt = now; saveProgress(); send(ws, { type: 'rested_state', restedUntil: player.restedUntil }); };
+        told = '😴 You sit a moment, and get up as if you had slept: ten minutes of +50% experience.';
+      } else if (b.id === 'torches') {
+        if (templePortalOpen()) { fail('The torches are burning already, and the way is open.'); return; }
+        after = () => { templePortalHeldUntil = now + TORCH_HOLD_MS; broadcastAll({ type: 'toast', level: 'important', message: `🔥 ${player.name} has had the temple torches lit: the way to the Ember Wastes stands open for twenty minutes.` }); };
+        told = '🔥 The keepers light all four for you. The way to the Ember Wastes is open.';
+      } else if (b.id === 'besom') {
+        const D = oldWays.D, land = D.BESOM_LANDINGS.find((l) => l.id === String(msg.choice || ''));
+        if (!(acct && acct.oldWays && acct.oldWays.besom && acct.oldWays.besom.made)) { fail('You have no besom yet. It is made by the Old Ways, a step at a time.'); return; }
+        if (!land) { fail('Where to?'); return; }
+        if (player.room !== 'outside' && player.room !== 'wilds') { fail('The besom wants open sky: go out into the town or the Wilds first.'); return; }
+        after = () => {
+          const spot = land.spawn ? { x: WORLD2.spawn.x, y: WORLD2.spawn.y } : { x: land.x, y: land.y };
+          player.room = land.room; player.x = spot.x; player.y = spot.y; player.roomLockUntil = now + 1500; player.flyingUntil = now + D.BESOM_RIDE_MS;
+          send(ws, { type: 'broom_flight', room: land.room, x: spot.x, y: spot.y, name: land.name, rideMs: D.BESOM_RIDE_MS });
+        };
+        told = `🧹 You whistle, and it comes. You come down at ${land.name.replace(/^The /, 'the ')}.`;
+      } else if (b.id === 'harvest') {
+        const mine = playerHarvests(player);
+        let best = null, bd = HARVEST_RANGE * 1.5;
+        for (const id of Object.keys(mine)) {
+          if (now - mine[id] >= HARVEST_COOLDOWN_MS) continue;
+          const f = findDecorById(id); if (!f || f.room !== player.room) continue;
+          const d = Math.hypot(f.decor.x - player.x, f.decor.y - player.y); if (d < bd) { bd = d; best = id; }
+        }
+        if (!best) { fail('Stand right at a plant you have picked today.'); return; }
+        after = () => { delete mine[best]; pushDecorState(player); };
+        told = '🌿 You breathe on the cut stem, and it is in leaf again. Pick it.';
+      } else if (b.id === 'round') {
+        const r = ROUNDS.find((x) => x.id === String(msg.choice || ''));
+        if (!r) { fail('Which round?'); return; }
+        if (!acct[r.key] || !(acct[r.key].done || []).length) { fail('You have not walked any of that round today: it is all still before you.'); return; }
+        after = () => { delete acct[r.key]; };
+        told = `🥾 ${r.name}: as if you had not been. It can be walked again today.`;
+      }
+      if (!after) return;
+      msAdjust(player.accountKey, -b.cost);
+      after();
+      analytics.bump('buy.msn.boon:' + b.id); analytics.bump('buy.msg.boon:' + b.id, b.cost);
+      saveAccounts();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'toast', level: 'important', always: true, message: `${told} (${b.cost} 💎)` });
+      send(ws, { type: 'ms_boons_state', ...msBoonsBody(player) });
+      return;
+    }
     if (msg.type === 'garden_rush') {
       if (!player.accountKey) { send(ws, { type: 'garden_error', message: 'Log into an account to tend a garden.' }); return; }
       const atHome = msg.where === 'home';

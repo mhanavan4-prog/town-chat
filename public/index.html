@@ -1959,6 +1959,14 @@
   .menuRow:hover { background:rgba(255,255,255,0.12); cursor:pointer; }
   .menuRow:active { background:rgba(255,255,255,0.14); }
   .menuRow.hidden { display:none; }
+  /* Moonstone time-savers (client/moonstones.js renderBoons) */
+  #msBoonList { display:flex; flex-direction:column; gap:8px; margin:6px 0 10px; text-align:left; }
+  .msBoon { border:1px solid rgba(185,138,255,0.28); border-radius:12px; padding:9px 11px; background:rgba(20,12,36,0.6); }
+  .msBoon .msBoonHead { display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:800; color:#f0e6ff; }
+  .msBoon .msBoonBlurb { font-size:12px; color:#bfb3d9; margin:4px 0 7px; line-height:1.35; }
+  .msBoon select { width:100%; margin-bottom:7px; padding:7px; border-radius:8px; background:#1a1030; color:#e9ddff; border:1px solid rgba(185,138,255,0.35); font-size:13px; }
+  .msBoon button { min-height:40px; padding:6px 14px; border-radius:10px; border:1px solid rgba(126,240,195,0.5); background:rgba(126,240,195,0.12); color:#bff5df; font-weight:800; font-size:13px; }
+  .msBoon button.sure { background:rgba(255,200,90,0.2); border-color:#ffc85a; color:#ffe2a6; }
   .menuRow.lvlLocked { display:none; }   /* not yet on the menu at this level (client/menu-gates.js) */
   #menuSkillsBadge {
     display:none; float:right; min-width:17px; padding:1px 5px;
@@ -4491,6 +4499,9 @@
     <div class="subtitle">The Peddler's currency — for legendary wares and the auction house's Moonstone lane. Bound to your account; they follow you to any device.</div>
     <div id="msModalBalance" class="passInfo" style="text-align:center;font-size:16px;">You carry <b>0</b> 💎</div>
     <div id="msPackList"></div>
+    <div class="subtitle" style="margin-top:10px;font-weight:800;color:#e9ddff;">Save time</div>
+    <div class="subtitle" style="font-size:11.5px;">Each of these skips a wait. None of them sells experience, gold or gear.</div>
+    <div id="msBoonList"></div>
     <div class="subtitle" style="font-size:11.5px;">Spend them at the Midnight Peddler's stall by the plaza (five legendary wonders, new set each week) or list auctions in 💎.</div>
     <button class="btn" id="msModalCloseBtn">Close (Esc)</button>
     <div class="err" id="msModalErr"></div>
