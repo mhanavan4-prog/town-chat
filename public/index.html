@@ -2135,6 +2135,9 @@
      the vitals in portrait and top-centre in landscape, clear of the joystick and the buttons. Touches go through
      it to the game; only its little row of buttons takes a tap. */
   .chatCtl, .chatCtlGap { display:none; }
+  /* the panel itself lets touches through (pointer-events:none), so each of its buttons has to ask for its own:
+     without this the three could be seen and not pressed */
+  .chatCtl { pointer-events:auto; touch-action:manipulation; }
   body.touchMode .chatCtlGap { display:block; flex:1; }
   body.touchMode #chatPinBtn { display:inline-flex; align-items:center; padding:6px 10px; border-radius:14px; font-size:12px; cursor:pointer;
     background:rgba(255,255,255,0.06); border:1px solid rgba(217,138,79,0.35); color:#ffd9a0; white-space:nowrap; }
