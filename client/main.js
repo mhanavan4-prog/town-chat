@@ -1,4 +1,4 @@
-import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT } from './gear-models.js';
+import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
 import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
@@ -16013,7 +16013,7 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
         if (q) { v[meshKey].quaternion.copy(q); v[meshKey].position.applyQuaternion(q); }
       }
       v[meshKey].scale.setScalar(seat.scale || 1);
-      { const fit = seat.byChar && seat.byChar[v.kk.charId]; if (fit) { if (fit.y != null) v[meshKey].position.y = fit.y; if (fit.scale) v[meshKey].scale.setScalar(fit.scale); } }
+      { let fit = seat.byChar && seat.byChar[v.kk.charId]; if (fit && fit.circlet && GEAR_CIRCLETS.has(itemId)) fit = fit.circlet; if (fit) { if (fit.y != null) v[meshKey].position.y = fit.y; if (fit.scale) v[meshKey].scale.setScalar(fit.scale); } }
     } else if (v.kk) {
       // bone-space: rest at the slot origin; classic offsets don't apply
       if (parentKey === 'armR' || parentKey === 'armL') v[meshKey].position.set(0, 0, 0);
