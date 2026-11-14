@@ -1,4 +1,4 @@
-import { GEAR_IDS, GEAR_SCALE, GEAR_SEAT } from './gear-models.js';
+import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT } from './gear-models.js';
 import { applyMenuGates, menuPointedAt } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
@@ -893,14 +893,27 @@ const KK = (() => {
   }
 
   // A worn item's model, as built: no fitting, so its origin stays where the thing is held or worn.
+  // The legendaries' models (a hundred of them) are fetched when one is first seen worn, not up front:
+  // most players meet only a few. Until it is in, the thing is drawn the old way; then onGear redraws it.
+  const LAZY_GEAR = {}; for (const id of LEGEND_GEAR_IDS) LAZY_GEAR[id] = 'kk/gear/' + id + '.glb';
+  const _gearAsked = {}; const _gearCbs = [];
+  function wantGear(itemId) {
+    if (!LAZY_GEAR[itemId] || _gearAsked[itemId] || !loader) return;
+    _gearAsked[itemId] = true;
+    const attempt = (n) => loader.load(assetUrl(LAZY_GEAR[itemId]),
+      (gltf) => { store('gear_' + itemId)(gltf); for (const cb of _gearCbs) { try { cb(itemId); } catch (e) {} } },
+      undefined,
+      () => { if (n < 3) setTimeout(() => attempt(n + 1), 500 * n); });
+    attempt(1);
+  }
   function gearInstance(itemId) {
     const t = models['gear_' + itemId];
-    if (!t) return null;
+    if (!t) { wantGear(itemId); return null; }
     const inst = t.scene.clone(true);
     inst.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     return inst;
   }
-  return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance, gearInstance,
+  return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance, gearInstance, wantGear, onGear(cb) { _gearCbs.push(cb); },
     whenChar, beginChars,
     get settled() { return settled; }, promise,
     // Loading-pill progress: fraction 0..1 of the whole manifest, and whether
@@ -15998,6 +16011,7 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
         if (q) { v[meshKey].quaternion.copy(q); v[meshKey].position.applyQuaternion(q); }
       }
       v[meshKey].scale.setScalar(seat.scale || 1);
+      { const fit = seat.byChar && seat.byChar[v.kk.charId]; if (fit) { if (fit.y != null) v[meshKey].position.y = fit.y; if (fit.scale) v[meshKey].scale.setScalar(fit.scale); } }
     } else if (v.kk) {
       // bone-space: rest at the slot origin; classic offsets don't apply
       if (parentKey === 'armR' || parentKey === 'armL') v[meshKey].position.set(0, 0, 0);
@@ -16213,7 +16227,7 @@ const EQUIP_ATTACH = {
     m => m.position.set(0, -CHAR.armLen + 1, 1.2)),
   // On a KayKit body the outfit is the body, so a chest piece shows only if it has a model of its own, worn over
   // the chest bone; the old plain cylinder would swallow the figure.
-  chest: (v, itemId) => { if (v.kk && !(itemId && KK.has('gear_' + itemId))) { if (v.chestMesh) _reattachMesh(v, 'chestMesh', 'chest', () => null, null, () => {}); return; } _reattachMesh(v, 'chestMesh', v.kk ? 'chest' : 'group',
+  chest: (v, itemId) => { if (v.kk && itemId && KK.wantGear) KK.wantGear(itemId); if (v.kk && !(itemId && KK.has('gear_' + itemId))) { if (v.chestMesh) _reattachMesh(v, 'chestMesh', 'chest', () => null, null, () => {}); return; } _reattachMesh(v, 'chestMesh', v.kk ? 'chest' : 'group',
     id => makeEquippedChestMesh(id),
     itemId,
     m => { m.position.y = CHAR.hipY + CHAR.torsoH / 2; }); },
@@ -16249,6 +16263,8 @@ const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipV
   getMyId: () => myId, getPlayers: () => players,
   staticModel: (key, size, mode) => (KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
 });
+// a legendary's model has come in: whoever has it on is drawn again, in the model
+if (KK.onGear) KK.onGear(() => { for (const id in players) if (visuals[id]) applyEquipVisual(id, players[id]); });
 
 
 // ── Player visuals ─ extracted to client/player-visuals.js (Phase C, the core
@@ -21314,6 +21330,7 @@ if (location.search.includes('testdrive=1')) {
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
+    legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },
     wear(eq) { wearOverride = eq || null; if (myId && players[myId]) applyEquipVisual(myId, players[myId]); const k = visuals[myId] && visuals[myId].kk; return k ? { hats: (k.embeddedHats || []).map((h) => h.name + ':' + h.visible), head: !!(visuals[myId].headMesh && visuals[myId].headMesh.userData.gear) } : null; },
     look(yaw, pitch) { cameraYawOffset = +yaw || 0; if (pitch != null) cameraPitchOffset = +pitch || 0; return true; },

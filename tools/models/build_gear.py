@@ -570,6 +570,8 @@ GEAR = {
 }
 
 if __name__ == '__main__':
+    from build_gear_legend import LEGEND   # the hundred legendaries, built the same way
+    GEAR.update(LEGEND)
     os.makedirs(OUT, exist_ok=True)
     for n in (sys.argv[1:] or list(GEAR)):
         m, glow = GEAR[n]()

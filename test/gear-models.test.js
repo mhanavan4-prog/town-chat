@@ -25,5 +25,22 @@ check('the old box bodies keep the old drawn gear', /_gearBody = !!v\.kk; v\[mes
 check('a worn hat takes the place of the hat the body came with, and stays so (headwear is settled every frame)', /setEmbeddedHatVisible\(vis\) \{ for \(const m of embeddedHats\) \{ m\.userData\._gearHides = !vis;/.test(hum) && /\(worn \|\| m\.userData\._gearHides\) \? false : m\.userData\._hwBase/.test(guises));
 check('boots stand square to the body, whichever way the foot bone points', /feet: \{[^\n]*body: true/.test(mod) && /if \(seat\.body && parent\.isBone\)/.test(main));
 
+// ── the hundred legendaries: a model each as well, fetched when first seen worn ──
+const LEG = require('../data/legendaryCatalog');
+const LEGS = LEG.LEGENDARIES || LEG;
+const LIDS = [...mod.slice(mod.indexOf('LEGEND_GEAR_IDS = ['), mod.indexOf('];', mod.indexOf('LEGEND_GEAR_IDS = ['))).matchAll(/'(lg_[a-z_]+)'/g)].map((m) => m[1]);
+const pyl = read('tools/models/build_gear_legend.py');
+const lgCat = Object.keys(LEGS).filter((id) => LEGS[id] && LEGS[id].slot);
+check('every legendary has a model (a hundred of them)', lgCat.length === 100 && lgCat.every((id) => LIDS.includes(id)) && LIDS.length === lgCat.length, lgCat.filter((id) => !LIDS.includes(id)));
+check('each is built: a builder in build_gear_legend.py and a file', LIDS.every((id) => new RegExp(`\\ndef ${id}\\(\\):\\n    """`).test(pyl) && fs.existsSync(path.join(root, 'public/kk/gear', id + '.glb'))), LIDS.filter((id) => !fs.existsSync(path.join(root, 'public/kk/gear', id + '.glb'))));
+check('build_gear.py builds them with the rest', /from build_gear_legend import LEGEND/.test(py) && /GEAR\.update\(LEGEND\)/.test(py));
+const lsizes = LIDS.map((id) => [id, fs.statSync(path.join(root, 'public/kk/gear', id + '.glb')).size]);
+check('each legendary model is under 100 KB', lsizes.every(([, s]) => s < 100000), lsizes.filter(([, s]) => s >= 100000));
+check('they are not fetched up front: no place in the manifest, asked for when first worn, and whoever wears one is redrawn when it lands',
+  !/LEGEND_GEAR_IDS\) MANIFEST/.test(main) && /function wantGear\(itemId\)/.test(main) && /if \(!t\) \{ wantGear\(itemId\); return null; \}/.test(main)
+  && /KK\.onGear\(\(\) => \{ for \(const id in players\) if \(visuals\[id\]\) applyEquipVisual\(id, players\[id\]\); \}\)/.test(main));
+check('a chest piece asks for its model too (it is drawn only once the model is in)', /chest: \(v, itemId\) => \{ if \(v\.kk && itemId && KK\.wantGear\) KK\.wantGear\(itemId\);/.test(main));
+check('a hat is fitted to the class it is on (the Knight\'s hair, the Mystic\'s hood, the Necromancer\'s skull)', /head: \{[^\n]*byChar: \{ 0: [^\n]*5: \{/.test(mod) && /seat\.byChar && seat\.byChar\[v\.kk\.charId\]/.test(main) && /mixer, act, inst, charId,/.test(hum));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
