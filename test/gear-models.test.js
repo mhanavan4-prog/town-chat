@@ -42,5 +42,11 @@ check('they are not fetched up front: no place in the manifest, asked for when f
 check('a chest piece asks for its model too (it is drawn only once the model is in)', /chest: \(v, itemId\) => \{ if \(v\.kk && itemId && KK\.wantGear\) KK\.wantGear\(itemId\);/.test(main));
 check('a hat is fitted to the class it is on (the Knight\'s hair, the Mystic\'s hood, the Necromancer\'s skull)', /head: \{[^\n]*byChar: \{ 0: [^\n]*5: \{/.test(mod) && /seat\.byChar && seat\.byChar\[v\.kk\.charId\]/.test(main) && /mixer, act, inst, charId,/.test(hum));
 
+// Open bands on the Mystic sit round the brow of the hood; closed hats go over the whole of it.
+{ const circ = [...mod.slice(mod.indexOf('GEAR_CIRCLETS = new Set(['), mod.indexOf(']);', mod.indexOf('GEAR_CIRCLETS = new Set(['))).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const headOf = (id) => (ITEMS[id] && ITEMS[id].slot) || (LEGS[id] && LEGS[id].slot);
+  check('every open band named is a hat there is a model for', circ.length >= 8 && circ.every((id) => (IDS.includes(id) || LIDS.includes(id)) && /head/i.test(String(headOf(id)))), circ.filter((id) => !(IDS.includes(id) || LIDS.includes(id))));
+  check('the Mystic wears them lower and closer than a closed hat', /2: \{ y: [\d.]+, scale: [\d.]+, circlet: \{ y: [\d.]+, scale: [\d.]+ \} \}/.test(mod) && /if \(fit && fit\.circlet && GEAR_CIRCLETS\.has\(itemId\)\) fit = fit\.circlet;/.test(main)); }
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

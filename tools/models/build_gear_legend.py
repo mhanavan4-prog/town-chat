@@ -570,16 +570,33 @@ def lg_deepwood_antlers():
     return m, None
 
 
+def _plate(pts, y, thick, colors):
+    """A flat plate standing in the XZ plane at depth y: `pts` its outline (x, z), counter-clockwise from the front."""
+    n = len(pts)
+    zs = [p[1] for p in pts]; z0, z1 = min(zs), max(zs)
+    v = [(x, y - thick / 2, z) for (x, z) in pts] + [(x, y + thick / 2, z) for (x, z) in pts]
+    t = [(z - z0) / max(1e-6, z1 - z0) for (_, z) in pts] * 2
+    f = []
+    for k in range(1, n - 1):
+        f.append((0, k, k + 1)); f.append((n, n + k + 1, n + k))
+    for k in range(n):
+        a, b = k, (k + 1) % n
+        f.append((a, n + a, n + b)); f.append((a, n + b, b))
+    return Part(v, f, t, colors)
+
+
 def lg_midnight_mitre():
-    """The night-abbot's mitre: two tall peaked plates of midnight blue, front and back, banded in silver, stars
-    pricked on the front, two lappets hanging behind."""
+    """The night-abbot's mitre: two tall peaked plates of midnight blue, front and back, the cleft between them
+    showing from the side; banded in silver, stars pricked on the front, two lappets hanging behind."""
     m = G('lg_midnight_mitre')
-    m.add(cyl(1.1, 0.26, SILVER, (0, 0, -0.1), 12, r_top=1.12))
+    m.add(cyl(1.1, 0.3, SILVER, (0, 0, -0.1), 12, r_top=1.12))
+    peak = [(-1.12, 0.1), (1.12, 0.1), (1.16, 0.75), (0.0, 2.0), (-1.16, 0.75)]
     for sy in (-1, 1):
-        m.add(lathe([(0.0, 0.0), (1.12, 0.0), (1.12, 0.5), (0.0, 1.7)], sides=4, colors=NIGHT, phase=0.0).xf(None, (0, 0, 0.0), 1.0).xf(None, (0, sy * 0.5, 0.12)))
-    m.add(blk(0.14, 0.08, 1.5, SILVER, (0, -1.3, 0.14), rx(-0.5)))
-    for (x, z) in ((-0.34, 0.5), (0.32, 0.44), (-0.16, 0.95), (0.18, 0.9)):
-        m.add(glowing(lathe([(0.0, -0.12), (0.09, 0.0), (0.0, 0.12)], sides=4, colors=('#fff0a0', '#ffffff')).xf(None, (x, -1.38 + 0.52 * z, z + 0.14))))
+        m.add(_plate(peak, 0.0, 0.2, NIGHT).xf(rx(sy * 0.3), (0, sy * 0.9, 0.0)))
+    m.add(lathe([(1.08, 0.1), (1.1, 0.7)], sides=12, colors=('#0a0e22', '#1c2650'), close_top=False))   # the lining, seen in the cleft
+    m.add(blk(0.16, 0.06, 1.8, SILVER, (0, -1.02, 0.14), rx(-0.3)))
+    for (x, z) in ((-0.5, 0.6), (0.48, 0.52), (-0.24, 1.2), (0.26, 1.12)):
+        m.add(glowing(lathe([(0.0, -0.13), (0.1, 0.0), (0.0, 0.13)], sides=4, colors=('#fff0a0', '#ffffff')).xf(None, (x, -1.06 + 0.3 * z, z + 0.1))))
     for sx in (-1, 1):
         m.add(blk(0.26, 0.06, 1.4, NIGHT, (sx * 0.34, 1.2, -1.5)))
         m.add(blk(0.28, 0.07, 0.16, SILVER, (sx * 0.34, 1.2, -1.5)))

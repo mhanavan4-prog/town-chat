@@ -17,6 +17,10 @@ export const LEGEND_GEAR_IDS = [
   // rings
   'lg_moonstone_signet', 'lg_toll_ring', 'lg_thornprick_band', 'lg_hearthstone_loop', 'lg_bogpearl_ring', 'lg_whisperknot_band', 'lg_acorn_promise', 'lg_candlekeeper_band', 'lg_stormglass_ring', 'lg_gravekeeper_seal', 'lg_foxfire_loop', 'lg_midnight_meridian', 'lg_wolfpact_band', 'lg_beetlewing_ring', 'lg_sirens_knuckle', 'lg_leyline_coil', 'lg_reliquary_ring', 'lg_thirteenth_candle', 'lg_auditor_ledgerband', 'lg_severance_orbit',
 ];
+// Open bands (crowns, circlets, garlands): on the Mystic, whose head is a hood, these sit round the brow of the hood
+// with its peak rising through, where a closed hat is sized to go over the whole of it.
+export const GEAR_CIRCLETS = new Set(['bloodmoon_circlet', 'shadow_crown', 'lg_stargazer_circlet', 'lg_candlecrown', 'lg_briar_diadem',
+  'lg_comet_chaplet', 'lg_deepwood_antlers', 'lg_banshee_garland', 'lg_crown_of_hollows', 'lg_augur_blindfold']);
 // Where a model sits on a KayKit body, per slot: the bone's own space is not the model's, so each slot has a
 // turn (radians, XYZ) and an offset (game units) found by eye in the real client. A model is built at 1 unit =
 // 10 game units.
@@ -24,8 +28,8 @@ export const GEAR_SCALE = 10;
 export const GEAR_SEAT = {
   weapon: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1.25 },
   // a head differs by class (the Knight's hair stands high, the Necromancer's is a bare skull): y and scale by charId
-  head: { pos: [0, 15.4, 0], rot: [0, 0, 0], scale: 1.46, byChar: { 0: { y: 15.4 }, 1: { y: 16.1 }, 2: { y: 19.4, scale: 1.62 }, 3: { y: 19.6, scale: 1.58 }, 4: { y: 16.6 }, 5: { y: 17.4, scale: 1.3 } } },
+  head: { pos: [0, 15.4, 0], rot: [0, 0, 0], scale: 1.46, byChar: { 0: { y: 15.4 }, 1: { y: 16.1 }, 2: { y: 19.4, scale: 1.62, circlet: { y: 16.4, scale: 1.56 } }, 3: { y: 19.6, scale: 1.58 }, 4: { y: 18.0, scale: 1.6 }, 5: { y: 17.4, scale: 1.3 } } },
   chest: { pos: [0, -3, 0], rot: [0, 0, 0], scale: 1.4 },
   feet: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1.5, body: true },   // body: square to the body, not to the bone
-  ring: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1.4 },
+  ring: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1.6 },
 };
