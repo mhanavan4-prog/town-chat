@@ -11,6 +11,7 @@ import { makeCountlessRing } from './props-countless.js';
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
+import { dressWildsGround, createWildsGrass, wander } from './wilds-ground.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
@@ -23,6 +24,9 @@ function applyVillageWard(msg) {
 }
 // What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
 let wildsFinds = {}, lastWildsFinds = null;
+// The grass standing round you, and the ground it takes its season from (client/wilds-ground.js); null on 'low'.
+let wildsGrass = null, wildsGround = null;
+function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); }
 function applyWildsFinds(msg) {
   lastWildsFinds = msg;
   const used = new Set(msg.used || []), lit = new Set(msg.lit || []);
@@ -190,10 +194,12 @@ function buildWildsScene(w2) {
     }
     return [x, z];
   };
+  const glyphSpots = [];
   for (let i = 0; i < 220; i++) {
     let gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     [gx, gz] = nudgeOffLandmarks(gx, gz);
     const size = 55 + grand() * 120;
+    glyphSpots.push({ x: gx, y: gz, r: size * 0.66, w: 0.9 });   // scorched earth under it: nothing grows on a glyph
     const rot = grand() * Math.PI * 2;
     const pick = sigilTex[(grand() * sigilTex.length) | 0];
     const col = glyphCols[(grand() * glyphCols.length) | 0];
@@ -215,6 +221,39 @@ function buildWildsScene(w2) {
     const baseOp = 0.5 + grand() * 0.22, amp = 0.2 + grand() * 0.08;
     glow.onBeforeRender = () => { glowMat.opacity = baseOp + amp * Math.sin(performance.now() * speed + phase); };
     scene.add(glow);
+  }
+
+  // The ground as country (client/wilds-ground.js): grass, heather, earth and rock mixed by the lie of the land,
+  // trodden ways, and grass standing round you. On 'low' the old painted floor is left as it was.
+  wildsGrass = null;
+  let richGround = null;
+  if (typeof wildsHeightAt === 'function' && !(GFX && GFX.st && GFX.st.quality === 'low')) {
+    try {
+      const sp = w2.spawn, V = [5000, 3000];
+      const way = (pts, half, w) => ({ pts: wander(pts), half, w });
+      const ways = [
+        way([[sp.x, sp.y - 120], [5060, 7300], [4940, 5600], [5000, 3900]], 15, 0.85),              // up from the portal to the village
+        way([[4700, 3300], [3600, 4100], [2500, 4800]], 12, 0.7), way([[5300, 3300], [6500, 4100], [7500, 4800]], 12, 0.7),   // out to the two camps
+        way([[4500, 2900], [3250, 2980], [2300, 2250]], 11, 0.65),                                   // by the Manor to the cave
+        way([[6300, 7250], [6450, 6500]], 10, 0.6),                                                  // off the drove road to the great tree
+      ];
+      if (w2.drove) {
+        const P = w2.drove.pts;
+        const off = (d) => P.map(([x, y], i) => { const [bx, by] = P[Math.min(i + 1, P.length - 1)], [ax, ay] = P[Math.max(i - 1, 0)], L = Math.hypot(bx - ax, by - ay) || 1; return [x - (by - ay) / L * d, y + (bx - ax) / L * d]; });
+        ways.push({ pts: P, half: w2.drove.width * 0.36, w: 0.3 });                                  // the green way: grazed short, so nothing stands on it
+        for (const d of [-34, 34]) ways.push({ pts: off(d), half: 8, w: 0.95 });                     // and its two hoof-worn ruts
+      }
+      const places = [
+        { x: V[0], y: V[1] + 120, r: 620, w: 0.5 }, { x: sp.x, y: sp.y, r: 260, w: 0.55 },
+        { x: 2200, y: 5000, r: 330, w: 0.5 }, { x: 7800, y: 5000, r: 330, w: 0.5 },
+        ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 105, w: 0.8 })),
+        ...glyphSpots,
+        ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 30, w: 0.28 }] : []),
+      ];
+      richGround = dressWildsGround(THREE, ground, { world: w2, heightAt: wildsHeightAt, ways, places });
+      wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, quality: GFX && GFX.st ? GFX.st.quality : 'high' });
+      wildsGround = ground;
+    } catch (e) { console.error('wilds ground: kept the old floor', e); richGround = null; wildsGrass = null; }
   }
 
   // ── Spirit-wisps — small will-o'-the-wisp motes that drift and bob slowly
@@ -454,9 +493,9 @@ function buildWildsScene(w2) {
       m.receiveShadow = true; scene.add(m); return m;
     };
     const P = w2.drove.pts;
-    ribbon(P, w2.drove.width / 2, 0x6e7a46, 1.2);                        // the green way, grazed short
+    if (!richGround) ribbon(P, w2.drove.width / 2, 0x6e7a46, 1.2);                        // the green way, grazed short (the new ground draws its own: client/wilds-ground.js)
     const off = (d) => P.map(([x, y], i) => { const [bx, by] = P[Math.min(i + 1, P.length - 1)], [ax, ay] = P[Math.max(i - 1, 0)], L = Math.hypot(bx - ax, by - ay) || 1; return [x - (by - ay) / L * d, y + (bx - ax) / L * d]; });
-    for (const d of [-34, 34]) ribbon(off(d), 9, 0x4a4a2c, 1.6);       // hoof-worn ruts
+    if (!richGround) for (const d of [-34, 34]) ribbon(off(d), 9, 0x4a4a2c, 1.6);       // hoof-worn ruts
     layRoadStones(scene, KK, [P], w2.drove.width / 2, H, null, 23);   // its kerbs and worn flags
     const turnOf = { milestone: 0.4, pines: 0, needfire: 0.6 };
     for (const st of w2.drove.stops) {
@@ -1344,5 +1383,5 @@ function buildWildsNPCs(scene) {
   }
 }
 
-  return { buildWildsScene, applyWildsFinds, applyVillageWard };
+  return { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround };
 }

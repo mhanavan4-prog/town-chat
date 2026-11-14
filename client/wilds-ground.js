@@ -1,0 +1,300 @@
+// ---------------------------------------------------------------------------
+// The Wilds' ground, drawn as country and not as one tiled picture.
+//
+// What was there: a single 512px painting of forest floor repeated every 170
+// units, shaded by height. From any distance the repeat showed as rows of the
+// same dark blotches.
+//
+// What this does, on the same mesh and the same heightfield:
+//   - four kinds of ground, mixed by where you are: grass (with dry, bleached
+//     sweeps), heather, bare earth (in the hollows, in patches, and wherever
+//     feet go), and rock where it is steep;
+//   - nothing repeats that the eye can find: every kind is coloured from a
+//     noise read at four scales in world space;
+//   - trodden ways: the drove road's bed, worn tracks between the places people
+//     go, and beaten earth round the village, the camps and the fires;
+//   - grass that stands up: tufts of blades round you, the colour of the ground
+//     they grow from, moving in the wind and parting where you walk. None on
+//     the tracks, few on the heather, thin where the earth shows.
+//
+// The season still dyes it (client/wilds-season.js multiplies the material's
+// colour, as before) and the lights, fog and shadows are the scene's own: this
+// only replaces where the ground's colour comes from.
+//
+// Everything is made from numbers, not drawn on a canvas: Safari salts canvas
+// pixels with noise. The same numbers are read in the shader and here, so the
+// tufts know what they stand on.
+//
+// Quality: 'low' keeps the old ground untouched. 'medium' has the new ground
+// and thin grass; 'high' the full grass.
+// ---------------------------------------------------------------------------
+
+const WG_N = 256;   // the noise is N x N, four channels, and wraps
+
+function wgMulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// Four channels of wrapping value noise, each two octaves, each at its own grain.
+export function makeGroundNoise(THREE) {
+  const data = new Float32Array(WG_N * WG_N * 4);
+  const sm = (t) => t * t * (3 - 2 * t);
+  [[4, 9], [6, 14], [8, 20], [11, 27]].forEach(([p1, p2], c) => {
+    const lay = (P, seed) => { const r = wgMulberry(seed), g = new Float32Array(P * P); for (let i = 0; i < g.length; i++) g[i] = r(); return g; };
+    const a = lay(p1, 101 + c * 17), b = lay(p2, 977 + c * 31);
+    const at = (g, P, u, v) => {
+      const x = u * P, y = v * P, xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi);
+      const x0 = xi % P, x1 = (xi + 1) % P, y0 = yi % P, y1 = (yi + 1) % P;
+      return (g[y0 * P + x0] * (1 - fx) + g[y0 * P + x1] * fx) * (1 - fy) + (g[y1 * P + x0] * (1 - fx) + g[y1 * P + x1] * fx) * fy;
+    };
+    let lo = 1, hi = 0;
+    for (let y = 0; y < WG_N; y++) for (let x = 0; x < WG_N; x++) { const v = at(a, p1, x / WG_N, y / WG_N) * 0.62 + at(b, p2, x / WG_N, y / WG_N) * 0.38; data[(y * WG_N + x) * 4 + c] = v; if (v < lo) lo = v; if (v > hi) hi = v; }
+    for (let i = c; i < data.length; i += 4) data[i] = (data[i] - lo) / (hi - lo);   // stretched to the whole of 0..1
+  });
+  const px = new Uint8Array(WG_N * WG_N * 4);
+  for (let i = 0; i < px.length; i++) px[i] = Math.round(data[i] * 255);
+  let tex = null;
+  if (THREE) {
+    tex = new THREE.DataTexture(px, WG_N, WG_N, THREE.RGBAFormat);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
+  }
+  // the same read the shader makes: channel c at (u, v), wrapped, between the four nearest
+  const sample = (u, v, c) => {
+    const x = (u - Math.floor(u)) * WG_N - 0.5, y = (v - Math.floor(v)) * WG_N - 0.5;
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    const x0 = (xi + WG_N) % WG_N, x1 = (xi + 1 + WG_N) % WG_N, y0 = (yi + WG_N) % WG_N, y1 = (yi + 1 + WG_N) % WG_N;
+    return ((px[(y0 * WG_N + x0) * 4 + c] * (1 - fx) + px[(y0 * WG_N + x1) * 4 + c] * fx) * (1 - fy) + (px[(y1 * WG_N + x0) * 4 + c] * (1 - fx) + px[(y1 * WG_N + x1) * 4 + c] * fx) * fy) / 255;
+  };
+  return { tex, sample, px };
+}
+
+// A track between two places does not run ruled: it wanders a little, the same way every time.
+export function wander(pts, step = 240, sway = 46) {
+  const out = [];
+  for (let k = 0; k < pts.length - 1; k++) {
+    const [ax, ay] = pts[k], [bx, by] = pts[k + 1], len = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.round(len / step));
+    const nx = -(by - ay) / (len || 1), ny = (bx - ax) / (len || 1);
+    for (let i = 0; i < n; i++) {
+      const t = i / n, off = i === 0 ? 0 : Math.sin((ax + ay) * 0.013 + i * 2.1) * sway * Math.sin(Math.PI * t);
+      out.push([ax + (bx - ax) * t + nx * off, ay + (by - ay) * t + ny * off]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+// Where feet go: 0 untrodden, 1 beaten bare. `ways` are [{ pts, half, w }], `places` [{ x, y, r, w }].
+const WG_M = 512;
+export function makeGroundMask(THREE, world, ways, places) {
+  const W = world.width, H = world.height, v = new Float32Array(WG_M * WG_M), sx = W / WG_M, sy = H / WG_M;
+  for (const { pts, half, w } of ways) {
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [ax, ay] = pts[k], [bx, by] = pts[k + 1], reach = half * 1.9;
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach) / sx)), i1 = Math.min(WG_M - 1, Math.ceil((Math.max(ax, bx) + reach) / sx));
+      const j0 = Math.max(0, Math.floor((Math.min(ay, by) - reach) / sy)), j1 = Math.min(WG_M - 1, Math.ceil((Math.max(ay, by) + reach) / sy));
+      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const x = (i + 0.5) * sx, y = (j + 0.5) * sy, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+        const d = Math.hypot(x - (ax + dx * t), y - (ay + dy * t));
+        const s = d <= half ? 1 : d >= reach ? 0 : 1 - (d - half) / (reach - half);
+        if (s * w > v[j * WG_M + i]) v[j * WG_M + i] = s * s * (3 - 2 * s) * w;
+      }
+    }
+  }
+  for (const { x: px, y: py, r, w } of places) {
+    const i0 = Math.max(0, Math.floor((px - r) / sx)), i1 = Math.min(WG_M - 1, Math.ceil((px + r) / sx)), j0 = Math.max(0, Math.floor((py - r) / sy)), j1 = Math.min(WG_M - 1, Math.ceil((py + r) / sy));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const d = Math.hypot((i + 0.5) * sx - px, (j + 0.5) * sy - py) / r; if (d >= 1) continue;
+      const s = d < 0.55 ? 1 : 1 - (d - 0.55) / 0.45, val = s * s * (3 - 2 * s) * w;
+      if (val > v[j * WG_M + i]) v[j * WG_M + i] = val;
+    }
+  }
+  const px = new Uint8Array(WG_M * WG_M * 4);
+  for (let i = 0; i < WG_M * WG_M; i++) { px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = Math.round(v[i] * 255); px[i * 4 + 3] = 255; }
+  let tex = null;
+  if (THREE) { tex = new THREE.DataTexture(px, WG_M, WG_M, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; tex.needsUpdate = true; }
+  const at = (x, y) => {
+    const fx = Math.max(0, Math.min(WG_M - 1.001, x / sx - 0.5)), fy = Math.max(0, Math.min(WG_M - 1.001, y / sy - 0.5)), xi = Math.floor(fx), yi = Math.floor(fy), tx = fx - xi, ty = fy - yi;
+    return (v[yi * WG_M + xi] * (1 - tx) + v[yi * WG_M + xi + 1] * tx) * (1 - ty) + (v[(yi + 1) * WG_M + xi] * (1 - tx) + v[(yi + 1) * WG_M + xi + 1] * tx) * ty;
+  };
+  return { tex, at };
+}
+
+// The scales the noise is read at (world units to one repeat), and the colours. Shared by the shader and by mixAt.
+const WG_S = { macro: 1870, meso: 410, detail: 83, fine: 19 };
+const WG_C = {
+  gDark: [0.105, 0.200, 0.075], gMid: [0.215, 0.340, 0.105], gLite: [0.400, 0.470, 0.170], gDry: [0.455, 0.410, 0.185],
+  heathA: [0.135, 0.185, 0.120], heathB: [0.290, 0.205, 0.270],
+  earthA: [0.165, 0.115, 0.075], earthB: [0.380, 0.275, 0.175], pebble: [0.500, 0.480, 0.450],
+  rockA: [0.255, 0.255, 0.265], rockB: [0.500, 0.490, 0.460], lichen: [0.385, 0.420, 0.270],
+};
+const wgSS = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const wgV3 = (a) => `vec3(${a.map((n) => n.toFixed(3)).join(', ')})`;
+
+// What the ground is at (x, z): how much earth and heather, and the colour of its grass. `h` is 0 in the
+// deepest hollow, 1 on the highest rise. The shader works the same sums per pixel.
+export function mixAt(noise, mask, x, z, h) {
+  const n = noise.sample;
+  const A = (c) => n(x / WG_S.macro, z / WG_S.macro, c), B = (c) => n(x / WG_S.meso + 0.37, z / WG_S.meso + 0.37, c), Cn = (c) => n(x / WG_S.detail + 0.11, z / WG_S.detail + 0.11, c), D = (c) => n(x / WG_S.fine + 0.71, z / WG_S.fine + 0.71, c);
+  const macro = A(0) * 0.6 + B(1) * 0.4;
+  const gv = Cn(0) * 0.55 + D(1) * 0.45;
+  const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  let g = lerp(WG_C.gDark, WG_C.gMid, wgSS(0.2, 0.7, gv));
+  g = lerp(g, WG_C.gLite, wgSS(0.55, 0.9, D(2)) * 0.5);
+  g = lerp(g, WG_C.gDry, wgSS(0.52, 0.8, macro) * 0.55);
+  const k = 0.8 + 0.4 * B(2); g = [g[0] * k, g[1] * k, g[2] * k];
+  const heath = wgSS(0.58, 0.72, A(1) * 0.5 + B(3) * 0.5) * 0.8;
+  const trod = mask.at(x + (Cn(0) - 0.5) * 46, z + (Cn(1) - 0.5) * 46);
+  const earth = Math.min(1, wgSS(0.22, 0.6, trod) + wgSS(0.80, 0.97, (1 - h) + (B(0) - 0.5) * 0.3) * 0.8 + wgSS(0.76, 0.9, B(1) * 0.6 + Cn(3) * 0.4) * 0.6);
+  return { earth, heath, grass: g, trod };
+}
+
+const WG_FRAG = `
+uniform sampler2D uGN; uniform sampler2D uGM; uniform vec2 uGWorld;
+varying vec3 vGP; varying float vGS; varying float vGH;
+vec3 wildsGround() {
+  vec2 p = vGP.xz;
+  vec4 nA = texture2D(uGN, p / ${WG_S.macro.toFixed(1)});
+  vec4 nB = texture2D(uGN, p / ${WG_S.meso.toFixed(1)} + 0.37);
+  vec4 nC = texture2D(uGN, p / ${WG_S.detail.toFixed(1)} + 0.11);
+  vec4 nD = texture2D(uGN, p / ${WG_S.fine.toFixed(1)} + 0.71);
+  float macro = nA.r * 0.6 + nB.g * 0.4;
+  float gv = nC.r * 0.55 + nD.g * 0.45;
+  vec3 grass = mix(${wgV3(WG_C.gDark)}, ${wgV3(WG_C.gMid)}, smoothstep(0.2, 0.7, gv));
+  grass = mix(grass, ${wgV3(WG_C.gLite)}, smoothstep(0.55, 0.9, nD.b) * 0.5);
+  grass = mix(grass, ${wgV3(WG_C.gDry)}, smoothstep(0.52, 0.8, macro) * 0.55);
+  grass *= 0.8 + 0.4 * nB.b;
+  vec3 heath = mix(${wgV3(WG_C.heathA)}, ${wgV3(WG_C.heathB)}, nC.b);
+  float wHeath = smoothstep(0.58, 0.72, nA.g * 0.5 + nB.a * 0.5) * 0.8;
+  vec3 earth = mix(${wgV3(WG_C.earthA)}, ${wgV3(WG_C.earthB)}, nC.g * 0.6 + nD.r * 0.4);
+  earth = mix(earth, ${wgV3(WG_C.pebble)}, smoothstep(0.80, 0.86, nD.a) * 0.7);
+  vec3 rock = mix(${wgV3(WG_C.rockA)}, ${wgV3(WG_C.rockB)}, nC.a * 0.5 + nD.b * 0.5);
+  rock = mix(rock, ${wgV3(WG_C.lichen)}, smoothstep(0.6, 0.8, nB.r) * 0.45);
+  float trod = texture2D(uGM, (p + (nC.rg - 0.5) * 46.0) / uGWorld).r;
+  float wEarth = clamp(smoothstep(0.22, 0.6, trod) + smoothstep(0.80, 0.97, (1.0 - vGH) + (nB.r - 0.5) * 0.3) * 0.8 + smoothstep(0.76, 0.9, nB.g * 0.6 + nC.a * 0.4) * 0.6, 0.0, 1.0);
+  float wRock = smoothstep(0.036, 0.062, vGS + (nC.r - 0.5) * 0.022) * (1.0 - smoothstep(0.5, 0.9, trod));
+  vec3 c = mix(grass, heath, wHeath);
+  c = mix(c, earth, wEarth);
+  c = mix(c, rock, wRock);
+  c *= 0.84 + 0.32 * nD.r;                  // the grain of it
+  c *= mix(0.80, 1.10, vGH);                // darker in the hollows
+  c *= 1.0 - 0.22 * smoothstep(0.55, 1.0, trod) * (0.5 + nD.g);   // a beaten way is darker down its middle
+  return c;
+}
+`;
+
+// Turn the ground mesh over to the new colouring. Returns what the grass needs, or null if it was left alone.
+export function dressWildsGround(THREE, ground, { world, heightAt, ways, places }) {
+  const geo = ground.geometry, pos = geo.attributes.position;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y < lo) lo = y; if (y > hi) hi = y; }
+  const span = Math.max(1, hi - lo), gh = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) gh[i] = wgSS(0, 1, (pos.getY(i) - lo) / span);
+  geo.setAttribute('gh', new THREE.BufferAttribute(gh, 1));
+  const noise = makeGroundNoise(THREE), mask = makeGroundMask(THREE, world, ways, places);
+  const old = ground.material;
+  const mat = new THREE.MeshLambertMaterial({ color: old.color.clone(), emissive: old.emissive ? old.emissive.clone() : 0x000000 });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uGN = { value: noise.tex }; sh.uniforms.uGM = { value: mask.tex }; sh.uniforms.uGWorld = { value: new THREE.Vector2(world.width, world.height) };
+    sh.vertexShader = 'attribute float gh; varying vec3 vGP; varying float vGS; varying float vGH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGP = (modelMatrix * vec4(transformed, 1.0)).xyz; vGS = 1.0 - normal.y; vGH = gh;');
+    sh.fragmentShader = WG_FRAG + sh.fragmentShader.replace('#include <map_fragment>', 'diffuseColor.rgb *= wildsGround();');
+  };
+  mat.customProgramCacheKey = () => 'wildsGround1';
+  ground.material = mat;
+  if (old.dispose) old.dispose();
+  ground.userData.rich = true;
+  const hOf = (x, z, y) => wgSS(0, 1, ((y === undefined ? heightAt(x, z) : y) - lo) / span);
+  return { noise, mask, hOf };
+}
+
+// One tuft: seven blades, each a single leaning triangle, dark at the root.
+function wgTuft(THREE) {
+  const r = wgMulberry(4242), P = [], Nn = [], Cc = [], T = [];
+  for (let b = 0; b < 7; b++) {
+    const a = b * Math.PI * 2 / 7 + r() * 0.7, out = 1.0 + r() * 3.0, h = 5 + r() * 5.5, lean = 1.6 + r() * 3, w = 0.7 + r() * 0.55;
+    const cx = Math.cos(a) * out, cz = Math.sin(a) * out, px = -Math.sin(a) * w, pz = Math.cos(a) * w;
+    P.push(cx - px, 0, cz - pz, cx + px, 0, cz + pz, cx + Math.cos(a) * lean, h, cz + Math.sin(a) * lean);
+    const shade = 0.82 + r() * 0.36;
+    for (let k = 0; k < 3; k++) { Nn.push(0, 1, 0); const c = (k === 2 ? 1.2 : 0.5) * shade; Cc.push(c, c, c); T.push(k === 2 ? 1 : 0); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aTip', new THREE.Float32BufferAttribute(T, 1));
+  return g;
+}
+
+export const WILDS_GRASS = { high: { gap: 11, reach: 340, max: 3600 }, medium: { gap: 16, reach: 250, max: 1100 } };
+
+// Grass round whoever is walking. `update(x, z, t, tint, frost)` each frame while the Wilds are shown.
+export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, quality }) {
+  const Q = WILDS_GRASS[quality]; if (!Q) return null;
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  const U = { uT: { value: 0 }, uC: { value: new THREE.Vector2() }, uR: { value: Q.reach } };
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'attribute float aTip; uniform float uT; uniform vec2 uC; uniform float uR;\n' + sh.vertexShader.replace('#include <lights_lambert_vertex>', '#include <lights_lambert_vertex>\n  #ifdef DOUBLE_SIDED\n    vLightBack = vLightFront; vIndirectBack = vIndirectFront;   // a blade is lit the same from either side\n  #endif').replace('#include <project_vertex>', `
+  vec4 gW = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+    vec4 gO = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    gW = instanceMatrix * gW;
+    float gD = distance(gO.xz, uC);
+    gW.y = gO.y + (gW.y - gO.y) * (1.0 - smoothstep(uR * 0.6, uR, gD));          // it thins out toward the edge of what is drawn
+    float gWind = sin(uT * 1.6 + gO.x * 0.021 + gO.z * 0.017) * 0.65 + sin(uT * 2.9 + gO.x * 0.05 - gO.z * 0.03) * 0.3;
+    gW.x += aTip * gWind * 1.5; gW.z += aTip * gWind * 0.8;                      // wind
+    vec2 gAway = gO.xz - uC; float gNear = 1.0 - smoothstep(8.0, 30.0, length(gAway));
+    gW.xz += aTip * normalize(gAway + vec2(0.001)) * gNear * 5.0; gW.y -= aTip * gNear * 3.0;   // and it parts where you walk
+  #endif
+  vec4 mvPosition = modelViewMatrix * gW;
+  gl_Position = projectionMatrix * mvPosition;`);
+  };
+  mat.customProgramCacheKey = () => 'wildsGrass1';
+  const mesh = new THREE.InstancedMesh(wgTuft(THREE), mat, Q.max);
+  // (made at its full length here: setColorAt would make it the length of `count`, which starts at nothing)
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Q.max * 3), 3);
+  mesh.name = 'wildsGrass'; mesh.frustumCulled = false; mesh.count = 0; mesh.castShadow = false; mesh.receiveShadow = false;
+  mesh.userData.noShadowCaster = true;
+  scene.add(mesh);
+  const hash = (i, j, k) => { const s = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return s - Math.floor(s); };
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  let fx = Infinity, fz = Infinity;
+  // What grows in each cell of the grid is worked out once and kept: walking on, only the cells newly in reach are new.
+  const cells = new Map();
+  function cellAt(a, b) {
+    const key = a * 65536 + b;
+    let c = cells.get(key);
+    if (c !== undefined) return c;
+    const x = (a + hash(a, b, 1) - 0.5) * Q.gap, z = (b + hash(a, b, 2) - 0.5) * Q.gap, y = heightAt(x, z);
+    const m = mixAt(noise, mask, x, z, hOf(x, z, y));
+    const grows = (1 - m.earth) * (1 - m.heath * 0.6) * (1 - wgSS(0.12, 0.45, m.trod));
+    if (hash(a, b, 3) > grows) c = null;
+    else {
+      const s = (0.7 + 0.8 * hash(a, b, 4)) * (0.65 + 0.35 * grows), k = 1.0 + 0.35 * hash(a, b, 7);
+      c = [x, y - 0.6, z, hash(a, b, 5) * Math.PI * 2, s, s * (0.8 + 0.5 * hash(a, b, 6)), m.grass[0] * k, m.grass[1] * k, m.grass[2] * k];
+    }
+    if (cells.size > 40000) cells.clear();
+    cells.set(key, c);
+    return c;
+  }
+  function fill(cx, cz) {
+    fx = cx; fz = cz;
+    const G = Q.gap, R = Q.reach + G * 4, K = Math.ceil(R / G), gi = Math.round(cx / G), gj = Math.round(cz / G);
+    let n = 0;
+    for (let j = -K; j <= K && n < Q.max; j++) for (let i = -K; i <= K && n < Q.max; i++) {
+      if (i * i + j * j > (K + 0.5) * (K + 0.5)) continue;
+      const c = cellAt(gi + i, gj + j); if (!c) continue;
+      dummy.position.set(c[0], c[1], c[2]); dummy.rotation.set(0, c[3], 0); dummy.scale.set(c[4], c[5], c[4]); dummy.updateMatrix();
+      mesh.setMatrixAt(n, dummy.matrix);
+      mesh.setColorAt(n, col.setRGB(c[6], c[7], c[8]));
+      n++;
+    }
+    mesh.count = n; mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+  }
+  return {
+    mesh,
+    update(x, z, t, tint, frost) {
+      if (Math.hypot(x - fx, z - fz) > Q.gap * 3) fill(x, z);
+      U.uT.value = t; U.uC.value.set(x, z);
+      if (tint) mat.color.copy(tint);
+      if (frost) mat.emissive.copy(frost).multiplyScalar(0.7);   // hoar-frost and snow lie on the grass as well, a little less
+    },
+    count: () => mesh.count,
+  };
+}
