@@ -4261,9 +4261,14 @@ function strikeNearestEnemy() {
     flashCreatureHit(nearest.kind, nearest.targetId);
     triggerAttackAnim();
   } else {
+    // Nothing in reach: swing anyway. The notice below goes to the Log now, not the screen, so without the swing
+    // the button looked dead whenever nothing stood near (reported from a phone, in town).
+    const now = performance.now();
+    if (now - _airSwingAt > 450) { _airSwingAt = now; _airSwings++; if (typeof playSfx === 'function') playSfx('swing'); triggerAttackAnim(); }
     setUnlockToast('No enemies nearby to strike.');
   }
 }
+let _airSwingAt = 0, _airSwings = 0;
 
 // Brief full-screen red flash whenever the player takes damage (see the
 // 'struck'/'you_died' handlers) — a toast alone is easy to miss if a hit
@@ -21330,6 +21335,8 @@ if (location.search.includes('testdrive=1')) {
       const coded = rows.filter((r) => r.p).reduce((a, r) => a + r.n, 0);
       return { total, inView, distinct: rows.length, instanced: inst, codeBuilt: coded, top: rows.slice(0, top || 20) };
     },
+    foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
+    airSwings() { return _airSwings; },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
