@@ -15,7 +15,7 @@ const { STORYLINES } = require('../data/quests');
 const { ASH_SPOTS } = require('../data/emberTown');
 const { FOLK_BY_ID } = require('../data/ashFolk');
 const { RING, FIVE } = require('../data/witchRing');
-check('every class has Isolt\'s word and one of the folk\'s; the Witch has Hazel at the ring besides', [0, 1, 2, 3, 4, 5].every((c) => EPILOGUES[c] && EPILOGUES[c].isolt.length > 80 && EPILOGUES[c].says.length > 60 && ['wat', 'nan'].includes(EPILOGUES[c].folk)) && /Hazel/.test(EPILOGUES[0].ring) && EPISODE_THREE_DONE === 12 && Object.values(STORYLINES).every((l) => l.chapters.length === 12));
+check('every class has Isolt\'s word and one of the folk\'s; the Witch has Hazel at the ring besides', [0, 1, 2, 3, 4, 5].every((c) => EPILOGUES[c] && EPILOGUES[c].isolt.length > 80 && EPILOGUES[c].says.length > 60 && ['wat', 'nan'].includes(EPILOGUES[c].folk)) && /Hazel/.test(EPILOGUES[0].ring) && EPISODE_THREE_DONE === 12 && Object.values(STORYLINES).every((l) => l.chapters.length >= 12));
 
 require('../server.js');
 setTimeout(() => {

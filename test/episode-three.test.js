@@ -17,9 +17,9 @@ const { GATE } = require('../data/droveRoad');
 const { EMBER_TOWN: T, ASH_SPOTS } = require('../data/emberTown');
 
 const OTHERS = [0, 1, 2, 4, 5];
-const ep = (c) => STORYLINES[c].chapters.slice(9);
+const ep = (c) => STORYLINES[c].chapters.slice(9, 12);
 check('every class has three chapters more, each with its telling before and after, its level and its pay', OTHERS.every((c) => ep(c).length === 3 && ep(c).every((ch) => ch.intro.length > 150 && ch.outro.length > 150 && ch.requiresLevel === 17 && ch.xpReward > 0 && ch.goldReward > 0 && ch.title && ch.objective.label)));
-check('ids are the class\'s own and none is used twice', new Set(Object.values(STORYLINES).flatMap((l) => l.chapters.map((ch) => ch.id))).size === 72);
+check('ids are the class\'s own and none is used twice', new Set(Object.values(STORYLINES).flatMap((l) => l.chapters.map((ch) => ch.id))).size === 90);
 check('every place a chapter sends you to says where it is', OTHERS.every((c) => ep(c).every((ch) => ch.objective.type === 'kill_mob' || (ch.objective.where && ch.objective.where.length > 40))));
 const rooms = OTHERS.flatMap((c) => ep(c).filter((ch) => ch.objective.type === 'visit_room').map((ch) => ch.objective.room));
 check('and each is a place that is there: Ashminster, the ring, the gate, or a thing on the field', rooms.every((r) => r === 'ashminster' || r === 'witch_ring' || r === 'march_gate' || (/^field_/.test(r) && (FINDS_BY_ID[r.slice(6)] || Object.keys(FINDS_BY_ID).some((id) => id.split('_')[0] === r.slice(6))))), rooms);
@@ -58,7 +58,7 @@ setTimeout(() => {
   const bottle = FINDS_BY_ID.bottle;
   at(W.p, bottle.x + 40, bottle.y); say(W.s, { type: 'field_use', id: 'bottle' });
   const done = W.s.lastOfType('story_chapter_complete');
-  check('and the witch-bottle completes her story', chapterOf(W.p) === 12 && done && done.storyComplete === true);
+  check('and the witch-bottle completes the episode (her story goes on in Episode IV)', chapterOf(W.p) === 12 && done && done.storyComplete === false);
 
   // the Mystic's chapel, found on a day its find was already made
   const M = join('Listener', 2);
@@ -96,7 +96,7 @@ setTimeout(() => {
   check('and twelve laid to rest, the last', chapterOf(B.p) === 12);
 
   const server = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-  check('the waypoint does not point wrongly at places in the Wastes: it points at the town, and the gate\'s at the Wilds', /obj\.room === 'witch_ring' \|\| \/\^field_\/\.test\(obj\.room \|\| ''\)\) return \{ kind: 'room', room: 'outside' \}/.test(server) && /obj\.room === 'march_gate'\) return \{ kind: 'room', room: 'wilds' \}/.test(server));
+  check('the waypoint does not point wrongly at places in the Wastes: it points at the town, and the gate\'s at the Wilds', /obj\.room === 'witch_ring' \|\| \/\^\(field\|ash\|lore\)_\/\.test\(obj\.room \|\| ''\)\) return \{ kind: 'room', room: 'outside' \}/.test(server) && /obj\.room === 'march_gate' \|\| \/\^\(drove\|byway\)_\/\.test\(obj\.room \|\| ''\)\) return \{ kind: 'room', room: 'wilds' \}/.test(server));
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 400);

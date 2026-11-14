@@ -16,9 +16,9 @@ const { TITLES } = require('../data/titles');
 const { EMBER_TOWN: T, ASH_SPOTS, ANCHORESS } = require('../data/emberTown');
 
 const K = STORYLINES[3].chapters;
-check('the Knight has twelve chapters, and so now has every class (test/episode-three.test.js)', K.length === 12 && [0, 1, 2, 4, 5].every((c) => STORYLINES[c].chapters.length === 12));
+check('the Knight has fifteen chapters (three of them Episode III, three Episode IV), and so has every class', K.length === 15 && [0, 1, 2, 4, 5].every((c) => STORYLINES[c].chapters.length === 15));
 check('the third episode: find Ashminster, speak at the squint, lay fifteen to rest', K[9].objective.type === 'visit_room' && K[9].objective.room === 'ashminster' && K[10].objective.type === 'talk_npc' && K[10].objective.npcId === 'npc_anchoress' && K[11].objective.type === 'kill_mob' && K[11].objective.target === 15);
-check('each new chapter has its telling before and after, its level, and its pay', K.slice(9).every((c) => c.intro.length > 150 && c.outro.length > 150 && c.requiresLevel === 17 && c.xpReward > 0 && c.goldReward > 0 && c.title));
+check('each new chapter has its telling before and after, its level, and its pay', K.slice(9, 12).every((c) => c.intro.length > 150 && c.outro.length > 150 && c.requiresLevel === 17 && c.xpReward > 0 && c.goldReward > 0 && c.title));
 check('it keeps to the story the first two episodes told: the Order, the witches it had hunted, Hazel, and the page cut out', /leaf was cut out/.test(K[9].intro) && /five women it had been hunting/.test(K[10].outro) && /Hazel cut the one over the door/.test(K[10].outro) && /we were not ashamed of you/.test(K[10].outro) && /daisy wheel/.test(K[11].outro));
 check('the anchoress says the same thing to everyone at her squint', /stopped, here, at this wall/.test(ANCHORESS.says[2]) && /five women the Order had been hunting/.test(ANCHORESS.says[2]));
 const f = QUEST_CATALOG.isolt_field, w = QUEST_CATALOG.isolt_watch;
@@ -57,7 +57,7 @@ setTimeout(() => {
   A.s.sent.length = 0;
   h.storyEvent(A.p, 'kill_mob', { pool: 'ember_mob', mobType: 'ash_wraith' });
   const done = A.s.lastOfType('story_chapter_complete');
-  check('the fifteenth completes the episode, and with it the Knight\'s whole story', chapterOf(A.p) === 12 && done && done.storyComplete === true, done && done.storyComplete);
+  check('the fifteenth laid to rest completes the episode; the story goes on (Episode IV)', chapterOf(A.p) === 12 && done && done.storyComplete === false && done.totalChapters === 15, done && done.storyComplete);
 
   // a Witch who walks the same road has her own story untouched by it, and is still given the anchoress's work
   const B = join('Hedgewitch', 0);
