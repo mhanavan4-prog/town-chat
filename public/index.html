@@ -2131,6 +2131,41 @@
   body.touchMode #chatHeader { display:none; }
   body.touchMode #chatLog { display:none; }
   body.touchMode #chatSendBtn { width:52px; padding:12px 0; }
+  /* Chat kept open while you move (client/mobile-hud.js): a small see-through window of the last few lines, under
+     the vitals in portrait and top-centre in landscape, clear of the joystick and the buttons. Touches go through
+     it to the game; only its little row of buttons takes a tap. */
+  .chatCtl, .chatCtlGap { display:none; }
+  body.touchMode .chatCtlGap { display:block; flex:1; }
+  body.touchMode #chatPinBtn { display:inline-flex; align-items:center; padding:6px 10px; border-radius:14px; font-size:12px; cursor:pointer;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(217,138,79,0.35); color:#ffd9a0; white-space:nowrap; }
+  body.touchMode #chatPanel.pinned {
+    top:calc(max(8px, env(safe-area-inset-top)) + 92px); bottom:auto;
+    left:max(8px, env(safe-area-inset-left)); right:auto; width:min(66vw, 360px);
+    border-radius:14px; padding:5px 8px 7px; z-index:8;
+    background:rgba(14,10,7,0.40); border:1px solid rgba(217,138,79,0.22); box-shadow:none;
+    pointer-events:none; overflow:hidden; max-height:none;
+  }
+  @media (orientation:landscape) {
+    body.touchMode #chatPanel.pinned { top:max(6px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:min(38vw, 360px); }
+  }
+  body.touchMode #chatPanel.pinned #chatTabs { margin-bottom:3px; gap:4px; pointer-events:auto; }
+  body.touchMode #chatPanel.pinned .chatTab { padding:3px 8px; font-size:11px; opacity:0.85; }
+  body.touchMode #chatPanel.pinned #chatPinBtn { display:none; }
+  body.touchMode #chatPanel.pinned #chatWriteBtn, body.touchMode #chatPanel.pinned #chatUnpinBtn {
+    display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:26px; border-radius:13px; font-size:13px; cursor:pointer;
+    background:rgba(0,0,0,0.35); border:1px solid rgba(217,138,79,0.35); color:#ffd9a0; }
+  body.touchMode #chatPanel.pinned #chatLog { display:flex; justify-content:flex-end; max-height:96px; min-height:0; margin:0; overflow:hidden; pointer-events:none; gap:1px; }
+  body.touchMode #chatPanel.pinned #chatLog.hidden { display:none; }
+  body.touchMode #chatPanel.pinned #chatMsgLog { height:96px; margin-top:0; overflow:hidden; pointer-events:none; font-size:11px; }   /* the Log is newest first: its top is what shows */
+  body.touchMode #chatPanel.pinned .chatLine { background:none; backdrop-filter:none; padding:1px 3px; font-size:12px; line-height:1.3; text-shadow:0 1px 2px #000, 0 0 3px #000; animation:none; flex:0 0 auto; }
+  body.touchMode #chatPanel.pinned .msgLogRow { border-bottom:none; padding:0 2px; text-shadow:0 1px 2px #000; flex:0 0 auto; }
+  body.touchMode #chatPanel.pinned .msgLogHint { display:none; }
+  body.touchMode #chatPanel.pinned #chatInputRow, body.touchMode #chatPanel.pinned #chatImagePreview { display:none !important; }
+  /* banners that still come (system lines, pictures) go under the window, not over it */
+  body.touchMode.chatPinned #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 236px); }
+  @media (orientation:landscape) { body.touchMode.chatPinned #chatNotifStack { top:calc(max(6px, env(safe-area-inset-top)) + 150px); } }
+  /* any full panel or the menu over it: the window steps aside like the rest of the HUD */
+  body.touchMode.panelOpen #chatPanel.pinned { display:none !important; }
 
   /* The banners themselves. pointer-events only on the cards (an image
      banner is tappable → lightbox); the empty stack never eats a touch. */
@@ -3302,6 +3337,10 @@
       <button id="chatTabWorld" class="chatTab on" data-chan="world">🌍 World<span id="chatBadgeWorld" class="chatTabBadge hidden"></span></button>
       <button id="chatTabRoom" class="chatTab hidden" data-chan="room"><span id="chatTabRoomName">Room</span><span id="chatBadgeRoom" class="chatTabBadge hidden"></span></button>
       <button id="chatTabLog" class="chatTab" data-chan="log">📜 Log<span id="chatBadgeLog" class="chatTabBadge hidden"></span></button>
+      <span class="chatCtlGap"></span>
+      <button id="chatPinBtn" class="chatCtl" title="Keep chat open while you move">📌 Keep open</button>
+      <button id="chatWriteBtn" class="chatCtl" title="Write a message">✏️</button>
+      <button id="chatUnpinBtn" class="chatCtl" title="Put chat away">✕</button>
     </div>
     <div id="chatLog"></div>
     <div id="chatMsgLog" class="hidden"></div>

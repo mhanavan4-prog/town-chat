@@ -19,6 +19,12 @@ function initMobileHud() {
   document.getElementById('mobileTopBar').classList.remove('hidden');
   const cp = document.getElementById('chatPanel');
   if (cp) cp.classList.add('mobileClosed'); // chat starts as a 💬 toggle
+  // …unless it was left kept open: then it comes back as the small window you can walk about with.
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }); };
+  on('chatPinBtn', () => setChatPinned(true));
+  on('chatUnpinBtn', () => setChatPinned(false));
+  on('chatWriteBtn', () => toggleMobileChat(true));
+  if (chatPinnedPref()) showPinned(true);
   buildEmoteWheel();
   buildMobileQuickSlots();
   refreshMobileHud();
@@ -77,11 +83,42 @@ function refreshMobileHud() {
   }
 }
 
+// ── Chat kept open while you move ───────────────────────────────────────────
+// The 💬 sheet is for writing: it takes the bottom of the screen and the controls step aside for it. "Keep open"
+// leaves a small see-through window of the last few lines up instead, clear of the joystick and the buttons, and
+// touches go through it to the game. ✏️ (or 💬) brings the sheet back to write; closing the sheet returns to the
+// window; ✕ on the window puts chat away. The choice is remembered.
+const PIN_KEY = 'tc_chat_pinned';
+function chatPinnedPref() { try { return localStorage.getItem(PIN_KEY) === '1'; } catch (e) { return false; } }
+function showPinned(on) {
+  const cp = document.getElementById('chatPanel');
+  if (!cp) return;
+  cp.classList.toggle('pinned', on);
+  document.body.classList.toggle('chatPinned', on);
+  if (on) {
+    cp.classList.remove('mobileClosed');
+    // what was said is in the window now: the banners that said it step down
+    const stack = document.getElementById('chatNotifStack');
+    if (stack) for (const b of [...stack.children]) if (!b.classList.contains('system') && !b.querySelector('img')) b.remove();
+  } else if (!Modals.isOpen('mobileChatOpen')) cp.classList.add('mobileClosed');
+}
+function setChatPinned(on) {
+  try { localStorage.setItem(PIN_KEY, on ? '1' : '0'); } catch (e) { /* private window: it lasts the visit */ }
+  _pinnedNow = on;
+  if (Modals.isOpen('mobileChatOpen')) toggleMobileChat(false);   // the sheet steps down; the window (or nothing) is left
+  else showPinned(on);
+}
+let _pinnedNow = null;   // the choice this visit, where storage will not keep it
+const wantsPinned = () => (_pinnedNow === null ? chatPinnedPref() : _pinnedNow);
+
 function toggleMobileChat(open) {
   const cp = document.getElementById('chatPanel');
   if (!cp) return;
   Modals.set('mobileChatOpen', open === undefined ? !Modals.isOpen('mobileChatOpen') : open);
-  cp.classList.toggle('mobileClosed', !Modals.isOpen('mobileChatOpen'));
+  const writing = Modals.isOpen('mobileChatOpen');
+  if (writing) showPinned(false);                       // the sheet is the whole chat while you write
+  cp.classList.toggle('mobileClosed', !writing);
+  if (!writing && wantsPinned()) showPinned(true);      // and hands back to the window when you are done
   if (Modals.isOpen('mobileChatOpen')) {
     refreshMobileHud();
     // The 💬 button means "I want to say something" now — the panel is
@@ -102,6 +139,8 @@ const CHAT_NOTIF_MAX = 4;
 function spawnChatNotif(n) {
   const stack = document.getElementById('chatNotifStack');
   if (!stack) return;
+  // with the chat window kept open the line is already on screen in it: a banner as well would say it twice
+  if (document.body.classList.contains('chatPinned') && n.kind !== 'system' && !n.image) return;
   const el = document.createElement('div');
   el.className = 'chatNotif' + (n.kind ? ' ' + n.kind : '');
   const body = document.createElement('div');
