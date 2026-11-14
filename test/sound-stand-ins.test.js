@@ -18,5 +18,6 @@ const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8'), folk = fs.
 check('the bell, the well, the need-fire, the stance and the gate name their own sounds', /'passing_bell'\)/.test(folk) && /'well_drink'\)/.test(folk) && /'needfire_kindle'/.test(drove) && /'stance_rest'/.test(drove) && (server.match(/sfx: 'march_gate'/g) || []).length === 2);
 const storm = fs.readFileSync(path.join(root, 'client/ember-storm.js'), 'utf8');
 check('the dead rising at dusk, the ring\'s glow going out and one of the folk coming home each have a sound', /playSfx\('dead_rise'\)/.test(storm) && /playSfx\('ring_dim'\)/.test(storm) && /f\.back, 'folk_return'\)/.test(folk) && ['dead_rise', 'ring_dim', 'folk_return'].every((id) => STAND[id] && ids.has(id)) && /playSfx: \(id\) => playSfx\(sfxOrStandIn\(id\)\)/.test(main));
+check('the two reading places and the epilogues have sounds, with prompts and stand-ins', ['sin_stone', 'watch_field', 'epilogue'].every((id) => STAND[id] && ids.has(id)) && /sfx: e\.id === 'sin' \? 'sin_stone' : 'watch_field'/.test(fs.readFileSync(path.join(root, 'lib/emberLore.js'), 'utf8')) && /'epilogue'\)/.test(fs.readFileSync(path.join(root, 'lib/ashminster.js'), 'utf8')));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

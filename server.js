@@ -9229,7 +9229,11 @@ const emberStorm = require('./lib/emberStorm')({
   } });
 // The field in the Ember Wastes (lib/emberField.js): twelve things the war left along the track.
 // The Wastes' two reading places (lib/emberLore.js): the sin-eater's stone, the watching place.
-const emberLore = require('./lib/emberLore')({ send, grantXP, acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null });
+const emberLore = require('./lib/emberLore')({ send, grantXP, acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
+  noteRead: (p, id) => {
+    if (id === 'sin' && daybook.note(p, 'sin')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the sin-eater\'s stone, come to.' });
+    if (id === 'watch' && daybook.note(p, 'watch')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the field, watched from the watching place.' });
+  } });
 const emberField = require('./lib/emberField')({ send, grantXP,
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
   bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null),
@@ -9273,7 +9277,8 @@ const wayside = require('./lib/wayside')({ send, grantXP, playerMaxHealth,
 // By-ways of the Wilds (lib/byways.js, data/byways.js): the shoe in the chimney, the Devil's stone, Hob's hole.
 const byways = require('./lib/byways')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
-  bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null) });
+  bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null),
+  noteWalked: (p) => { if (daybook.note(p, 'byways')) send(p.ws, { type: 'toast', level: 'routine', sfx: 'daybook', message: '📖 Written in your daybook: the by-ways, walked.' }); } });
 // The drove road east to the March gate (lib/droveRoad.js, data/droveRoad.js); the crossing itself is the march_gate message below.
 const droveRoad = require('./lib/droveRoad')({ send, grantXP, playerMaxHealth,
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, bankOf: (p) => (p && p.accountKey ? ensureBankAccount(p.accountKey) : null),
@@ -15392,7 +15397,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); send(ws, ashFolk.payload(player)); return; }
     if (msg.type === 'ring_use') {
       // Standing inside the witches' ring and putting a hand to it is the ring found (the Witch's chapter 10).
-      { const { RING } = require('./data/witchRing'); if (!player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - RING.x, player.y - RING.y) <= RING.stoneR) { storyEvent(player, 'visit_room', { room: 'witch_ring' }); const hz = epilogueFor(player, 'ring'); if (hz) { send(ws, { type: 'toast', level: 'important', always: true, message: hz }); return; } } }
+      { const { RING } = require('./data/witchRing'); if (!player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - RING.x, player.y - RING.y) <= RING.stoneR) { storyEvent(player, 'visit_room', { room: 'witch_ring' }); const hz = epilogueFor(player, 'ring'); if (hz) { send(ws, { type: 'toast', level: 'important', always: true, sfx: 'epilogue', message: hz }); return; } } }
       if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); }
       return;
     }

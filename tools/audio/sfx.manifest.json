@@ -553,6 +553,30 @@
  "new": true,
  "duration_seconds": 3.5,
  "prompt": "Words called into the mouth of a small sea cave and the cave answering: a soft hollow echo dying away into the dark, a slow drip of water, then a long low breath of cool air drawn back into the rock as if something had taken what was offered. Gentle, strange, relieving. No music, no voice words, no monster sounds."
+},
+{
+ "id": "sin_stone",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "Bread and a bowl left on a cold stone for the dead: a dry hollow knock of a wooden bowl set down on stone, a faint crumbling scrape of a stale crust, and a long low breath of wind across an empty graveyard. Spare, quiet, uneasy. No music, no voice, no bells, no metal."
+},
+{
+ "id": "watch_field",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 5.0,
+ "prompt": "A battle heard a long way off by night across an empty field, not really there: very faint slow drums, a far murmur like many men moving, a distant dull clash and a horse's cry almost lost in the wind, all fading as if blown away. Ghostly, distant, muffled, cold. No music, no clear words, nothing close or loud."
+},
+{
+ "id": "epilogue",
+ "category": "ember",
+ "existing": false,
+ "new": true,
+ "duration_seconds": 3.5,
+ "prompt": "A quiet word spoken at the end of a long story: one low warm note like breath over the mouth of a clay jar, swelling gently and settling, with a faint crackle of a lamp flame beneath it. Soft, grave, kind, a little sad. No music melody, no voice words, no chimes, no bells, no metal, no shrill highs."
 }
  ],
   "_optional_candidates": [
