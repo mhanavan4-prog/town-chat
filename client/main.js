@@ -17459,6 +17459,7 @@ const { openNotifModal } = _notif;
   // weight, each only where it does not lie across one already down (it is tried a line or two lower first).
   // So a crowded corner shows its chief names and no tangle; on a phone, zooming in gives the rest room.
   let labelQ = [];
+  let keepClear = [];   // parts of the map a name must not be set down on (a line of words along the foot of it)
   const PHONE = MOBILE_UI;
   const LABEL_PX = PHONE ? 12 : 10;
   function label(text, x, y, color, weight) { if (text) labelQ.push({ text: String(text), x, y, color: color || '#cfc3e8', weight: weight || 1, n: labelQ.length }); }
@@ -17852,7 +17853,7 @@ const { openNotifModal } = _notif;
   // Dots for everyone else in `room`, then the teal "You" marker.
   function drawPlayers(ctx, PX, PY, room) {
     // every name asked for so far is set down now, keeping clear of where "You" will be written
-    setLabels(ctx, (me && me.room === room && typeof me.x === 'number') ? [{ x: PX(me.x), y: PY(me.y) - 28, w: 44, h: 46 }] : []);
+    setLabels(ctx, [...keepClear, ...((me && me.room === room && typeof me.x === 'number') ? [{ x: PX(me.x), y: PY(me.y) - 28, w: 44, h: 46 }] : [])]); keepClear = [];
     for (const id in players) {
       const p = players[id];
       if (!p || id === myId || p.room !== room || typeof p.x !== 'number') continue;
@@ -18093,6 +18094,7 @@ const { openNotifModal } = _notif;
         propMarker(ctx, PX(lm.x), PY(lm.y), lm.warlord ? 'boss' : 'ember_crag', lm.name || '', lm.warlord ? '#ff8a8a' : '#e0b84a', lm.warlord ? emberPropS * 1.15 : emberPropS, { weight: (lm.town || lm.ring || lm.warlord) ? 8 : 6 });
       }
     }
+    keepClear = [{ x: cw / 2, y: ch - 30, w: Math.min(cw, 460), h: 30 }];   // the warning along the foot
     drawPlayers(ctx, PX, PY, 'ember_wastes');
     ctx.fillStyle = 'rgba(255,160,140,0.75)'; ctx.font = `600 ${LABEL_PX + 1}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('⚔️ Open PvP — anyone may strike you outside the haven', cw / 2, ch - 8);
