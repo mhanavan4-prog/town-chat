@@ -20,7 +20,8 @@ const VILLAGE_HOUSES = {
   barn: {
     id: 'barn', room: 'vh_barn', icon: '🌾', name: 'The Tithe Barn',
     sign: 'The Tithe Barn — a storehouse',
-    door: { x: VILLAGE.x - 720, y: VILLAGE.y + 250 }, width: 760, height: 560,
+    // the barn stands end-on: its own door, with the steps, is in its east end, and that is the way in
+    door: { x: VILLAGE.x - 455, y: VILLAGE.y - 40 }, width: 760, height: 560,
     spots: [{ id: 'store', x: 380, y: 150, label: 'the storekeeper\'s ledger', hint: 'see to what you have in store' }],
     blurb: 'A long barn, a tenth of everybody\'s harvest once. Now the village keeps what people leave with it, and the ledger is good in the town as well.',
   },

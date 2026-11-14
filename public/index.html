@@ -1465,7 +1465,8 @@
     pointer-events:auto;
     display:flex; flex-direction:column; gap:3px;
     margin-top:8px; padding-right:4px;
-    max-height:190px; min-height:100px; overflow-y:auto;
+    /* the same height as the chat it replaces (its log and its composer), so the panel does not jump when you change tab */
+    height:min(131px, calc(20vh + 59px)); overflow-y:auto;
     font-size:12px; line-height:1.45; text-align:left;
   }
   #chatMsgLog .msgLogRow { display:flex; gap:7px; align-items:baseline; padding:3px 2px; border-bottom:1px solid rgba(255,255,255,0.05); }
