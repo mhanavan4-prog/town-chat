@@ -1,5 +1,5 @@
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT } from './gear-models.js';
-import { applyMenuGates, menuPointedAt } from './menu-gates.js';
+import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
 import createCollision from './collision.js';
@@ -1749,6 +1749,8 @@ function onWsMessage(ev) {
         // — otherwise updateGuises()/updateFamiliars() read a stale id and the
         // overlay never changes when we swap or doff it.
         { const self = players[myId]; if (self) { self.guise = p.guise || null; self.familiar = p.familiar || null; } }
+        // what you already have keeps its place on the menu, whatever your level: a guise on must be able to come off
+        if (p.guise) openMenuEarly('menuGuise'); if (p.familiar) openMenuEarly('menuFamiliar');
         continue;
       }
       const existing = players[p.id];
@@ -2352,7 +2354,7 @@ function onWsMessage(ev) {
   if (msg.type && msg.type.indexOf('coven_voice_') === 0) { _covenVoice.handleMessage(msg); return; }
 
   if (msg.type === 'coven_state') {
-    covenState = msg.coven || null;
+    covenState = msg.coven || null; if (msg.coven) openMenuEarly('menuCoven');
     if (msg.charters != null) covenCharterInfo = { charters: msg.charters || 0, charterPriceCents: msg.charterPriceCents || 999, paymentsEnabled: !!msg.paymentsEnabled };
     refreshCovenMenuRow();
     if (Modals.isOpen('covenModalOpen')) renderCovenModal();
@@ -3220,7 +3222,7 @@ function onWsMessage(ev) {
     return;
   }
   if (msg.type === 'familiar_lore') { familiarLore = msg; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
-  if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
+  if (msg.type === 'familiar_state') { myFamiliar = msg.familiar || null; if (msg.familiar) openMenuEarly('menuFamiliar'); if (Modals.isOpen('familiarOpen')) renderFamiliarModal(); return; }
   if (msg.type === 'familiar_skin_set') {
     myFamiliarCos.owned = msg.owned || myFamiliarCos.owned || [];
     myFamiliarCos.skin = msg.skinId;
@@ -3237,7 +3239,7 @@ function onWsMessage(ev) {
     if (typeof window.__renderWardrobe === 'function') try { window.__renderWardrobe(); } catch (e) {}
     return;
   }
-  if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (Array.isArray(msg.owned)) myGuiseOwned = msg.owned; if (typeof msg.balance === 'number') myGuiseBalance = msg.balance; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
+  if (msg.type === 'guise_state') { myGuise = msg.guise || null; if (msg.guise || (Array.isArray(msg.owned) && msg.owned.length)) openMenuEarly('menuGuise'); if (Array.isArray(msg.owned)) myGuiseOwned = msg.owned; if (typeof msg.balance === 'number') myGuiseBalance = msg.balance; if (Modals.isOpen('guiseOpen')) renderGuiseModal(); return; }
   if (msg.type === 'guise_error') { setUnlockToast(msg.message || 'The wardrobe is shut.'); return; }
   if (msg.type === 'scry_reading') { const deep = lastScry && lastScry.deep; lastScry = msg; if (deep) lastScry.deep = deep; if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
   if (msg.type === 'scry_deep_reading') { if (lastScry) { lastScry.deep = msg; lastScry.moonWater = msg.moonWater; } if (Modals.isOpen('scryOpen')) renderScryModal(); return; }
@@ -3253,7 +3255,7 @@ function onWsMessage(ev) {
     if (Modals.isOpen('runeOpen')) renderRuneModal();
     return;
   }
-  if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
+  if (msg.type === 'path_state') { myWitchPath = msg.path || null; if (msg.path) openMenuEarly('menuPath'); if (Modals.isOpen('pathOpen')) renderPathModal(); return; }
   if (msg.type === 'path_error') { setUnlockToast(`🧙‍♀️ ${msg.message}`); return; }
   if (msg.type === 'ward_state') { myWardUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'garden_state') { lastGardenState = msg; if (Array.isArray(msg.plantable)) for (const id of msg.plantable) gardenPlantable.add(id); if (Modals.isOpen('gardenOpen')) renderGardenModal(); return; }

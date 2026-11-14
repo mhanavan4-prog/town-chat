@@ -32,5 +32,9 @@ G.menuPointedAt('📖 Written in your daybook: the by-ways, walked.', doc);
 check('a notice that names an entry opens it early, and it stays open', shown('menuDaybook') && (G.applyMenuGates(1, doc), shown('menuDaybook')) && JSON.parse(store.tc_menu_early).includes('menuDaybook'));
 check('the level-up notice itself opens nothing', (G.menuPointedAt('☰ New in your menu: 🕸️ Coven.', doc), G.applyMenuGates(1, doc), !shown('menuCoven')));
 check('the client applies the gates on joining, on levelling and each time the menu opens, and the row style hides a locked row', /applyMenuGates\(msg\.level\);/.test(main) && /const fresh = applyMenuGates\(msg\.level\);/.test(main) && (main.match(/applyMenuGates\(\(me && me\.level\) \|\| 1\)/g) || []).length === 3 && /\.menuRow\.lvlLocked \{ display:none; \}/.test(html) && /menuPointedAt\(text\);/.test(main));
+// What you already have keeps its place: a guise put on before the gate (or before the gates existed) must be able to come off.
+{ const main = fs.readFileSync(path.join(__dirname, '..', 'client/main.js'), 'utf8');
+  check('a guise you are wearing (or own) shows Disguise on the menu at any level', /if \(p\.guise\) openMenuEarly\('menuGuise'\)/.test(main) && /if \(msg\.guise \|\| \(Array\.isArray\(msg\.owned\) && msg\.owned\.length\)\) openMenuEarly\('menuGuise'\)/.test(main));
+  check('so do a familiar, a path and a coven you already have', /if \(msg\.familiar\) openMenuEarly\('menuFamiliar'\)/.test(main) && /if \(msg\.path\) openMenuEarly\('menuPath'\)/.test(main) && /if \(msg\.coven\) openMenuEarly\('menuCoven'\)/.test(main)); }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
