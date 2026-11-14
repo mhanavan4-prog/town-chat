@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..');
 const home = fs.readFileSync(path.join(root, 'tools/models/build_home.py'), 'utf8'), lib = fs.readFileSync(path.join(root, 'tools/models/trlib.py'), 'utf8');
 const REBUILT = ['milestone', 'march_gate', 'hall_table', 'hall_bench', 'fingerpost', 'field_barrow', 'ring_stone', 'needfire',
   'ash_cross', 'frith_cross', 'ash_barricade', 'field_standard', 'field_trench', 'field_bottle', 'field_bell', 'rowan_post',
-  'gibbet', 'cointree', 'coffinstone', 'boundstone', 'scots_pine', 'door_props', 'road_setts', 'road_kerb', 'ruin_hearth', 'devil_stone', 'hob_hole'];
+  'gibbet', 'cointree', 'coffinstone', 'boundstone', 'scots_pine', 'door_props', 'road_setts', 'road_kerb', 'ruin_hearth', 'devil_stone', 'hob_hole', 'sin_stone', 'watch_stone'];
 // The ruined houses and the field chapel are all one builder (_ruin_house), checked by its own name.
 const RUINS = ['ash_house_a', 'ash_house_b', 'ash_house_c', 'field_chapel'];
 const body = (n) => { const i = home.search(new RegExp(`\\ndef ${n}\\(`)); return home.slice(i, home.indexOf('\n    return m, None', i)); };

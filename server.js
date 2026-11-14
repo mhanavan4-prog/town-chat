@@ -9228,17 +9228,36 @@ const emberStorm = require('./lib/emberStorm')({
     if (first || (!p.accountKey && !p.stormLoreSeen)) { p.stormLoreSeen = true; send(p.ws, emberStorm.loreBoard()); }   // the lore of it, the first time
   } });
 // The field in the Ember Wastes (lib/emberField.js): twelve things the war left along the track.
+// The Wastes' two reading places (lib/emberLore.js): the sin-eater's stone, the watching place.
+const emberLore = require('./lib/emberLore')({ send, grantXP, acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null });
 const emberField = require('./lib/emberField')({ send, grantXP,
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
   bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null),
   grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); },
   noteWalked: (p) => { daybook.note(p, 'field'); } });
 // Ashminster in the Ember Wastes (lib/ashminster.js): the frith no creature enters, sanctuary at the knocker, the anchoress.
+// After Episode III (data/epilogues.js): a word, once, from each of those it touched, for someone whose class story is done.
+function epilogueFor(player, who) {
+  const { EPILOGUES, EPILOGUE_XP, EPISODE_THREE_DONE } = require('./data/epilogues');
+  let prog = null; try { prog = getProgress(player); } catch (e) { return null; }
+  const e = EPILOGUES[player.charId], st = prog && prog.story && prog.story[player.charId];
+  if (!e || !st || (st.chapter || 0) < EPISODE_THREE_DONE) return null;
+  const text = who === 'isolt' ? e.isolt : who === 'ring' ? e.ring : (e.folk === who ? e.says : null);
+  if (!text) return null;
+  const said = prog.epilogues || (prog.epilogues = {}), key = `${player.charId}:${who}`;
+  if (said[key]) return null;
+  said[key] = true;
+  grantXP(player, EPILOGUE_XP);
+  saveAccounts();
+  return text;
+}
 const ashminster = require('./lib/ashminster')({ send,
   onArrive: (p) => { ashFolk.mark(p, 'arrived'); storyEvent(p, 'visit_room', { room: 'ashminster' }); },
-  onSpoke: (p) => { ashFolk.mark(p, 'spoke'); storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }); } });
+  onSpoke: (p) => { ashFolk.mark(p, 'spoke'); },
+  onSpeak: (p) => { storyEvent(p, 'talk_npc', { npcId: 'npc_anchoress' }); },
+  epilogue: (p) => epilogueFor(p, 'isolt') });
 // Ashminster, living in (lib/ashFolk.js): the people who come back to the town as your own story there goes on.
-const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth, hasQuest: (p, npcId) => !!questForNpc(p, npcId),
+const ashFolk = require('./lib/ashFolk')({ send, grantXP, getProgress, playerMaxHealth, hasQuest: (p, npcId) => !!questForNpc(p, npcId), remark: (p, who) => epilogueFor(p, who),
   acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null });
 // The last drove: by night a pale herd comes through the March gate and down the drove road (lib/ghostDrove.js).
 const ghostDrove = require('./lib/ghostDrove')({ send, grantXP, playerMaxHealth, isNight: () => isNightNow(),
@@ -10616,6 +10635,14 @@ const EMBER_LANDMARKS = [
 const { EMBER_TOWN } = require('./data/emberTown');
 const emberSolids = require('./lib/emberSolids');
 const { RING: WITCH_RING } = require('./data/witchRing'); // the witches' ring in the west of the Wastes
+// What the Wastes' map draws besides its landmarks (client/main.js drawEmber): the tracks, the things on the
+// field, the March gate.
+function emberMapPublic() {
+  const { TRACK, FINDS } = require('./data/emberField');
+  const { GATE } = require('./data/droveRoad');
+  return { tracks: TRACK.map((t) => t.pts),
+    places: [...FINDS.map((f) => ({ x: f.x, y: f.y, icon: f.icon, name: f.name })), ...require('./data/emberLore').EMBER_LORE.map((f) => ({ x: f.x, y: f.y, icon: f.icon, name: f.name })), { x: GATE.wastes.x, y: GATE.wastes.y, icon: '🚧', name: 'The March gate' }] };
+}
 function emberLandmarksPublic() {
   return [...EMBER_LANDMARKS.map(l => ({ id: l.id, name: l.name, x: l.x, y: l.y, radius: l.radius, warlord: !!l.warlord, blurb: l.blurb })),
     { id: EMBER_TOWN.id, name: EMBER_TOWN.name, x: EMBER_TOWN.x, y: EMBER_TOWN.y, radius: EMBER_TOWN.radius, warlord: false, town: true, blurb: EMBER_TOWN.blurb },
@@ -14541,12 +14568,12 @@ wss.on('connection', (ws, req) => {
           if (player.accountKey) saveInventories();
           const meta = ITEM_CATALOG[itemId];
           send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-          send(ws, { type: 'attack_result', message: `🤏 Lifted ${meta.icon} ${meta.name} off ${preset.name} without it noticing.` });
+          send(ws, { type: 'attack_result', quiet: true, sfx: 'coin', message: `🤏 Lifted ${meta.icon} ${meta.name} off ${preset.name} without it noticing.` });
         } else {
-          send(ws, { type: 'attack_result', message: `🤏 You could've had something off ${preset.name}, but your pack is full.` });
+          send(ws, { type: 'attack_result', quiet: true, message: `🤏 You could've had something off ${preset.name}, but your pack is full.` });
         }
       } else {
-        send(ws, { type: 'attack_result', message: `🤏 ${preset.name} shrugged you off — no luck this time.` });
+        send(ws, { type: 'attack_result', quiet: true, message: `🤏 ${preset.name} shrugged you off — no luck this time.` });
       }
       return;
     }
@@ -15210,7 +15237,7 @@ wss.on('connection', (ws, req) => {
         const caster = players.get(pending.casterId);
         if (caster) {
           send(caster.ws, {
-            type: 'attack_result',
+            type: 'attack_result', quiet: true,
             message: `🐺 Scent Trail — ${player.name} stayed silent. The howl fades unanswered.`
           });
         }
@@ -15230,12 +15257,12 @@ wss.on('connection', (ws, req) => {
       // to be checked before the Number() conversion below or a failed
       // capture would silently resolve to real coordinates (0,0).
       if (msg.lat == null || msg.lon == null) {
-        send(caster.ws, { type: 'attack_result', message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
+        send(caster.ws, { type: 'attack_result', quiet: true, message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
         return;
       }
       const lat = Number(msg.lat), lon = Number(msg.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-        send(caster.ws, { type: 'attack_result', message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
+        send(caster.ws, { type: 'attack_result', quiet: true, message: `🐺 Scent Trail — the trail went cold before it led anywhere.` });
         return;
       }
       // Defense in depth: re-round server-side too, regardless of what
@@ -15249,7 +15276,7 @@ wss.on('connection', (ws, req) => {
         const c = players.get(casterId); // re-fetch: lookup is async, caster may have left
         if (!c) return;
         send(c.ws, {
-          type: 'attack_result',
+          type: 'attack_result', quiet: true,
           message: place
             ? `🐺 Scent Trail — ${targetName}'s trail leads toward ${place}.`
             : `🐺 Scent Trail — you caught ${targetName}'s scent, but couldn't place where it leads.`
@@ -15330,7 +15357,7 @@ wss.on('connection', (ws, req) => {
         player.roomLockUntil = Date.now() + 1500;
         player.x = GATE.arriveWastes.x; player.y = GATE.arriveWastes.y;
         player.emberReturnX = null; player.emberReturnY = null;
-        send(ws, { type: 'ember_wastes_entered', spawn: { ...GATE.arriveWastes }, landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(), greeting: null, march: true });
+        send(ws, { type: 'ember_wastes_entered', spawn: { ...GATE.arriveWastes }, landmarks: emberLandmarksPublic(), map: emberMapPublic(), nodes: emberNodesPublic(), greeting: null, march: true });
         storyEvent(player, 'visit_room', { room: 'march_gate' });   // the Wanderer's chapter 10: through the gate
         send(ws, { type: 'toast', level: 'important', always: true, sfx: 'march_gate', message: '🚧 You go through the March gate. The grass stops; the ground goes black. You are in the west of the Ember Wastes, where anyone may strike you. The gate behind you is open at any hour.' });
         storyEvent(player, 'visit_room', { room: 'ember_wastes' });
@@ -15353,6 +15380,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'wilds_finds_state') { wildsFinds.sendTo(player); send(ws, villageWard.payload()); return; }
     if (msg.type === 'ward_use') { villageWard.use(player, String(msg.id || '')); return; }
     if (msg.type === 'ash_use') { ashminster.use(player, String(msg.id || '')); return; }
+    if (msg.type === 'ember_lore_use') { if (emberLore.use(player, String(msg.id || ''))) saveAccounts(); return; }
     if (msg.type === 'field_use') {
       // Coming up to a thing on the field is a place found, for a story chapter that sends you to it (data/quests.js
       // Episode III): by its own id, and by its kind, so "a knight's barrow" is either barrow. Whether or not it pays today.
@@ -15364,7 +15392,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'field_state') { send(ws, emberField.payload(player)); send(ws, witchRing.payload(player)); send(ws, emberStorm.payload()); send(ws, ashFolk.payload(player)); return; }
     if (msg.type === 'ring_use') {
       // Standing inside the witches' ring and putting a hand to it is the ring found (the Witch's chapter 10).
-      { const { RING } = require('./data/witchRing'); if (!player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - RING.x, player.y - RING.y) <= RING.stoneR) storyEvent(player, 'visit_room', { room: 'witch_ring' }); }
+      { const { RING } = require('./data/witchRing'); if (!player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - RING.x, player.y - RING.y) <= RING.stoneR) { storyEvent(player, 'visit_room', { room: 'witch_ring' }); const hz = epilogueFor(player, 'ring'); if (hz) { send(ws, { type: 'toast', level: 'important', always: true, message: hz }); return; } } }
       if (witchRing.use(player, String(msg.id || ''))) { saveAccounts(); saveBankAccounts(); }
       return;
     }
@@ -17781,7 +17809,7 @@ wss.on('connection', (ws, req) => {
       player.x = EMBER_SPAWN.x;
       player.y = EMBER_SPAWN.y;
       send(ws, { type: 'ember_wastes_entered', spawn: EMBER_SPAWN,
-        landmarks: emberLandmarksPublic(), nodes: emberNodesPublic(),
+        landmarks: emberLandmarksPublic(), map: emberMapPublic(), nodes: emberNodesPublic(),
         greeting: '🔥 THE EMBER WASTES — an open battleground. Every creature here is hostile, and so is every other wanderer: this is a free-for-all PvP zone, and anyone may strike you down. The portal behind you is the only way out — and if it goes dark before you return, you are trapped here until it burns again.' });
       storyEvent(player, 'visit_room', { room: 'ember_wastes' });
       return;
@@ -18783,7 +18811,7 @@ global.__testHooks = {
   townBonfireState, ensureTownBonfire, lightTownBonfire, getTownBonfire: () => townBonfire, BONFIRE_TARGET, // test-only: the Town Bonfire
   isCrawlerUA, // test-only: virality bot filter
   BELL_WELL, BELL_RADIUS, BELL_XP_MULT,
-  players, storyEvent, advanceQuestProgress, getProgress, getInventory, inventoryStatePayload, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
+  players, storyEvent, epilogueFor, advanceQuestProgress, getProgress, getInventory, inventoryStatePayload, migrateSkillEconomy, pactOnKill, hasPact, activePactBehavior, pactOutgoingDamage, pactIncomingDamage, registerPactDot, tickPactDots, activeDots,
   greenPathEvent, greenPathStateBody, GREEN_PATH, greenPathOf, greenPathQualifies, HERB_BANDS,
   almanacStateBody, noteAlmanacDiscovery, refreshAlmanacFromHoldings, ALMANAC_PLANT_IDS,
   gardenStateBody, gardenPlotsFor,
