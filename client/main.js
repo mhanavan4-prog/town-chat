@@ -38,6 +38,7 @@ import createOldWays from './oldways.js';
 import { SABBAT_DRESSING, dressingPointSize } from './sabbat-dressing.js';
 import createWildsSeason, { wildsSeasonFor } from './wilds-season.js';
 import createVillageHouse from './village-house.js';
+import { makeHearthFire } from './hearth-fire.js';
 import createDungeonScene from './dungeon-scene.js';
 import createEmberScene from './ember-scene.js';
 import createTownProps from './props-town.js';
@@ -13961,8 +13962,7 @@ function buildCottageProp(id, meta, x, z, yaw) {
 // flickering cone and warm light the hand-built ones had.
 function addCottageFlame(g, kind) {
   if (kind === 'hearth') {
-    const fire = new THREE.Mesh(new THREE.ConeGeometry(16, 44, 10), new THREE.MeshBasicMaterial({ color: 0xffac3a, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
-    fire.position.set(0, 30, 0); fire.onBeforeRender = () => { fire.scale.y = 0.85 + Math.sin(performance.now() * 0.006) * 0.15; }; g.add(fire);
+    const fire = makeHearthFire(THREE, 200 / 190, { light: false }); fire.position.set(0, 9, 3); g.add(fire);   // client/hearth-fire.js
     const fl = new THREE.PointLight(0xffb060, 1.1, 420, 1.8); fl.position.set(0, 50, 40); g.add(fl);
   } else {
     const top = (g.userData.kkHeight || 88);

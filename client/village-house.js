@@ -5,6 +5,8 @@
 // sign helper are injected. Mirrors the crypt's module shape, so the swap
 // plumbing in main.js treats a village room as it treats the crypt.
 // ---------------------------------------------------------------------------
+import { makeHearthFire } from './hearth-fire.js';
+
 export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid }) {
   const built = {}; // house id -> { scene, camera }
 
@@ -49,6 +51,8 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     const glow = (x, y, z, size, color) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: color || L.light, transparent: true, opacity: 0.55, depthWrite: false })); s.scale.set(size, size, 1); s.position.set(x, y, z); scene.add(s); return s; };
     const sign = (text, x, y, z) => { const s = makeSignSprite(text); s.position.set(x, y, z); scene.add(s); };
     const spot = (id) => house.spots.find((s) => s.id === id);
+    // a hearth against the north wall with its fire lit (the model is the stonework and the logs; the fire is drawn)
+    const hearth = (x, z, size, power) => { kkPlace(scene, 'furn_hearth', x, z, size, 0, 'fit'); const f = makeHearthFire(THREE, size / 190); f.position.set(x, 9 * size / 190, z + 3); f.userData.light.intensity *= (power || 1); f.userData.light.color.set(L.light); scene.add(f); };
 
     if (house.id === 'barn') {
       lamp(W * 0.25, D / 2); lamp(W * 0.75, D / 2); lamp(W / 2, 120, 150);
@@ -58,8 +62,8 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       sign('📒 The ledger — Press F', s.x, 130, s.y - 30);
       for (const [x, z, r] of [[90, 90, 0.2], [170, 80, 1.1], [120, 170, 0.6], [W - 90, 90, -0.3], [W - 170, 100, 0.8], [W - 110, 180, 0.1], [90, D - 190, 0.5], [W - 100, D - 200, -0.6]]) kkPlace(scene, 'prop_haybale', x, z, 62, r, 'fit');
       for (const [x, z] of [[230, 60], [W - 240, 60], [W / 2 - 110, 60], [W / 2 + 110, 60]]) { const g = kkPlace(scene, 'wd_sheaf', x, z, 54, 0, 'height'); if (g) g.position.y = 0; }
-      kkPlace(scene, 'furn_sidetable', s.x + 110, s.y - 20, 60, 0, 'fit');
-      kkPlace(scene, 'tw_key', s.x + 110, s.y - 20, 22, 0.6, 'fit');
+      kkPlace(scene, 'furn_sidetable', s.x + 110, s.y - 20, 40, 0, 'height');
+      { const k = kkPlace(scene, 'tw_key', s.x + 110, s.y - 20, 18, 0.6, 'fit'); if (k) k.position.y = 40; }
       kkPlace(scene, 'prop_lantern_std', 60, D / 2, 70, 0, 'height'); kkPlace(scene, 'prop_lantern_std', W - 60, D / 2, 70, 0, 'height');
     } else if (house.id === 'tower') {
       lamp(W / 2, D / 2, 150, 1.5, 620);
@@ -73,34 +77,35 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       hatch.rotation.x = Math.PI / 2; hatch.position.set(s.x, L.h - 4, s.y - 60); scene.add(hatch);
       sign('🗼 The look-out — Press F', s.x, 150, s.y - 60);
       kkPlace(scene, 'furn_shield', 30, D / 2, 60, Math.PI / 2, 'fit'); kkPlace(scene, 'furn_torch', 70, 70, 100, 0, 'height'); kkPlace(scene, 'furn_torch', W - 70, 70, 100, 0, 'height');
-      kkPlace(scene, 'furn_sidetable', W - 90, D / 2 + 20, 60, 0, 'fit'); kkPlace(scene, 'furn_rlantern', W - 90, D / 2 + 20, 26, 0, 'fit');
+      kkPlace(scene, 'furn_sidetable', W - 90, D / 2 + 20, 40, 0, 'height'); { const l = kkPlace(scene, 'furn_rlantern', W - 90, D / 2 + 20, 22, 0, 'height'); if (l) l.position.y = 40; }
       kkPlace(scene, 'furn_banner', W / 2 + 120, 14, 110, 0, 'height');
     } else if (house.id === 'lodging') {
       // the Lyke-Wake: beds down the west side, the fire and its keeper to the east, a candle in the window
       const b = spot('bed'), k = spot('keeper');
       for (const [x, z] of [[90, 90], [90, 230], [250, 90]]) kkPlace(scene, 'furn_cbed', x, z, 110, Math.PI / 2, 'fit');
       sign('🛏️ A bed — Press F', b.x, 120, b.y - 20);
-      kkPlace(scene, 'furn_hearth', k.x, 34, 150, 0, 'fit');
-      lamp(k.x, 110, 70, 1.6, 480); glow(k.x, 40, 64, 100, 0xff8a30);
+      hearth(k.x, 34, 150, 0.9);
+      lamp(k.x, 110, 70, 0.8, 480);
       try {
         const keeper = createHumanoid ? createHumanoid(3).group : null;
         if (keeper) { keeper.position.set(k.x + 70, 0, k.y - 40); keeper.traverse((o) => { if (!o.isMesh && !o.isSkinnedMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color) m.color.lerp(new THREE.Color(0x5a5048), 0.5); }); scene.add(keeper); }
       } catch (e) { /* the house keeps itself */ }
       sign('🕯️ The keeper — Press F', k.x + 70, 118, k.y - 40);
-      kkPlace(scene, 'furn_sidetable', W - 60, D / 2, 56, 0, 'fit');
-      const c = kkPlace(scene, 'cave_candle', W - 60, D / 2, 26, 0, 'height'); if (c) c.position.y = 30;
-      glow(W - 60, 62, D / 2, 46, 0xffd080); lamp(W - 60, D / 2, 70, 0.5, 220);
-      kkPlace(scene, 'furn_stool', k.x - 60, k.y + 40, 30, 0, 'fit');
+      kkPlace(scene, 'furn_sidetable', W - 60, D / 2, 40, 0, 'height');
+      const c = kkPlace(scene, 'cave_candle', W - 60, D / 2, 22, 0, 'height'); if (c) c.position.y = 40;
+      glow(W - 60, 68, D / 2, 40, 0xffd080); lamp(W - 60, D / 2, 74, 0.5, 220);
+      kkPlace(scene, 'furn_stool', k.x - 60, k.y + 40, 24, 0, 'height');   // knee-high (the kit's is a bar stool: set by its height)
       lamp(W * 0.3, D * 0.55, 100, 0.4, 320);
     } else if (house.id === 'cottage') {
       // the wise-woman's one room: her shelf of remedies to the west, herself by the
       // hearth to the east, a stool at the fire, and herbs hung to dry along the beam
       const w = spot('wares'), u = spot('unwitch'), t = spot('trade');
-      kkPlace(scene, 'furn_hearth', W / 2, 34, 150, 0, 'fit');
-      lamp(W / 2, 110, 70, 1.8, 520); glow(W / 2, 40, 64, 100, 0xff8a30);
+      hearth(W / 2, 34, 150, 0.9);
+      lamp(W / 2, 110, 70, 0.9, 520);
       kkPlace(scene, 'furn_bookcase', w.x, w.y - 110, 150, 0, 'height');
-      for (const [dx, key, sz] of [[-34, 'cave_potion', 26], [0, 'cave_jar', 24], [34, 'cave_eyejar', 24]]) { const g = kkPlace(scene, key, w.x + dx, w.y - 60, sz, 0, 'height'); if (g) g.position.y = 0; }
-      kkPlace(scene, 'furn_sidetable', w.x, w.y - 50, 70, 0, 'fit');
+      // her table is table-high (it was set by its width, and stood as tall as she does), with the bottles on it
+      for (const [dx, key, sz] of [[-13, 'cave_potion', 18], [0, 'cave_jar', 16], [13, 'cave_eyejar', 16]]) { const g = kkPlace(scene, key, w.x + dx, w.y - 50, sz, 0, 'height'); if (g) g.position.y = 44; }
+      kkPlace(scene, 'furn_sidetable', w.x, w.y - 50, 44, 0, 'height');
       sign('🌿 Remedies — Press F', w.x, 150, w.y - 110);
       // Dame Averil herself, by the fire: the Witch's body, in an old woman's greys and browns
       try {
@@ -112,17 +117,17 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
         }
       } catch (e) { /* a room without its mistress is still a room */ }
       sign('🌿 Dame Averil — Press F', u.x, 118, u.y - 60);
-      kkPlace(scene, 'furn_stool', t.x, t.y, 30, 0, 'fit');
+      kkPlace(scene, 'furn_stool', t.x, t.y, 24, 0, 'height');   // knee-high (the kit's is a bar stool: set by its height)
       for (let x = 70; x < W - 40; x += 62) { const g = kkPlace(scene, 'furn_herbs', x, 60, 34, x, 'height'); if (g) g.position.y = L.h - 70; }
       // (no rug: the kit's is pale and took the firelight as a white sheet in so small a room)
       kkPlace(scene, 'wd_besom', W - 50, D - 110, 90, 0.3, 'height');
-      kkPlace(scene, 'furn_sidetable', W - 70, 150, 60, 0, 'fit'); kkPlace(scene, 'furn_rjar', W - 70, 150, 22, 0, 'fit');
+      kkPlace(scene, 'furn_sidetable', W - 70, 150, 40, 0, 'height'); { const j = kkPlace(scene, 'furn_rjar', W - 70, 150, 16, 0, 'height'); if (j) j.position.y = 40; }
       lamp(W * 0.25, D * 0.55, 100, 0.45, 300); lamp(W * 0.75, D * 0.55, 100, 0.45, 300);
     } else {
       // the Moot Hall: the hearth on the north wall, the long table down the middle, the board by the door
       const h = spot('hearth'), b = spot('board');
-      kkPlace(scene, 'furn_hearth', h.x, 40, 190, 0, 'fit');
-      lamp(h.x, 120, 70, 2.0, 640); glow(h.x, 46, 70, 120, 0xff8a30);
+      hearth(h.x, 40, 190, 1.1);
+      lamp(h.x, 120, 70, 1.0, 640);
       sign('🔥 The hearth — Press F', h.x, 170, 70);
       // the long table, made of three trestle tables end to end, at a height to sit at (one at 330 stood
       // higher than a head), with a bench down each side
@@ -130,7 +135,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
         kkPlace(scene, 'furn_htable', W / 2, D / 2 + 20 + dz, 92, Math.PI / 2, 'fit');
         for (const sx of [-50, 50]) kkPlace(scene, 'furn_hbench', W / 2 + sx, D / 2 + 20 + dz, 90, Math.PI / 2, 'fit');
       }
-      kkPlace(scene, 'furn_highseat', W / 2, D / 2 - 190, 90, 0, 'height');
+      kkPlace(scene, 'furn_highseat', h.x + 200, 64, 90, 0, 'height');   // beside the hearth, not before it: it stood square in front of the fire
       const ch = kkPlace(scene, 'furn_chandelier', W / 2, D / 2 + 20, 130, 0, 'fit'); if (ch) ch.position.y = 170;
       lamp(W / 2, D / 2 + 20, 160, 1.2, 600);
       kkPlace(scene, 'furn_wrug', W / 2, D - 170, 190, 0, 'fit');
