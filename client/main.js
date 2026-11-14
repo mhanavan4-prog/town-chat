@@ -51,6 +51,7 @@ import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } f
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES, QUIET_SIGNS } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
+import { wildsWaters } from './wilds-water.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
@@ -9509,7 +9510,13 @@ function wildsNoise(x, z) {
   h += (lattice(n * 15, m * 15) - 0.5) * 0.15;
   return h * WILDS_AMP;
 }
+// The moor with the beck and its mere cut into it (client/wilds-water.js). Everything that stands on the Wilds
+// asks this, so everything goes down into the water with the ground.
 function wildsHeightAt(x, z) {
+  const h = wildsRawHeightAt(x, z);
+  return world2 ? wildsWaters(wildsRawHeightAt).carve(x, z, h) : h;
+}
+function wildsRawHeightAt(x, z) {
   let flat = 1; // 1 = full hills, 0 = flat
   const zones = wildsFlatZones();
   for (let i = 0; i < zones.length; i++) {
@@ -21340,6 +21347,8 @@ if (location.search.includes('testdrive=1')) {
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
+    // every placed thing the Wilds knows of, by name: [name, x, y, r] (flat zones, and whatever the server sent with a place)
+    wildsPlaces() { const out = wildsFlatZones().map((z, i) => ['zone' + i, z.x, z.y, z.r]); const walk = (k, v, d) => { if (!v || typeof v !== 'object' || d > 3) return; if (typeof v.x === 'number' && typeof v.y === 'number') out.push([k, v.x, v.y, v.r || v.radius || 0]); if (Array.isArray(v)) v.forEach((e, i) => walk(k + '.' + (e && e.id ? e.id : i), e, d + 1)); else for (const q in v) walk(k + '.' + q, v[q], d + 1); }; if (world2) for (const k in world2) walk(k, world2[k], 0); return out; },
     grass() { return wildsGrassCounts(); },   // how many tufts each ring of the Wilds' grass is drawing
     legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },
