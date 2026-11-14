@@ -13,7 +13,7 @@
 //     noise read at four scales in world space;
 //   - trodden ways: the drove road's bed, worn tracks between the places people
 //     go, and beaten earth round the village, the camps and the fires;
-//   - grass that stands up: tufts of blades round you, the colour of the ground
+//   - grass that stands up: tufts of blades as far as you can see, the colour of the ground
 //     they grow from, moving in the wind and parting where you walk. None on
 //     the tracks, few on the heather, thin where the earth shows.
 //
@@ -26,7 +26,8 @@
 // tufts know what they stand on.
 //
 // Quality: 'low' keeps the old ground untouched. 'medium' has the new ground
-// and thin grass; 'high' the full grass.
+// and thin grass; 'high' the full grass. The grass is laid in three rings, out
+// to where the fog takes the ground: see WILDS_GRASS.
 // ---------------------------------------------------------------------------
 
 const WG_N = 256;   // the noise is N x N, four channels, and wraps
@@ -221,22 +222,48 @@ function wgTuft(THREE) {
   return g;
 }
 
-export const WILDS_GRASS = { high: { gap: 11, reach: 340, max: 3600 }, medium: { gap: 16, reach: 250, max: 1100 } };
+// How far the grass goes, in three rings. You cannot tell blade from blade a long way off, so each ring out is
+// sparser and its tufts bigger: the near ring is the meadow at your feet, the far one carries it to where the fog
+// takes over. A ring fades in over [from, full] and out over the last fifth of `to`, so each hands on to the next.
+// `gap` is the grid's pitch, `size` how much bigger its tufts stand.
+export const WILDS_GRASS = {
+  high: [
+    { gap: 11, from: 0, full: 0, to: 340, size: 1 },
+    { gap: 26, from: 200, full: 340, to: 820, size: 1.5 },
+    { gap: 52, from: 620, full: 820, to: 1500, size: 2.2 },
+  ],
+  medium: [
+    { gap: 16, from: 0, full: 0, to: 250, size: 1 },
+    { gap: 36, from: 150, full: 250, to: 600, size: 1.5 },
+    { gap: 68, from: 450, full: 600, to: 1000, size: 2.2 },
+  ],
+};
+// A ring is laid again when you have walked `slack` from where it was last laid, and laid that much wider than it shows.
+export const grassSlack = (r) => r.gap * 3;
+// The most tufts a ring can ever need: every cell of its grid that the laid ring can touch. (Room for all of them,
+// so a ring is never cut short on one side.)
+export function grassRoom(r) {
+  const out = r.to + grassSlack(r) + r.gap * 1.5, inn = Math.max(0, r.from - grassSlack(r) - r.gap * 1.5);
+  return Math.ceil(Math.PI * (out * out - inn * inn) / (r.gap * r.gap) * 1.04) + 16;
+}
 
 // Grass round whoever is walking. `update(x, z, t, tint, frost)` each frame while the Wilds are shown.
 export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, quality }) {
-  const Q = WILDS_GRASS[quality]; if (!Q) return null;
+  const RINGS = (WILDS_GRASS[quality] || []).map((r) => ({ ...r, max: grassRoom(r) })); if (!RINGS.length) return null;
+  const TOTAL = RINGS.reduce((n, r) => n + r.max, 0);
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-  const U = { uT: { value: 0 }, uC: { value: new THREE.Vector2() }, uR: { value: Q.reach } };
+  const U = { uT: { value: 0 }, uC: { value: new THREE.Vector2() } };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = 'attribute float aTip; uniform float uT; uniform vec2 uC; uniform float uR;\n' + sh.vertexShader.replace('#include <lights_lambert_vertex>', '#include <lights_lambert_vertex>\n  #ifdef DOUBLE_SIDED\n    vLightBack = vLightFront; vIndirectBack = vIndirectFront;   // a blade is lit the same from either side\n  #endif').replace('#include <project_vertex>', `
+    sh.vertexShader = 'attribute float aTip; attribute vec3 aRing; uniform float uT; uniform vec2 uC;\n' + sh.vertexShader.replace('#include <lights_lambert_vertex>', '#include <lights_lambert_vertex>\n  #ifdef DOUBLE_SIDED\n    vLightBack = vLightFront; vIndirectBack = vIndirectFront;   // a blade is lit the same from either side\n  #endif').replace('#include <project_vertex>', `
   vec4 gW = vec4(transformed, 1.0);
   #ifdef USE_INSTANCING
     vec4 gO = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
     gW = instanceMatrix * gW;
     float gD = distance(gO.xz, uC);
-    gW.y = gO.y + (gW.y - gO.y) * (1.0 - smoothstep(uR * 0.6, uR, gD));          // it thins out toward the edge of what is drawn
+    // its ring's own reach (aRing: from, full, to): it comes up as the nearer ring thins, and thins toward its own edge
+    float gShow = (aRing.y > 0.0 ? smoothstep(aRing.x, aRing.y, gD) : 1.0) * (1.0 - smoothstep(aRing.z * 0.78, aRing.z, gD));
+    gW.y = gO.y + (gW.y - gO.y) * gShow;
     float gWind = sin(uT * 1.6 + gO.x * 0.021 + gO.z * 0.017) * 0.65 + sin(uT * 2.9 + gO.x * 0.05 - gO.z * 0.03) * 0.3;
     gW.x += aTip * gWind * 1.5; gW.z += aTip * gWind * 0.8;                      // wind
     vec2 gAway = gO.xz - uC; float gNear = 1.0 - smoothstep(8.0, 30.0, length(gAway));
@@ -245,56 +272,67 @@ export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, qua
   vec4 mvPosition = modelViewMatrix * gW;
   gl_Position = projectionMatrix * mvPosition;`);
   };
-  mat.customProgramCacheKey = () => 'wildsGrass1';
-  const mesh = new THREE.InstancedMesh(wgTuft(THREE), mat, Q.max);
-  // (made at its full length here: setColorAt would make it the length of `count`, which starts at nothing)
-  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(Q.max * 3), 3);
-  mesh.name = 'wildsGrass'; mesh.frustumCulled = false; mesh.count = 0; mesh.castShadow = false; mesh.receiveShadow = false;
+  mat.customProgramCacheKey = () => 'wildsGrass2';
+  const geo = wgTuft(THREE);
+  // every ring has its own run of the instances, so which ring a tuft is of never changes: it is written once
+  const ringOf = new Float32Array(TOTAL * 3);
+  { let o = 0; for (const r of RINGS) { for (let k = 0; k < r.max; k++) { ringOf[(o + k) * 3] = r.from; ringOf[(o + k) * 3 + 1] = r.full; ringOf[(o + k) * 3 + 2] = r.to; } o += r.max; } }
+  geo.setAttribute('aRing', new THREE.InstancedBufferAttribute(ringOf, 3));
+  const mesh = new THREE.InstancedMesh(geo, mat, TOTAL);
+  // (made at its full length here: setColorAt would make it the length of `count`)
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(TOTAL * 3), 3);
+  mesh.instanceMatrix.array.fill(0);   // nothing stands until its ring is filled
+  mesh.name = 'wildsGrass'; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
   mesh.userData.noShadowCaster = true;
   scene.add(mesh);
   const hash = (i, j, k) => { const s = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return s - Math.floor(s); };
-  const dummy = new THREE.Object3D(), col = new THREE.Color();
-  let fx = Infinity, fz = Infinity;
-  // What grows in each cell of the grid is worked out once and kept: walking on, only the cells newly in reach are new.
-  const cells = new Map();
-  function cellAt(a, b) {
-    const key = a * 65536 + b;
-    let c = cells.get(key);
+  const dummy = new THREE.Object3D(), col = new THREE.Color(), NONE = new THREE.Matrix4().makeScale(0, 0, 0);
+  // What grows in each cell of a ring's grid is worked out once and kept: walking on, only the cells newly in reach are new.
+  const state = RINGS.map((r, k) => ({ r, k, cells: new Map(), fx: Infinity, fz: Infinity, start: RINGS.slice(0, k).reduce((n, q) => n + q.max, 0), n: 0 }));
+  function cellAt(st, a, b) {
+    const key = a * 65536 + b, r = st.r;
+    let c = st.cells.get(key);
     if (c !== undefined) return c;
-    const x = (a + hash(a, b, 1) - 0.5) * Q.gap, z = (b + hash(a, b, 2) - 0.5) * Q.gap, y = heightAt(x, z);
+    const sd = st.k * 10;
+    const x = (a + hash(a, b, sd + 1) - 0.5) * r.gap, z = (b + hash(a, b, sd + 2) - 0.5) * r.gap, y = heightAt(x, z);
     const m = mixAt(noise, mask, x, z, hOf(x, z, y));
     const grows = (1 - m.earth) * (1 - m.heath * 0.6) * (1 - wgSS(0.12, 0.45, m.trod));
-    if (hash(a, b, 3) > grows) c = null;
+    if (hash(a, b, sd + 3) > grows) c = null;
     else {
-      const s = (0.7 + 0.8 * hash(a, b, 4)) * (0.65 + 0.35 * grows), k = 1.0 + 0.35 * hash(a, b, 7);
-      c = [x, y - 0.6, z, hash(a, b, 5) * Math.PI * 2, s, s * (0.8 + 0.5 * hash(a, b, 6)), m.grass[0] * k, m.grass[1] * k, m.grass[2] * k];
+      const s = (0.7 + 0.8 * hash(a, b, sd + 4)) * (0.65 + 0.35 * grows) * r.size, k = 1.0 + 0.35 * hash(a, b, sd + 7);
+      c = [x, y - 0.6, z, hash(a, b, sd + 5) * Math.PI * 2, s, s * (0.8 + 0.5 * hash(a, b, sd + 6)) * (1 - (r.size - 1) * 0.28), m.grass[0] * k, m.grass[1] * k, m.grass[2] * k];
     }
-    if (cells.size > 40000) cells.clear();
-    cells.set(key, c);
+    if (st.cells.size > 30000) st.cells.clear();
+    st.cells.set(key, c);
     return c;
   }
-  function fill(cx, cz) {
-    fx = cx; fz = cz;
-    const G = Q.gap, R = Q.reach + G * 4, K = Math.ceil(R / G), gi = Math.round(cx / G), gj = Math.round(cz / G);
+  const slackOf = grassSlack;
+  function fill(st, cx, cz) {
+    st.fx = cx; st.fz = cz;
+    const r = st.r, G = r.gap, slack = slackOf(r), R = r.to + slack, inner = Math.max(0, r.from - slack), K = Math.ceil(R / G), gi = Math.round(cx / G), gj = Math.round(cz / G);
     let n = 0;
-    for (let j = -K; j <= K && n < Q.max; j++) for (let i = -K; i <= K && n < Q.max; i++) {
-      if (i * i + j * j > (K + 0.5) * (K + 0.5)) continue;
-      const c = cellAt(gi + i, gj + j); if (!c) continue;
+    for (let j = -K; j <= K && n < r.max; j++) for (let i = -K; i <= K && n < r.max; i++) {
+      const d2 = (i * i + j * j) * G * G;
+      if (d2 > (R + G) * (R + G) || (inner > G && d2 < (inner - G) * (inner - G))) continue;
+      const c = cellAt(st, gi + i, gj + j); if (!c) continue;
       dummy.position.set(c[0], c[1], c[2]); dummy.rotation.set(0, c[3], 0); dummy.scale.set(c[4], c[5], c[4]); dummy.updateMatrix();
-      mesh.setMatrixAt(n, dummy.matrix);
-      mesh.setColorAt(n, col.setRGB(c[6], c[7], c[8]));
+      mesh.setMatrixAt(st.start + n, dummy.matrix);
+      mesh.setColorAt(st.start + n, col.setRGB(c[6], c[7], c[8]));
       n++;
     }
-    mesh.count = n; mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+    for (let k = n; k < st.n; k++) mesh.setMatrixAt(st.start + k, NONE);   // what the ring no longer needs lies down
+    st.n = n;
+    mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
   }
   return {
     mesh,
     update(x, z, t, tint, frost) {
-      if (Math.hypot(x - fx, z - fz) > Q.gap * 3) fill(x, z);
+      for (const st of state) if (Math.hypot(x - st.fx, z - st.fz) > slackOf(st.r)) fill(st, x, z);
       U.uT.value = t; U.uC.value.set(x, z);
       if (tint) mat.color.copy(tint);
       if (frost) mat.emissive.copy(frost).multiplyScalar(0.7);   // hoar-frost and snow lie on the grass as well, a little less
     },
-    count: () => mesh.count,
+    count: () => state.reduce((n, st) => n + st.n, 0),
+    counts: () => state.map((st) => st.n),
   };
 }

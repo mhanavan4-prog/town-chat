@@ -6,7 +6,7 @@ function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', na
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const raw = read('client/wilds-ground.js'), scene = read('client/wilds-scene.js'), main = read('client/main.js');
 const src = raw.replace(/export const /g, 'const ').replace(/export function /g, 'function ');
-const G = new Function(src + '\nreturn { makeGroundNoise, makeGroundMask, mixAt, wander, WILDS_GRASS, WG_FRAG, WG_C, WG_S };')();
+const G = new Function(src + '\nreturn { makeGroundNoise, makeGroundMask, mixAt, wander, WILDS_GRASS, grassRoom, grassSlack, WG_FRAG, WG_C, WG_S };')();
 
 const noise = G.makeGroundNoise(null);
 let lo = [1, 1, 1, 1], hi = [0, 0, 0, 0];
@@ -39,11 +39,17 @@ check('four kinds of ground: grass, heather, earth, and rock where it is steep',
 check('the scene\'s own lights, fog and shadows are kept: only the colour is replaced', /new THREE\.MeshLambertMaterial\(\{ color: old\.color\.clone\(\)/.test(raw) && /replace\('#include <map_fragment>', 'diffuseColor\.rgb \*= wildsGround\(\);'\)/.test(raw));
 check('so the season still dyes it, and the grass with it', /ground\.name = 'wildsGround'/.test(scene) && /wildsGrass\.update\(x, z, t, m \? m\.color : null, m \? m\.emissive : null\)/.test(scene) && /mat\.color\.copy\(tint\)/.test(raw));
 
-check('grass: full on high, thin on medium, none on low', G.WILDS_GRASS.high.max > G.WILDS_GRASS.medium.max * 2 && G.WILDS_GRASS.high.gap < G.WILDS_GRASS.medium.gap && !G.WILDS_GRASS.low && /const Q = WILDS_GRASS\[quality\]; if \(!Q\) return null;/.test(raw));
+const rooms = (q) => G.WILDS_GRASS[q].map(G.grassRoom), sum = (a) => a.reduce((x, y) => x + y, 0);
+check('grass: full on high, thin on medium, none on low', sum(rooms('high')) > sum(rooms('medium')) * 2 && G.WILDS_GRASS.high[0].gap < G.WILDS_GRASS.medium[0].gap && !G.WILDS_GRASS.low && /if \(!RINGS\.length\) return null;/.test(raw));
+check('it is laid in three rings, each sparser and bigger than the one inside it, out to where the fog takes the ground', ['high', 'medium'].every((q) => { const r = G.WILDS_GRASS[q]; return r.length === 3 && r[0].from === 0 && r.every((x, i) => !i || (x.gap >= r[i - 1].gap * 1.8 && x.size > r[i - 1].size && x.to > r[i - 1].to)); }) && G.WILDS_GRASS.high[2].to >= 1400 && G.WILDS_GRASS.medium[2].to >= 900);
+check('each ring comes up exactly where the one inside it thins, so there is no bare band and no doubled one', ['high', 'medium'].every((q) => { const r = G.WILDS_GRASS[q]; return r.every((x, i) => !i || (x.full === r[i - 1].to && Math.abs(x.from - r[i - 1].to * (i === 1 ? 0.6 : 0.78)) < r[i - 1].to * 0.04)); }));
+check('the whole of it stays within what was promised: about three times the first grass, not seventeen', sum(rooms('high')) < 12500 && sum(rooms('medium')) < 4200 && sum(rooms('high')) * 7 < 90000, [sum(rooms('high')), sum(rooms('medium'))]);
+check('a ring has room for every cell it can touch, so it is never cut short on one side', ['high', 'medium'].every((q) => G.WILDS_GRASS[q].every((r) => { const out = r.to + G.grassSlack(r) + r.gap, inn = Math.max(0, r.from - G.grassSlack(r) - r.gap); let n = 0; const K = Math.ceil(out / r.gap); for (let j = -K; j <= K; j++) for (let i = -K; i <= K; i++) { const d2 = (i * i + j * j) * r.gap * r.gap; if (d2 <= out * out && d2 >= inn * inn) n++; } return n <= G.grassRoom(r); })));
+check('which ring a tuft belongs to is written once, and a ring is laid again only when you have walked its own slack', /geo\.setAttribute\('aRing', new THREE\.InstancedBufferAttribute\(ringOf, 3\)\)/.test(raw) && /for \(const st of state\) if \(Math\.hypot\(x - st\.fx, z - st\.fz\) > slackOf\(st\.r\)\) fill\(st, x, z\);/.test(raw));
 check('on low the old floor is left exactly as it was', /!\(GFX && GFX\.st && GFX\.st\.quality === 'low'\)/.test(scene) && /if \(!richGround\) ribbon\(P, w2\.drove\.width \/ 2/.test(scene) && /makeWildsFloorTexture\(\)/.test(scene));
 check('if anything goes wrong making it, the old floor is kept', /catch \(e\) \{ console\.error\('wilds ground: kept the old floor', e\); richGround = null; wildsGrass = null; \}/.test(scene));
-check('one draw call for all the grass, and what grows in a cell is worked out once', /new THREE\.InstancedMesh\(wgTuft\(THREE\), mat, Q\.max\)/.test(raw) && /const cells = new Map\(\);/.test(raw) && /if \(c !== undefined\) return c;/.test(raw));
-check('it moves in the wind, parts where you walk, thins toward the edge of what is drawn', /gWind/.test(raw) && /gNear/.test(raw) && /smoothstep\(uR \* 0\.6, uR, gD\)/.test(raw));
+check('one draw call for all the grass, and what grows in a cell is worked out once', /new THREE\.InstancedMesh\(geo, mat, TOTAL\)/.test(raw) && /cells: new Map\(\)/.test(raw) && /if \(c !== undefined\) return c;/.test(raw));
+check('it moves in the wind, parts where you walk, thins toward the edge of what is drawn', /gWind/.test(raw) && /gNear/.test(raw) && /smoothstep\(aRing\.z \* 0\.78, aRing\.z, gD\)/.test(raw));
 check('nothing grows on a glyph, a track, or the drove road', /glyphSpots\.push\(\{ x: gx, y: gz, r: size \* 0\.66, w: 0\.9 \}\)/.test(scene) && /\.\.\.glyphSpots,/.test(scene) && /ways\.push\(\{ pts: P, half: w2\.drove\.width \* 0\.36, w: 0\.3 \}\)/.test(scene) && /\(1 - wgSS\(0\.12, 0\.45, m\.trod\)\)/.test(raw));
 check('the grass is moved each frame only while the Wilds are shown', /if \(activeScene === wildsScene && me\) updateWildsGround\(me\.x, me\.y, performance\.now\(\) \* 0\.001\);/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
