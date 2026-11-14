@@ -8169,7 +8169,7 @@ function hydrateMenuRows() {
     // Chat compose is its own state: the top bar stays (💬 is how it closes).
     const cp = document.getElementById('chatPanel');
     document.body.classList.toggle('composeOpen',
-      !!(MOBILE_UI && cp && !cp.classList.contains('hidden') && !cp.classList.contains('mobileClosed')));
+      !!(MOBILE_UI && cp && !cp.classList.contains('hidden') && !cp.classList.contains('mobileClosed') && !cp.classList.contains('pinned')));   // kept open as a window, the controls stay
   };
   const obs = new MutationObserver(sync);
   const seen = new Set();
