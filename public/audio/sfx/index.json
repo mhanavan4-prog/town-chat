@@ -285,6 +285,12 @@
       "v": "d5cb2c83"
     }
   ],
+  "epilogue": [
+    {
+      "f": "epilogue.mp3",
+      "v": "3154ffe0"
+    }
+  ],
   "equip": [
     {
       "f": "equip.mp3",
@@ -829,6 +835,12 @@
       "v": "3250c5ef"
     }
   ],
+  "sin_stone": [
+    {
+      "f": "sin_stone.mp3",
+      "v": "635d5c54"
+    }
+  ],
   "siphon": [
     {
       "f": "siphon.mp3",
@@ -1025,6 +1037,12 @@
     {
       "f": "ward.mp3",
       "v": "42814ce0"
+    }
+  ],
+  "watch_field": [
+    {
+      "f": "watch_field.mp3",
+      "v": "f36ed333"
     }
   ],
   "well_drink": [
