@@ -2385,6 +2385,7 @@
     width:100% !important; max-width:none; height:100%; max-height:none;
     border-radius:0; border:none;
     padding:0 14px calc(12px + env(safe-area-inset-bottom));
+    z-index:60;   /* above #menuScrim (59), as on desktop: under it the whole panel was dimmed and blurred */
   }
   #invMobHead { display:none; }
   body.touchMode #invMobHead {
