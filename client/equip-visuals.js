@@ -6,10 +6,11 @@
 // active-status FX. CHAR/EQUIP_ATTACH + the glow texture + the visuals registry are
 // injected (THREE/LEGEND_FX are globals); myId/players via getters.
 // ---------------------------------------------------------------------------
-export default function createEquipVisuals({ CHAR, EQUIP_ATTACH, makeGlowTexture, visuals, getMyId, getPlayers, staticModel = () => null }) {
+export default function createEquipVisuals({ CHAR, EQUIP_ATTACH, makeGlowTexture, visuals, getMyId, getPlayers, staticModel = () => null, getWearOverride = () => null }) {
 function applyEquipVisual(id, equipped) {
   const v = visuals[id];
   if (!v) return;
+  if (id === getMyId() && getWearOverride()) equipped = getWearOverride();   // trying gear on, in a test
   // Pass itemIds directly so each slot can pick the right color/look.
   EQUIP_ATTACH.weapon(v, equipped.equippedWeapon || null);
   EQUIP_ATTACH.chest (v, equipped.equippedChest  || null);

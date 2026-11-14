@@ -1,3 +1,4 @@
+import { GEAR_IDS, GEAR_SCALE, GEAR_SEAT } from './gear-models.js';
 import { applyMenuGates, menuPointedAt } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
 import createAudio from './audio.js';
@@ -636,6 +637,8 @@ const KK = (() => {
     furn_handheld:    'kk/furn/handheld_console.gltf',// handheld console
     furn_catphones:   'kk/furn/cat_headphones_A.gltf' // cat-ear headphones
   };
+  // Worn gear, a model an item (client/gear-models.js). Streams in behind the player's body.
+  for (const id of GEAR_IDS) MANIFEST['gear_' + id] = 'kk/gear/' + id + '.glb';
   // Embedded hand-prop meshes present in the character GLBs; anything in
   // this list is hidden unless the class KEEP list names it.
   const PROP_MESHES = ['Spellbook','Spellbook_open','1H_Wand','2H_Staff','1H_Axe','1H_Axe_Offhand','2H_Axe','Mug',
@@ -674,7 +677,8 @@ const KK = (() => {
     'wprop_cauldron', 'wprop_potionstn', 'wprop_wtable', 'wprop_mortar', 'wprop_pestle', 'wprop_mushbasket', 'wprop_broom',
     // The real-plant models: the Wilds rebuilds once everything has landed.
     // (fp_, the town's wildflowers, stay with the town's first paint: the town decor is built once.)
-    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw|dg|wd)_/.test(k))];
+    ...Object.keys(MANIFEST).filter((k) => /^(pl|cr|gv|gd|fl|cave|wl|alt|tw|dg|wd)_/.test(k)),
+    ...GEAR_IDS.map((id) => 'gear_' + id)];   // worn gear: drawn the old way until its model is in
   // Interior furniture (Furniture Bits) — tiny models only needed once you enter
   // a furnished building, so they stream with the character tail rather than
   // gating first paint. buildFurniture falls back to procedural until present.
@@ -888,7 +892,15 @@ const KK = (() => {
     return g;
   }
 
-  return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance,
+  // A worn item's model, as built: no fitting, so its origin stays where the thing is held or worn.
+  function gearInstance(itemId) {
+    const t = models['gear_' + itemId];
+    if (!t) return null;
+    const inst = t.scene.clone(true);
+    inst.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    return inst;
+  }
+  return { MANIFEST, PROP_MESHES, KEEP, WEAPONISH, models, mixers, load, has, charKey, charReady, staticInstance, gearInstance,
     whenChar, beginChars,
     get settled() { return settled; }, promise,
     // Loading-pill progress: fraction 0..1 of the whole manifest, and whether
@@ -15803,7 +15815,19 @@ function kkDrivePlayer(v, p, id, dt, isMoving, moveDist) {
 // equip slots and items otherwise differing just by name/icon, a per-item
 // 3D model isn't worth the cost here; what matters for gameplay/visual
 // feedback is just "this player has a weapon/armor equipped or doesn't."
+// A worn item with a model of its own (client/gear-models.js), or null to draw it the old way.
+let _gearBody = true;   // the old box bodies keep the old drawn gear: the models are cut for the new bodies
+function gearMesh(itemId) {
+  const inst = _gearBody && KK && KK.gearInstance ? KK.gearInstance(itemId) : null;
+  if (!inst) return null;
+  const g = new THREE.Group();
+  inst.scale.setScalar(GEAR_SCALE);
+  g.add(inst);
+  g.userData.gear = true;
+  return g;
+}
 function makeEquippedWeaponMesh(itemId) {
+  { const g = gearMesh(itemId); if (g) return g; }
   // The Holly Wand gets its own look — a crooked holly stick with a lit
   // tip. The tip sprite + the per-player point light (see wand light pool)
   // are what make it "glow and light the way at night".
@@ -15867,6 +15891,7 @@ const EQUIP_COLORS = {
 };
 
 function makeEquippedChestMesh(itemId) {
+  { const g = gearMesh(itemId); if (g) return g; }
   const color = EQUIP_COLORS[itemId] || 0x8a8f99;
   return new THREE.Mesh(
     new THREE.CylinderGeometry(9.6, 11.6, CHAR.torsoH * 0.85, 8),
@@ -15875,6 +15900,7 @@ function makeEquippedChestMesh(itemId) {
 }
 
 function makeEquippedHeadMesh(itemId) {
+  { const g = gearMesh(itemId); if (g) return g; }
   const palette = EQUIP_COLORS[itemId] || [0x7a8a9a, 0x6a7a8a];
   const [capColor, brimColor] = Array.isArray(palette) ? palette : [palette, palette];
   const g = new THREE.Group();
@@ -15896,12 +15922,14 @@ function makeEquippedHeadMesh(itemId) {
 // attached to that leg's own pivot, so it walks with the leg instead of
 // sitting fixed under the static torso group while the legs swing under it.
 function makeEquippedFeetMesh(itemId) {
+  { const g = gearMesh(itemId); if (g) return g; }
   const color = EQUIP_COLORS[itemId] || 0x5a3a24;
   const mat = new THREE.MeshLambertMaterial({ color });
   return new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 4, 6), mat);
 }
 
 function makeEquippedRingMesh(itemId) {
+  { const g = gearMesh(itemId); if (g) return g; }
   const color = EQUIP_COLORS[itemId] || 0xffd43b;
   return new THREE.Mesh(
     new THREE.SphereGeometry(2, 6, 6),
@@ -15915,7 +15943,7 @@ function _equipParent(v, parentKey) {
   // kk visuals: parent equip meshes to skeleton bones (via a scale-
   // compensating wrapper) so they ride the animations.
   if (!v.kk) return v[parentKey];
-  const boneFor = { armR: v.kk.handR, armL: v.kk.handL, legL: v.kk.footL, legR: v.kk.footR, group: v.kk.headBone };
+  const boneFor = { armR: v.kk.handR, armL: v.kk.handL, legL: v.kk.footL, legR: v.kk.footR, group: v.kk.headBone, chest: v.kk.chestBone };
   const bone = boneFor[parentKey];
   if (!bone) return v[parentKey];
   const slotKey = 'slot_' + parentKey;
@@ -15929,8 +15957,28 @@ function _equipParent(v, parentKey) {
   return v.kk.slots[slotKey];
 }
 
+// The turn that undoes a bone's rest pose: what is given it sits square to the body (y up, z forward).
+const _bq = { m: null, p: null, s: null };
+function _bindQuat(kk, bone) {
+  if (!kk._bindQuats) kk._bindQuats = new Map();
+  if (kk._bindQuats.has(bone)) return kk._bindQuats.get(bone);
+  let q = null;
+  kk.inst.traverse((o) => {
+    if (q || !o.isSkinnedMesh || !o.skeleton) return;
+    const i = o.skeleton.bones.indexOf(bone);
+    if (i < 0) return;
+    if (!_bq.p) { _bq.p = new THREE.Vector3(); _bq.s = new THREE.Vector3(); }
+    q = new THREE.Quaternion();
+    o.skeleton.boneInverses[i].decompose(_bq.p, q, _bq.s);
+  });
+  kk._bindQuats.set(bone, q);
+  return q;
+}
+const GEAR_SLOT_OF = { weaponMesh: 'weapon', headMesh: 'head', chestMesh: 'chest', feetMeshL: 'feet', feetMeshR: 'feet', ringMesh: 'ring' };
 function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
-  const changed = v[meshKey + 'ItemId'] !== itemId;
+  // drawn the old way while its model was still coming: redraw it now the model is here
+  const stale = !!(v.kk && itemId && v[meshKey] && !v[meshKey].userData.gear && KK && KK.has && KK.has('gear_' + itemId));
+  const changed = v[meshKey + 'ItemId'] !== itemId || stale;
   const parent = _equipParent(v, parentKey);
   if (changed && v[meshKey]) {
     parent.remove(v[meshKey]);
@@ -15938,8 +15986,19 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
     v[meshKey + 'ItemId'] = null;
   }
   if (itemId && !v[meshKey]) {
-    v[meshKey] = makeFn(itemId);
-    if (v.kk) {
+    _gearBody = !!v.kk; v[meshKey] = makeFn(itemId); _gearBody = true;
+    if (v.kk && v[meshKey].userData.gear) {
+      // a model of its own: seated on the bone by its slot (client/gear-models.js)
+      const seat = GEAR_SEAT[GEAR_SLOT_OF[meshKey]] || GEAR_SEAT.weapon;
+      v[meshKey].position.set(seat.pos[0], seat.pos[1], seat.pos[2]);
+      v[meshKey].rotation.set(seat.rot[0], seat.rot[1], seat.rot[2]);
+      // a boot stands the way the body stands, whichever way its foot bone happens to point
+      if (seat.body && parent.isBone) {
+        const q = _bindQuat(v.kk, parent);
+        if (q) { v[meshKey].quaternion.copy(q); v[meshKey].position.applyQuaternion(q); }
+      }
+      v[meshKey].scale.setScalar(seat.scale || 1);
+    } else if (v.kk) {
       // bone-space: rest at the slot origin; classic offsets don't apply
       if (parentKey === 'armR' || parentKey === 'armL') v[meshKey].position.set(0, 0, 0);
       else if (parentKey === 'group') v[meshKey].position.set(0, 4, 0);
@@ -15952,6 +16011,8 @@ function _reattachMesh(v, meshKey, parentKey, makeFn, itemId, positionFn) {
   }
   // equipping a real weapon hides the class's embedded KayKit prop
   if (v.kk && meshKey === 'weaponMesh') v.kk.setEmbeddedWeaponsVisible(!itemId);
+  // and a hat or helm with a model of its own takes the place of the one the body came with
+  if (v.kk && meshKey === 'headMesh' && v.kk.setEmbeddedHatVisible) v.kk.setEmbeddedHatVisible(!(itemId && v[meshKey] && v[meshKey].userData.gear));
 }
 
 // Toggle helpers that attach/detach/swap one equip-slot mesh on a given
@@ -16150,7 +16211,9 @@ const EQUIP_ATTACH = {
     id => makeEquippedWeaponMesh(id),
     itemId,
     m => m.position.set(0, -CHAR.armLen + 1, 1.2)),
-  chest: (v, itemId) => { if (v.kk) return; _reattachMesh(v, 'chestMesh', 'group',
+  // On a KayKit body the outfit is the body, so a chest piece shows only if it has a model of its own, worn over
+  // the chest bone; the old plain cylinder would swallow the figure.
+  chest: (v, itemId) => { if (v.kk && !(itemId && KK.has('gear_' + itemId))) { if (v.chestMesh) _reattachMesh(v, 'chestMesh', 'chest', () => null, null, () => {}); return; } _reattachMesh(v, 'chestMesh', v.kk ? 'chest' : 'group',
     id => makeEquippedChestMesh(id),
     itemId,
     m => { m.position.y = CHAR.hipY + CHAR.torsoH / 2; }); },
@@ -16179,7 +16242,9 @@ const EQUIP_ATTACH = {
 // graph on an actual equipped/unequipped transition.
 // ── Equip + status visuals ─ extracted to client/equip-visuals.js (Phase C).
 // CHAR/EQUIP_ATTACH + glow texture + visuals registry by ref; myId/players getters. ──
+let wearOverride = null;   // __testDrive.wear: what to draw on me instead of what I have on
 const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipVisuals({
+  getWearOverride: () => wearOverride,
   CHAR, EQUIP_ATTACH, makeGlowTexture, visuals,
   getMyId: () => myId, getPlayers: () => players,
   staticModel: (key, size, mode) => (KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
@@ -21248,6 +21313,9 @@ if (location.search.includes('testdrive=1')) {
     },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
+    // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
+    gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },
+    wear(eq) { wearOverride = eq || null; if (myId && players[myId]) applyEquipVisual(myId, players[myId]); const k = visuals[myId] && visuals[myId].kk; return k ? { hats: (k.embeddedHats || []).map((h) => h.name + ':' + h.visible), head: !!(visuals[myId].headMesh && visuals[myId].headMesh.userData.gear) } : null; },
     look(yaw, pitch) { cameraYawOffset = +yaw || 0; if (pitch != null) cameraPitchOffset = +pitch || 0; return true; },
     // Stand in the Manor's hall (the look of it only; the server keeps its own door).
     manor() { swapToManorMap(); if (me) { me.room = 'manor'; me.x = MANOR_WORLD.spawn.x; me.y = MANOR_WORLD.spawn.y; } return activeScene === manorScene; },

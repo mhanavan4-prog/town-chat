@@ -299,6 +299,7 @@ function createKayKitHumanoid(charId, appearance) {
   const bodyTintCol = look.bodyTint != null ? new THREE.Color(look.bodyTint) : null;
   const accentTintCol = look.accentTint != null ? new THREE.Color(look.accentTint) : null;
   const embeddedWeapons = [];
+  const embeddedHats = [];
   inst.traverse(o => {
     if (!o.isMesh && !o.isSkinnedMesh) return;
     // The Skeletons-pack bodies (the Necromancer, char5) BORROW the Mage's
@@ -327,6 +328,7 @@ function createKayKitHumanoid(charId, appearance) {
       const tint = isOutfit ? bodyTintCol : (isAccent ? accentTintCol : null);
       if (tint) { const mats = Array.isArray(o.material) ? o.material : [o.material]; for (const m of mats) if (m.color) m.color.multiply(tint); }
     }
+    if (/_(Hat|Helmet|Hood)(_\d+)?$/.test(o.name)) embeddedHats.push(o);   // what the body came with on its head
     if (KK.PROP_MESHES.includes(o.name)) {
       o.visible = keep.includes(o.name);
       if (o.visible && KK.WEAPONISH.includes(o.name)) embeddedWeapons.push(o);
@@ -357,13 +359,18 @@ function createKayKitHumanoid(charId, appearance) {
   const kk = {
     mixer, act, inst, baseScale: s, cur: null, busyUntil: 0, lastAttackAt: null,
     embeddedWeapons,
+    embeddedHats,
     handR: inst.getObjectByName('handslotr') || null,
     handL: inst.getObjectByName('handslotl') || null,
     headBone: inst.getObjectByName('head') || null,
     footL: inst.getObjectByName('footl') || null,
     footR: inst.getObjectByName('footr') || null,
     slots: {},
-    setEmbeddedWeaponsVisible(vis) { for (const m of embeddedWeapons) m.visible = vis; }
+    setEmbeddedWeaponsVisible(vis) { for (const m of embeddedWeapons) m.visible = vis; },
+    chestBone: inst.getObjectByName('chest') || inst.getObjectByName('spine') || null,
+    // a worn hat or helm with its own model takes the place of the body's own (unless the Wardrobe has it off already)
+    // (the flag is what lasts: client/guises.js settles headwear every frame and reads it)
+    setEmbeddedHatVisible(vis) { for (const m of embeddedHats) { m.userData._gearHides = !vis; if (hideCosmetic.indexOf(m.name) === -1) m.visible = vis; } }
   };
   kkSetState(kk, 'Idle');
 
@@ -374,6 +381,7 @@ function createKayKitHumanoid(charId, appearance) {
   if (charId === 5 && look.staff && kk.handR && KK.models.skel_staff) {
     const staff = THREE.SkeletonUtils.clone(KK.models.skel_staff.scene);
     kk.handR.add(staff);
+    staff.traverse((o) => { if (o.isMesh) embeddedWeapons.push(o); });   // so a weapon in the hand takes its place
   }
 
   // Contract dummies: classic animation code (gated off for kk visuals)
