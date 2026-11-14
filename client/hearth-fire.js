@@ -47,8 +47,8 @@ export function makeHearthFire(THREE, s = 1, { light = true } = {}) {
   if (light) {
     const l = new THREE.PointLight(0xffa550, 1.0, 520 * Math.max(0.8, s), 1.7);
     l.position.set(0, 34 * s, 30 * s); g.add(l);
-    const base = l.intensity;
-    bed.onAfterRender = () => { const t = now(); l.intensity = base * (0.86 + 0.1 * Math.sin(t * 9.3) + 0.06 * Math.sin(t * 23.1)); };
+    l.userData.base = l.intensity;   // whoever places the fire may turn it up or down: set userData.base, the flicker reads it
+    bed.onAfterRender = () => { const t = now(); l.intensity = l.userData.base * (0.86 + 0.1 * Math.sin(t * 9.3) + 0.06 * Math.sin(t * 23.1)); };
     g.userData.light = l;
   }
   return g;
