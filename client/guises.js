@@ -315,7 +315,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
   // face/hair mesh on the others — must hide too, or it bleeds through the
   // smaller guise head. The witch hat sits ON your head, so it is NOT here.
   const COVERS_HEAD = new Set(['skull', 'pumpkin', 'devil', 'stag', 'raven', 'werewolf', 'vampire', 'frankenstein']);
-  const RE_HEADWEAR = /_(Hat|Helmet|Hood)$/;                 // your own hat — hidden by ANY guise
+  const RE_HEADWEAR = /_(Hat|Helmet|Hood)$/;                 // your own hat — hidden by ANY guise (and by a worn hat with a model of its own: _gearHides)
   const RE_HEADCORE = /(_Head(_Hooded)?|_Skull|_Jaw|_Eyes)$/; // your own head — hidden by a head-covering guise
 
   // While a guise is worn, hide the player's own headwear (always) and — for a
@@ -351,7 +351,7 @@ export default function createGuises({ getPlayers, getVisuals, getKK }) {
       const rec = pool[id];
       const guiseOnBone = !!(rec && rec.type === g && rec.onBone && rec.group && rec.group.parent);
       const hideHead = worn && COVERS_HEAD.has(g) && guiseOnBone;
-      for (const m of hw) { const want = worn ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
+      for (const m of hw) { const want = (worn || m.userData._gearHides) ? false : m.userData._hwBase; if (m.visible !== want) m.visible = want; }
       for (const m of hc) { const want = hideHead ? false : m.userData._hcBase; if (m.visible !== want) m.visible = want; }
     }
   }
