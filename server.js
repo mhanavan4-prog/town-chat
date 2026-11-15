@@ -12360,6 +12360,10 @@ wss.on('connection', (ws, req) => {
       // one, a move claiming any other room can only be a stale packet, no
       // matter how late it straggles in. Drop it whole.
       if (player.room && player.room.startsWith('dungeon_') && msg.room !== player.room) return;
+      // The Ember Wastes likewise: you go in by the portal and come out by it, or by dying. A move that disagrees
+      // about being there is a straggler from before the change, however late (a slow phone's can come seconds
+      // after), and must not carry you in or out.
+      if ((player.room === 'ember_wastes') !== (msg.room === 'ember_wastes')) return;
       // Any real move means you stood up off a bench — drop the seated pose so
       // you don't slide around still sitting. (The client blocks movement while
       // seated, so a move packet here is a genuine stand-up.)
@@ -15593,6 +15597,15 @@ wss.on('connection', (ws, req) => {
         if (bed) woke();
         send(ws, { type: 'you_respawned', room: 'wilds', x: player.x, y: player.y });
       } else {
+        // She wakes in town, so put her there. This used to move her coordinates and leave her room alone, so a death
+        // in the Ember Wastes (or the crypt, or any room) left her in that room on the server while her own screen
+        // showed the town: whatever killed her went on hitting her, unseen, and she could not hit it back.
+        if (player.room !== 'outside') {
+          if (player.room === 'ember_wastes') { player.emberReturnX = null; player.emberReturnY = null; emberStorm.leave(player); }
+          clearDuels(player);
+          player.room = 'outside';
+          player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
+        }
         player.x = WORLD.spawn.x; player.y = WORLD.spawn.y;
         send(ws, { type: 'you_respawned', room: 'outside', x: player.x, y: player.y });
       }

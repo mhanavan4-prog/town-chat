@@ -2527,6 +2527,8 @@ function onWsMessage(ev) {
       mode = 'outdoor'; swapToTownMap();
     }
     updateHealthHud();
+    // say where she is at once, so the server is never left holding her last move from where she died
+    if (me && ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'move', x: msg.x, y: msg.y, room: msg.room }));
     setUnlockToast('✨ You have respawned!');
     return;
   }
@@ -21358,6 +21360,7 @@ if (location.search.includes('testdrive=1')) {
     },
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
+    strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
