@@ -2276,7 +2276,7 @@ def minster():
     m = Model('minster')
     m.bevel = 0.035; m.bevel_segments = 1                       # the KayKit idiom: stout blocks, stepped where they are broken, chamfered on export
     ST = ('#4f5b62', '#b2bfc3')           # KayKit stone, sooted at the foot and paler where the rain still reaches
-    ST_DK = ('#333c42', '#59656b')        # the plinth course
+    ST_DK = ('#465056', '#6c787e')        # the plinth course (not so dark that the walls seem to stand on nothing by night)
     ST_LT = ('#6f7c83', '#c4d0d3')        # dressed stone: strings, sills, cornices
     SL = ('#2f3742', '#566373')
     r = np.random.default_rng(1917)
@@ -2312,6 +2312,9 @@ def minster():
         m.add(box(L, 0.38, 0.3, ST_DK, (cx, y, 0)))
         m.add(box(L, 0.32, 0.07, ST_LT, (cx, y, 0.62)))
         m.add(box(L, 0.36, 0.11, ST_LT, (cx, y, WH - 0.11)))
+    # a paved yard under the whole of it, a hand's breadth proud of the ground and pale: by night the foot of the
+    # walls was lost in the dark and the minster seemed to hang over the field
+    m.add(box(11.6, 7.0, 0.026, ('#59636a', '#828e93'), (-0.35, 0.0, 0)))   # low: a player's feet are not lost in it
     # the floor inside, so the breach looks into something
     m.add(box(9.6, 2.8, 0.06, ('#141110', '#221c18'), (0.8, 0, 0)))
     # roof: slates over the western bays; east of that, bare burnt rafters, some down

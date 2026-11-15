@@ -22,7 +22,7 @@ test('the glow is built from numbers: white at the heart, nothing at the rim, an
 
 test('the minster: stone in courses, no hatching, and lights to steer by', async () => {
   const m = await import('../client/minster-light.js');
-  assert.deepStrictEqual(m.MINSTER_LIGHTS, { low: 1, medium: 3, high: 5 });
+  assert.deepStrictEqual(m.MINSTER_LIGHTS, { low: 0, medium: 1, high: 3 }, 'few real lights: every one is paid for by the whole scene');
   const F = m.MINSTER_FLAMES;
   assert.ok(F.belfry[2] > 5, 'the lantern is up in the belfry');
   assert.strictEqual(F.nave.length, 8); assert.ok(F.nave.every(([x, y]) => Math.abs(x) < 3 && Math.abs(y) < 1.4), 'the candles are inside the nave');
@@ -55,7 +55,7 @@ test('the town is in courses and lit down its street, and the ring\'s elder is a
   const m = await import('../client/minster-light.js');
   assert.strictEqual(m.TOWN_LAMPS.length, 10);
   assert.ok(m.TOWN_LAMPS.every(([dx, dy]) => Math.abs(dx) < 600 && dy > 400 && dy < 3500), 'between the breach and the barricade');
-  assert.deepStrictEqual(m.TOWN_LIGHTS, { low: 0, medium: 1, high: 2 }, 'the lamps are glow; few are real lights');
+  assert.deepStrictEqual(m.TOWN_LIGHTS, { low: 0, medium: 0, high: 1 }, 'the lamps are glow; few are real lights');
   assert.ok(m.RING_MOTES >= 20 && m.RING_MOTES <= 60);
   const sc = read('client/ember-scene.js');
   assert.match(sc, /dressStone\(g, GFX && GFX\.st \? GFX\.st\.quality : 'high'\);   \/\/ in courses like the minster/);
@@ -64,5 +64,16 @@ test('the town is in courses and lit down its street, and the ring\'s elder is a
   assert.match(sc, /\.push\(quickenRing\(THREE, scene, \{ x: WITCH_RING\.x, y: WITCH_RING\.y \}/);
   assert.match(read('client/main.js'), /for \(const f of emberScene\.userData\.dressTicks\) f\(t\);/);
   assert.match(read('client/minster-light.js'), /if \(!_mnStoneOf\.has\(mt\)\) _mnStoneOf\.set\(mt, minsterStone\(mt\)\);/, 'one patched copy of each material');
-  assert.match(read('client/ember-storm.js'), /size: 9, map: typeof makeGlowTexture === 'function' \? makeGlowTexture\(\) : null, color: 0x9a8c84/, 'the storm\'s ash is round');
+  const st = read('client/ember-storm.js');
+  assert.match(st, /gl_PointSize = clamp\(aSize \* uScale \/ max\(1\.0, -mv\.z\), 1\.5, 22\.0\);/, 'the storm\'s ash: each flake its own size, and none fills the view');
+  assert.match(st, /float a = smoothstep\(0\.5, 0\.1, length\(p\)\);/, 'soft-edged, not square');
+  assert.match(st, /b\.ash\.material\.uniforms\.uOpacity\.value = 0\.8 \* s;/);
+});
+
+test('an admin can read the frame rate, and what the frame is made of', () => {
+  const m = read('client/main.js');
+  assert.match(m, /_coordFps = Math\.round\(_coordFrames \* 1000 \/ \(now - _coordFpsAt\)\)/);
+  assert.match(m, /<span class="cbK">fps<\/span> \$\{_coordFps \|\| '…'\}/);
+  assert.match(m, /<span class="cbK">lights<\/span> \$\{_coordLights\}/);
+  assert.match(read('client/gate-veil.js'), /if \(quality === 'high'\) \{ lamp = /);
 });

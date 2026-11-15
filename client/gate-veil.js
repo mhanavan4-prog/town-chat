@@ -42,7 +42,7 @@ export function hangGateVeil(THREE, scene, at, { tone = 'ember', width = 230, he
     pool = new THREE.Mesh(new THREE.CircleGeometry(width * 1.5, 28), new THREE.MeshBasicMaterial({ map: glowTex, color: ember ? 0xff6a20 : 0x7ad060, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
     pool.rotation.x = -Math.PI / 2; pool.position.set(at.x, at.y + 3, at.z); pool.renderOrder = 2; scene.add(pool);
   }
-  if (quality !== 'low') { lamp = new THREE.PointLight(ember ? 0xff6a28 : 0x8fe070, 1.3, width * 3.2, 1.6); lamp.position.set(at.x, at.y + height * 0.55, at.z); scene.add(lamp); }
+  if (quality === 'high') { lamp = new THREE.PointLight(ember ? 0xff6a28 : 0x8fe070, 1.3, width * 3.2, 1.6); lamp.position.set(at.x, at.y + height * 0.55, at.z); scene.add(lamp); }
   return function tick(t) {
     U.uT.value = t;
     for (let i = 0; i < GATE_SPARKS; i++) {

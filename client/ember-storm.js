@@ -11,6 +11,25 @@
 // track's lanterns are lit every night, storm or none. On a night the
 // witches' ring has not yet sung, it glows (scene.userData.ringGlow).
 // ---------------------------------------------------------------------------
+export const ASH_VERT = `
+  attribute float aSize; attribute float aShade; uniform float uScale; varying float vShade;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = clamp(aSize * uScale / max(1.0, -mv.z), 1.5, 22.0);
+    vShade = aShade;
+  }
+`;
+export const ASH_FRAG = `
+  uniform vec3 uColor; uniform float uOpacity; varying float vShade;
+  void main() {
+    vec2 p = gl_PointCoord - 0.5;
+    p.y *= 2.4;                                    // flattened: a flake drawn out along the wind
+    float a = smoothstep(0.5, 0.1, length(p));
+    if (a < 0.02) discard;
+    gl_FragColor = vec4(uColor * vShade, a * uOpacity * (0.4 + 0.6 * vShade));
+  }
+`;
 export default function createEmberStorm({ getScene, getCamera, isActive, makeGlowTexture, startSfxLoop, stopSfxLoop, playSfx, say, isNight = () => false }) {
   const TARGET = { calm: 0, gathering: 0.3, storm: 1 };
   const CALM = { near: 900, far: 5200, color: new THREE.Color(0x2a0f0a) };
@@ -27,7 +46,16 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
     const pos = new Float32Array(N * 3), drift = new Float32Array(N);
     for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 2 * RAD; pos[i * 3 + 1] = Math.random() * 220; pos[i * 3 + 2] = (Math.random() - 0.5) * 2 * RAD; drift[i] = 0.6 + Math.random() * 0.8; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const ash = new THREE.Points(geo, new THREE.PointsMaterial({ size: 9, map: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null, color: 0x9a8c84, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    // Ash, not confetti: every flake its own size and shade, soft-edged, drawn out along the wind, and never bigger
+    // on screen than a thumbnail however near it passes (they were uniform squares that filled the view).
+    const size = new Float32Array(N), shade = new Float32Array(N);
+    for (let i = 0; i < N; i++) { const r = Math.random(); size[i] = r < 0.7 ? 1.5 + Math.random() * 2.5 : r < 0.95 ? 4 + Math.random() * 4 : 8 + Math.random() * 5; shade[i] = 0.45 + Math.random() * 0.55; }
+    geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1)); geo.setAttribute('aShade', new THREE.BufferAttribute(shade, 1));
+    const ashMat = new THREE.ShaderMaterial({
+      uniforms: { uOpacity: { value: 0 }, uColor: { value: new THREE.Color(0xa89a90) }, uScale: { value: 520 } },
+      vertexShader: ASH_VERT, fragmentShader: ASH_FRAG, transparent: true, depthWrite: false,
+    });
+    const ash = new THREE.Points(geo, ashMat);
     ash.frustumCulled = false; ash.visible = false; scene.add(ash);
     // the track's lanterns: a warm glow on each marker, unfogged so it carries through the ash
     const lanterns = [];
@@ -97,7 +125,7 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
     const show = s > 0.01;
     b.ash.visible = show && here;
     if (!b.ash.visible) return;
-    b.ash.material.opacity = 0.75 * s;
+    b.ash.material.uniforms.uOpacity.value = 0.8 * s;
     const cam = getCamera(); if (!cam) return;
     const cx = cam.position.x, cz = cam.position.z, a = b.pos, R = b.RAD, wx = 520 * s, t = performance.now() / 1000;
     for (let i = 0; i < b.drift.length; i++) {

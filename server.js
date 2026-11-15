@@ -16413,7 +16413,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'vh_use') { if (villageHouses.use(player, String(msg.spot || '')) === 'paid') { saveBankAccounts(); saveAccounts(); } return; }
 
     if (msg.type === 'enter_crypt') {
-      if (player.room !== 'wilds' || player.isDead) return;
+      // from a tomb in the Wilds, or from one in the Ember Wastes: the same crypt lies under both
+      if ((player.room !== 'wilds' && player.room !== 'ember_wastes') || player.isDead) return;
+      player.cryptReturnRoom = player.room;
+      if (player.room === 'ember_wastes') { clearDuels(player); emberStorm.leave(player); }
       player.cryptReturnX = player.x;
       player.cryptReturnY = player.y;
       player.room = 'crypt';
@@ -16427,15 +16430,18 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'exit_crypt') {
       if (player.room !== 'crypt') return;
-      const retX = Number.isFinite(player.cryptReturnX) ? player.cryptReturnX : WORLD2.width / 2;
-      const retY = Number.isFinite(player.cryptReturnY) ? player.cryptReturnY : WORLD2.height / 2;
-      player.room = 'wilds';
+      // you come up where you went down
+      const back = player.cryptReturnRoom === 'ember_wastes' ? 'ember_wastes' : 'wilds';
+      const retX = Number.isFinite(player.cryptReturnX) ? player.cryptReturnX : (back === 'wilds' ? WORLD2.width / 2 : EMBER_SPAWN.x);
+      const retY = Number.isFinite(player.cryptReturnY) ? player.cryptReturnY : (back === 'wilds' ? WORLD2.height / 2 : EMBER_SPAWN.y);
+      player.room = back;
       player.roomLockUntil = Date.now() + 1500;
       player.x = retX;
       player.y = retY;
       player.cryptReturnX = null;
       player.cryptReturnY = null;
-      send(ws, { type: 'crypt_exited', x: retX, y: retY });
+      player.cryptReturnRoom = null;
+      send(ws, { type: 'crypt_exited', x: retX, y: retY, room: back });
       return;
     }
 
