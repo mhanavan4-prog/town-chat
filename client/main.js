@@ -2456,7 +2456,8 @@ function onWsMessage(ev) {
     // those (red, with the shake), and mob hits only arrive that way.
     if (!(msg.targetType === 'player' && msg.targetId === myId)) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
-      if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
+      if (msg.casterId === myId && msg.targetType !== 'player') spawnMyDmgNum(msg.targetType, msg.targetId, msg.dmg, !!msg.dead);   // mine: on the foe's body, floating away from me
+      else if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
       // Flinch the struck player's body (my own is handled by 'struck'). Skip a
       // killing blow — the death fall takes over for them.
       if (msg.targetType === 'player' && !msg.dead && visuals[msg.targetId]) visuals[msg.targetId].hitAnimStartAt = performance.now();
@@ -8589,6 +8590,34 @@ function spawnDmgNum(screenX, screenY, dmg, kind) {
   layer.appendChild(el);
   el.addEventListener('animationend', () => el.remove());
   setTimeout(() => el.remove(), 1200); // belt and braces if the animation never fires
+}
+// The number for a blow of my own on a foe. It starts on the foe's body (not at its feet, which a close camera often
+// puts off the screen), and floats off on the side away from me, rising as it goes. If the foe is not on the screen
+// at all (the camera is inside it, or it is behind me) the number still shows, above the middle of the view.
+function myDmgDrift(fromX, fromY, toX, toY) {
+  let dx = toX - fromX, dy = toY - fromY;
+  const L = Math.hypot(dx, dy);
+  if (L < 8) { dx = 0; dy = -1; } else { dx /= L; dy /= L; }
+  return { dx: Math.round(dx * 46), dy: Math.round(dy * 22 - 44) };   // away from me, and always upward
+}
+function spawnMyDmgNum(targetType, targetId, dmg, dead) {
+  const layer = document.getElementById('fxLayer');
+  if (!layer) return;
+  const W = window.innerWidth, H = window.innerHeight, mp = mobRenderPos(targetType, targetId);
+  let s = mp ? worldToScreen(mp.x, groundY + 62, mp.z) : null;
+  if (!s || !s.visible || !Number.isFinite(s.x) || s.x < 24 || s.x > W - 24 || s.y < 60 || s.y > H - 120) s = { x: W / 2, y: H * 0.36 };
+  let from = null;
+  if (me) { const rp = getRenderPos(me), f = worldToScreen(rp.x, groundY + 40 + getFloorHeight(me.room, rp.x, rp.z), rp.z); if (f && f.visible) from = f; }
+  const d = from ? myDmgDrift(from.x, from.y, s.x, s.y) : { dx: 0, dy: -44 };
+  const el = document.createElement('div');
+  el.className = 'dmgNum mine' + (dead ? ' kill' : '');
+  el.textContent = String(dmg);
+  el.style.left = (s.x + (Math.random() * 20 - 10)) + 'px';
+  el.style.top = (s.y + (Math.random() * 10 - 5)) + 'px';
+  el.style.setProperty('--dx', d.dx + 'px'); el.style.setProperty('--dy', d.dy + 'px');
+  layer.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+  setTimeout(() => el.remove(), 1400);
 }
 function screenPosForTarget(targetType, targetId) {
   if (targetType === 'player') {
