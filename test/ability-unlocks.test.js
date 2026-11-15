@@ -65,7 +65,6 @@ setTimeout(() => {
 
   // level-up tells you
   setLevel(K, 1); K.p.attackCooldowns = {};
-  const xpTo = (n) => { const prog = h.getProgress(K.p); prog.xp = 0; h.grantXP ? h.grantXP(K.p, 1) : null; return prog; };
   check('(the hooks expose grantXP)', typeof h.grantXP === 'function');
   if (typeof h.grantXP === 'function') {
     const prog = h.getProgress(K.p); prog.level = 1; prog.xp = 0; const toasts0 = K.s.allOfType('toast').length;
