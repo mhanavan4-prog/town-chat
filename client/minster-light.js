@@ -71,16 +71,27 @@ export function minsterStone(mat) {
   return m;
 }
 
-// Dress the minster `g` (already placed in `scene`). at(mx, my, mz) turns a place in the model into one in the world.
-// Returns tick(seconds), to be called every frame while the Wastes are on screen.
-export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, unit = 250 } = {}) {
-  // stone, and no hatching
+// Stone, and no hatching: any of the Wastes' stone-built models (the minster, the town's ruined houses, its crosses,
+// the ring's stones) drawn in courses, and no longer taking the sky light's shadows. One patched copy is kept of
+// each material, however many models share it.
+const _mnStoneOf = new Map();
+export function dressStone(g, quality = 'high') {
   g.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     o.receiveShadow = false;
-    const one = (mt) => ((mt.emissive && mt.emissive.getHex() !== 0) || /glow/i.test(mt.name || '') || quality === 'low' ? mt : minsterStone(mt));
+    const one = (mt) => {
+      if ((mt.emissive && mt.emissive.getHex() !== 0) || /glow/i.test(mt.name || '') || quality === 'low') return mt;
+      if (!_mnStoneOf.has(mt)) _mnStoneOf.set(mt, minsterStone(mt));
+      return _mnStoneOf.get(mt);
+    };
     o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
   });
+}
+
+// Dress the minster `g` (already placed in `scene`). at(mx, my, mz) turns a place in the model into one in the world.
+// Returns tick(seconds), to be called every frame while the Wastes are on screen.
+export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, unit = 250 } = {}) {
+  dressStone(g, quality);
   const F = MINSTER_FLAMES, flick = [];
   const glow = (p, size, color, opacity, far) => {
     if (!glowTex) return null;
@@ -126,5 +137,70 @@ export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, u
   return function tick(t) {
     for (const f of flick) f.s.material.opacity = f.base * (1 - f.amp * 0.5 + f.amp * 0.5 * Math.sin(t * f.k) * Math.sin(t * f.k * 0.37 + f.k));
     for (const f of lights) f.l.intensity = f.base * (0.9 + 0.1 * Math.sin(t * f.k) * Math.sin(t * 1.7 + f.k));
+  };
+}
+
+// ── The town south of the minster: lamps down the one street and round the square ───────────────────────────────
+// Where they stand, from the town's middle (x east, y south). The street runs south from the square to the barricade;
+// the last two stand either side of the breach in the minster's wall.
+export const TOWN_LAMPS = [[-190, 3380], [190, 3060], [-190, 2740], [200, 2420], [-330, 2060], [330, 1840], [-210, 1500], [210, 1180], [-560, 500], [60, 500]];
+export const TOWN_LIGHTS = { low: 0, medium: 1, high: 2 };
+// Set the lamps down. Returns tick(seconds).
+export function lightTown(THREE, scene, mid, { quality = 'high', glowTex } = {}) {
+  const iron = new THREE.MeshLambertMaterial({ color: 0x1c1a1a }), flame = new THREE.MeshBasicMaterial({ color: 0xffc878 });
+  const pole = new THREE.CylinderGeometry(3, 4.5, 150, 6), arm = new THREE.BoxGeometry(34, 4, 4), box = new THREE.BoxGeometry(13, 18, 13), cap = new THREE.ConeGeometry(11, 9, 4);
+  const flick = [];
+  TOWN_LAMPS.forEach(([dx, dy], i) => {
+    const x = mid.x + dx, z = mid.y + dy, side = dx < 0 ? 1 : -1;       // the lantern hangs toward the street
+    const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); scene.add(m); return m; };
+    add(pole, iron, x, 75, z); add(arm, iron, x + side * 15, 146, z); add(box, flame, x + side * 30, 132, z); add(cap, iron, x + side * 30, 146, z).rotation.y = Math.PI / 4;
+    if (glowTex) {
+      const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffb860, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+      g.scale.set(150, 150, 1); g.position.set(x + side * 30, 132, z); scene.add(g);
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(230, 20), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff9a48, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(x + side * 30, 3.2, z); pool.renderOrder = 2; scene.add(pool);
+      flick.push({ a: g.material, b: pool.material, k: 2.3 + i * 0.9 });
+    }
+  });
+  // a real light or two, where they will show most: the square, and the breach
+  const lights = [];
+  for (const [dx, dy] of [[0, 1950], [-250, 520]].slice(0, TOWN_LIGHTS[quality] || 0)) {
+    const l = new THREE.PointLight(0xffb060, 1.1, 1100, 1.6); l.position.set(mid.x + dx, 170, mid.y + dy); scene.add(l); lights.push(l);
+  }
+  return function tick(t) {
+    for (const f of flick) { const k = 0.9 + 0.1 * Math.sin(t * f.k) * Math.sin(t * 1.3 + f.k); f.a.opacity = 0.8 * k; f.b.opacity = 0.4 * k; }
+    for (let i = 0; i < lights.length; i++) lights[i].intensity = 1.1 * (0.92 + 0.08 * Math.sin(t * (2 + i)));
+  };
+}
+
+// ── The witches' ring: the elder alive in the middle of it ──────────────────────────────────────────────────────
+export const RING_MOTES = 40;
+// A green glow in the elder's head, moss at its foot, light lying on the ground inside the stones, and motes
+// drifting up through the leaves. `lamp` is the ring's own light (it breathes with the rest). Returns tick(seconds).
+export function quickenRing(THREE, scene, at, { glowTex, lamp = null, stoneR = 560 } = {}) {
+  const moss = new THREE.Mesh(new THREE.CircleGeometry(190, 24), new THREE.MeshLambertMaterial({ color: 0x3f7a2c, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  moss.rotation.x = -Math.PI / 2; moss.position.set(at.x, 2.6, at.y); scene.add(moss);
+  const mats = [];
+  if (glowTex) {
+    const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8fe070, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+    head.scale.set(620, 520, 1); head.position.set(at.x, 230, at.y); scene.add(head); mats.push([head.material, 0.5]);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(stoneR * 0.95, 36), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x6fd060, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(at.x, 3.4, at.y); pool.renderOrder = 2; scene.add(pool); mats.push([pool.material, 0.32]);
+  }
+  const pos = new Float32Array(RING_MOTES * 3), seed = new Float32Array(RING_MOTES);
+  for (let i = 0; i < RING_MOTES; i++) seed[i] = (i * 0.6180339887) % 1;
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const motes = new THREE.Points(geo, new THREE.PointsMaterial({ size: 9, map: glowTex || null, color: 0xc8ff9a, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
+  motes.frustumCulled = false; scene.add(motes);
+  const lampBase = lamp ? lamp.intensity : 0;
+  return function tick(t) {
+    for (let i = 0; i < RING_MOTES; i++) {
+      const s = seed[i], life = (t * (0.05 + 0.05 * s) + s * 9.0) % 1, a = s * 6.283 * 3 + t * (0.1 + 0.2 * s), r = 40 + 190 * ((s * 7.3) % 1);
+      pos[i * 3] = at.x + Math.cos(a) * r; pos[i * 3 + 1] = 20 + life * 330; pos[i * 3 + 2] = at.y + Math.sin(a) * r;
+    }
+    geo.attributes.position.needsUpdate = true;
+    const br = 0.85 + 0.15 * Math.sin(t * 0.8);
+    for (const [m, base] of mats) m.opacity = base * br;
+    if (lamp) lamp.intensity = lampBase * br;
   };
 }

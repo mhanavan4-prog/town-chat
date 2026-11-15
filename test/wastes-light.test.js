@@ -50,3 +50,19 @@ test('the March gate has a veil on both sides, and whichever is on screen is tic
   assert.match(read('client/ember-scene.js'), /scene\.userData\.gateTick = hangGateVeil\(THREE, scene, \{ x: MARCH_GATE\.x, y: 0, z: MARCH_GATE\.y \}, \{ tone: 'green'/);
   assert.match(read('client/main.js'), /activeScene\.userData\.gateTick\(performance\.now\(\) \/ 1000\)/);
 });
+
+test('the town is in courses and lit down its street, and the ring\'s elder is alive', async () => {
+  const m = await import('../client/minster-light.js');
+  assert.strictEqual(m.TOWN_LAMPS.length, 10);
+  assert.ok(m.TOWN_LAMPS.every(([dx, dy]) => Math.abs(dx) < 600 && dy > 400 && dy < 3500), 'between the breach and the barricade');
+  assert.deepStrictEqual(m.TOWN_LIGHTS, { low: 0, medium: 1, high: 2 }, 'the lamps are glow; few are real lights');
+  assert.ok(m.RING_MOTES >= 20 && m.RING_MOTES <= 60);
+  const sc = read('client/ember-scene.js');
+  assert.match(sc, /dressStone\(g, GFX && GFX\.st \? GFX\.st\.quality : 'high'\);   \/\/ in courses like the minster/);
+  assert.match(sc, /scene\.add\(g\); dressStone\(g, GFX && GFX\.st \? GFX\.st\.quality : 'high'\);/, 'the ring stones too');
+  assert.match(sc, /\.push\(lightTown\(THREE, scene, \{ x: TX, y: TY \}/);
+  assert.match(sc, /\.push\(quickenRing\(THREE, scene, \{ x: WITCH_RING\.x, y: WITCH_RING\.y \}/);
+  assert.match(read('client/main.js'), /for \(const f of emberScene\.userData\.dressTicks\) f\(t\);/);
+  assert.match(read('client/minster-light.js'), /if \(!_mnStoneOf\.has\(mt\)\) _mnStoneOf\.set\(mt, minsterStone\(mt\)\);/, 'one patched copy of each material');
+  assert.match(read('client/ember-storm.js'), /size: 9, map: typeof makeGlowTexture === 'function' \? makeGlowTexture\(\) : null, color: 0x9a8c84/, 'the storm\'s ash is round');
+});

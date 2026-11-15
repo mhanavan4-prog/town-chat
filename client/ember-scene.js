@@ -7,7 +7,7 @@ import { bakeGeometry } from './bake-geometry.js';
 // ---------------------------------------------------------------------------
 import { makeGroundNoise } from './wilds-ground.js';
 import { dressEmberTiles, makeLavaPool } from './ember-ground.js';
-import { dressMinster } from './minster-light.js';
+import { dressMinster, dressStone, lightTown, quickenRing } from './minster-light.js';
 import { hangGateVeil } from './gate-veil.js';
 
 export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc, GFX }) {
@@ -552,6 +552,7 @@ function buildEmberScene() {
       if (key === 'prop_well') scorch(g, 0.2);
       g.rotation.y = turn; g.position.set(x, 0, y);
       scene.add(g);
+      dressStone(g, GFX && GFX.st ? GFX.st.quality : 'high');   // in courses like the minster, and no hatched shadows on it
     });
   };
   buildTown();
@@ -559,6 +560,8 @@ function buildEmberScene() {
     if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(buildTown).catch(() => {});
     if (KK.onAssetLoad) KK.onAssetLoad(buildTown);
   }
+  // lamps down the street and round the square, and either side of the breach (client/minster-light.js)
+  (scene.userData.dressTicks = scene.userData.dressTicks || []).push(lightTown(THREE, scene, { x: TX, y: TY }, { quality: GFX && GFX.st ? GFX.st.quality : 'high', glowTex: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null }));
   // shell-holes in the square and the street: a scorched ring and a dark middle, laid just over the floor
   for (const [dx, dy, r] of [[-260, 1850, 90], [330, 2450, 120], [-120, 2950, 70], [180, 3350, 100], [-820, 2050, 80], [860, 1650, 110], [40, 1300, 130], [-560, 1150, 75]]) {
     const rim = new THREE.Mesh(new THREE.RingGeometry(r * 0.7, r, 18), new THREE.MeshBasicMaterial({ color: 0x1c0d09, side: THREE.DoubleSide }));
@@ -674,7 +677,7 @@ function buildEmberScene() {
       ringPlaced.add(i);
       g.userData.camFade = true;   // the chase camera ghosts a stone it ends up inside
       g.rotation.y = -a + Math.PI / 2; g.position.set(WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, 0, WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR);
-      scene.add(g);
+      scene.add(g); dressStone(g, GFX && GFX.st ? GFX.st.quality : 'high');
       const half = 40, sx = WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, sz = WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR;
       scene.userData.walls.push({ x: sx - half, y: sz - half, w: half * 2, h: half * 2 });
     }
@@ -682,7 +685,10 @@ function buildEmberScene() {
       const g = KK.staticInstance('gv_elder', 300, 'height');
       if (g) {
         ringPlaced.add('elder'); g.position.set(WITCH_RING.x, 0, WITCH_RING.y); scene.add(g);
-        const glow = new THREE.PointLight(0x9adf7a, 0.7, 700); glow.position.set(WITCH_RING.x, 200, WITCH_RING.y); scene.add(glow);
+        g.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
+        const glow = new THREE.PointLight(0x9adf7a, 1.0, 900); glow.position.set(WITCH_RING.x, 200, WITCH_RING.y); scene.add(glow);
+        // the one living thing out here, and it looks it: a green glow in its head, moss at its foot, motes rising (client/minster-light.js)
+        (scene.userData.dressTicks = scene.userData.dressTicks || []).push(quickenRing(THREE, scene, { x: WITCH_RING.x, y: WITCH_RING.y }, { glowTex: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null, lamp: glow, stoneR: WITCH_RING.stoneR }));
       }
     }
   };

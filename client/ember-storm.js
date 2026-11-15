@@ -27,7 +27,7 @@ export default function createEmberStorm({ getScene, getCamera, isActive, makeGl
     const pos = new Float32Array(N * 3), drift = new Float32Array(N);
     for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 2 * RAD; pos[i * 3 + 1] = Math.random() * 220; pos[i * 3 + 2] = (Math.random() - 0.5) * 2 * RAD; drift[i] = 0.6 + Math.random() * 0.8; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const ash = new THREE.Points(geo, new THREE.PointsMaterial({ size: 7, color: 0x9a8c84, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    const ash = new THREE.Points(geo, new THREE.PointsMaterial({ size: 9, map: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null, color: 0x9a8c84, transparent: true, opacity: 0, depthWrite: false, fog: false }));
     ash.frustumCulled = false; ash.visible = false; scene.add(ash);
     // the track's lanterns: a warm glow on each marker, unfogged so it carries through the ash
     const lanterns = [];
