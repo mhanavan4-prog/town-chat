@@ -17,6 +17,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     hall:  { bg: 0x16100a, wall: 0x6a4a2c, floor: 0x4a3420, amb: 0xffdcb0, light: 0xffb060, h: 250 },
     lodging: { bg: 0x100c0a, wall: 0x5e4a38, floor: 0x40301f, amb: 0xffd8a8, light: 0xffb060, h: 200 },
     cottage: { bg: 0x120e0a, wall: 0x6a5a44, floor: 0x4a3a28, amb: 0xffe0b8, light: 0xffb868, h: 190 },
+    forge: { bg: 0x0e0908, wall: 0x3a3230, floor: 0x2c2624, amb: 0xffc8a0, light: 0xff8a3a, h: 240 },
   };
 
   function build(house) {
@@ -37,7 +38,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
     scene.add(fill);
     if (rich) roomCaster(THREE, scene, fill, W, D, 0.6);
 
-    const boards = rich ? plankTexture(THREE, house.id === 'tower' ? 'flag' : 'plank').tex : null;
+    const boards = rich ? plankTexture(THREE, house.id === 'tower' || house.id === 'forge' ? 'flag' : 'plank').tex : null;
     if (boards) boards.repeat.set((W + 80) / 240, (D + 80) / 240);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(W + 80, D + 80), roomSurface(THREE, rich ? new THREE.Color(L.floor).multiplyScalar(1.7).getHex() : L.floor, { rich, map: boards }));
     floor.rotation.x = -Math.PI / 2; floor.position.set(W / 2, 0, D / 2);
@@ -130,6 +131,40 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       kkPlace(scene, 'wd_besom', W - 50, D - 110, 90, 0.3, 'height');
       kkPlace(scene, 'furn_sidetable', W - 70, 150, 40, 0, 'height'); { const j = kkPlace(scene, 'furn_rjar', W - 70, 150, 16, 0, 'height'); if (j) j.position.y = 40; }
       lamp(W * 0.25, D * 0.55, 100, 0.45, 300); lamp(W * 0.75, D * 0.55, 100, 0.45, 300);
+    } else if (house.id === 'forge') {
+      // the Smithy: the fire on the north wall with the anvil before it, the groat stone to the west, the slack-tub to
+      // the east, and the boy who works the bellows (the smith is never there)
+      const gr = spot('groat'), tb = spot('tub'), sm = spot('smith');
+      hearth(W / 2, 36, 190, 1.3);
+      lamp(W / 2, 120, 80, 1.3, 620);
+      const iron = new THREE.MeshLambertMaterial({ color: 0x2b2b30 }), stone = new THREE.MeshLambertMaterial({ color: 0x6a6660 }), oak = new THREE.MeshLambertMaterial({ color: 0x4a3018 });
+      const put = (geo, mat, x, y, z, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; m.castShadow = true; scene.add(m); return m; };
+      // the anvil on its block
+      put(new THREE.CylinderGeometry(20, 23, 26, 10), oak, W / 2, 13, 150);
+      put(new THREE.BoxGeometry(20, 12, 14), iron, W / 2, 32, 150); put(new THREE.BoxGeometry(44, 10, 18), iron, W / 2, 43, 150);
+      { const horn = put(new THREE.ConeGeometry(6, 20, 8), iron, W / 2 - 31, 43, 150); horn.rotation.z = Math.PI / 2; }
+      // the groat stone: a flat grey stone, a few coins on it
+      put(new THREE.CylinderGeometry(46, 52, 16, 9), stone, gr.x, 8, gr.y - 60, 0.4);
+      const coin = new THREE.MeshLambertMaterial({ color: 0xd8b24a, emissive: 0x3a2a08 });
+      for (const [dx, dz] of [[-10, -4], [6, 8], [14, -10]]) put(new THREE.CylinderGeometry(4.5, 4.5, 1.6, 10), coin, gr.x + dx, 17, gr.y - 60 + dz);
+      sign('⚒️ The groat stone — Press F', gr.x, 110, gr.y - 60);
+      lamp(gr.x, gr.y - 20, 90, 0.5, 260);
+      // the slack-tub: half a barrel of forge water, with the fire in it
+      put(new THREE.CylinderGeometry(38, 33, 40, 14), oak, tb.x, 20, tb.y - 60);
+      for (const y of [8, 32]) put(new THREE.TorusGeometry(37, 1.8, 6, 20), iron, tb.x, y, tb.y - 60).rotation.x = Math.PI / 2;
+      { const w = put(new THREE.CircleGeometry(34, 18), new THREE.MeshBasicMaterial({ color: 0x8a4a22, transparent: true, opacity: 0.85 }), tb.x, 38, tb.y - 60); w.rotation.x = -Math.PI / 2; w.castShadow = false; }
+      sign('💧 The slack-tub — Press F', tb.x, 110, tb.y - 60);
+      // tongs and hammers along the wall, the bellows by the fire
+      for (const [x, len] of [[W / 2 - 150, 50], [W / 2 - 134, 38], [W / 2 + 140, 46], [W / 2 + 156, 34]]) put(new THREE.BoxGeometry(4, len, 4), iron, x, 150 - len / 2, 8);
+      put(new THREE.BoxGeometry(60, 12, 34), oak, W / 2 + 120, 30, 70, -0.5);
+      // the bellows-boy
+      try {
+        const boy = createHumanoid ? createHumanoid(3, null, 'bellowsboy').group : null;
+        if (boy) { boy.scale.multiplyScalar(0.82); boy.position.set(sm.x, 0, sm.y - 50); scene.add(boy); }
+      } catch (e) { /* the fire keeps itself */ }
+      sign('⚒️ The bellows-boy — Press F', sm.x, 104, sm.y - 50);
+      kkPlace(scene, 'furn_torch', 60, D - 150, 100, 0, 'height'); kkPlace(scene, 'furn_torch', W - 60, D - 150, 100, 0, 'height');
+      lamp(W * 0.5, D * 0.6, 110, 0.5, 340);
     } else {
       // the Moot Hall: the hearth on the north wall, the long table down the middle, the board by the door
       const h = spot('hearth'), b = spot('board');

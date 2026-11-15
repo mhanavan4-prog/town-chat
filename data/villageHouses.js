@@ -7,6 +7,7 @@
 //   🏚️ the Moot Hall    — a hearth to mend at, and a board of what is abroad
 //   🌿 the Wise-Woman's — remedies bought, your gatherings sold, and harm taken off
 //   🕯️ the Lyke-Wake    — a lodging house: a paid bed is where you wake, if the Wilds kill you
+//   ⚒️ the Smithy       — the Artificer's tower: gear honed for a groat left on the stone, and the forge water
 //
 // One room each, the same shape of thing on the server (a room id, a size, a
 // way in and out) and on the client (client/village-house.js draws whichever
@@ -63,6 +64,19 @@ const VILLAGE_HOUSES = {
     ],
     blurb: 'Six beds, a fire kept in all night, and a candle in the window. Whoever lies here is sat up with.',
   },
+  // The Artificer's forge-tower. Its door is in its north face, away from the forge-yard, so the way in is from
+  // the north and so is the way out (`out`: where you stand when you come out; the others come out south of their doors).
+  forge: {
+    id: 'forge', room: 'vh_forge', icon: '⚒️', name: 'The Smithy',
+    sign: 'The Smithy — the stone, and the forge water',
+    door: { x: VILLAGE.x + 720, y: VILLAGE.y - 360 }, out: { x: VILLAGE.x + 720, y: VILLAGE.y - 395 }, width: 520, height: 460,
+    spots: [
+      { id: 'groat', x: 140, y: 170, label: 'the groat stone', hint: 'leave your gear and a groat on the stone' },
+      { id: 'tub', x: 385, y: 170, label: 'the slack-tub', hint: 'put your hands in the forge water' },
+      { id: 'smith', x: 260, y: 310, label: 'the bellows-boy', hint: 'ask who it is that does the work' },
+    ],
+    blurb: 'An anvil, a fire that is never let out, and a flat stone by the door with coins on it. Nobody has seen the smith at his work.',
+  },
 };
 const HOUSE_BY_ROOM = Object.fromEntries(Object.values(VILLAGE_HOUSES).map((h) => [h.room, h]));
 for (const h of Object.values(VILLAGE_HOUSES)) h.spawn = { x: h.width / 2, y: h.height - 90 };
@@ -74,6 +88,8 @@ const VH = {
   bedGold: 6, bedMs: 24 * 60 * 60 * 1000,   // a bed at the Lyke-Wake: this much, for a day and a night
   bedRenewMs: 6 * 60 * 60 * 1000,           // …and it can be paid on again once there is less than this left
   unwitchGold: 8,                // what the wise-woman asks for taking harm off you
+  groatGold: 4,                  // what is left on the stone at the Smithy to have your gear honed (a groat was fourpence)
+  tubHeal: 0.5, tubRestMs: 5 * 60 * 1000,   // the forge water mends you by half, this often
   // the afflictions she can lift (server.js activeStatus types that are harms)
   harms: ['wither', 'stumble', 'shrink', 'toad', 'gibberish', 'wolfmark', 'rooted', 'reversed', 'bloodcurse', 'pumpkin'],
 };
@@ -105,4 +121,25 @@ const LYKE_WAKE = {
   note: 'A lyke-wake was kept for the dead, who stayed dead. That whoever is sat up with here wakes again in the morning is the game\'s.',
 };
 
-module.exports = { VILLAGE, VILLAGE_HOUSES, HOUSE_BY_ROOM, VH, WISE_WOMAN, LYKE_WAKE, isVillageRoom };
+// The smith nobody sees, as the record has it: told by the bellows-boy.
+const WAYLAND = {
+  tier: 'record',
+  lore: [
+    'On the Berkshire downs, beside the Ridgeway, there is a long barrow of great stones that has been called Wayland\'s Smithy for a thousand years. Weland is the smith of the old northern stories.',
+    'Francis Wise wrote down in 1738 what the country people said of it. An invisible smith lived there. A traveller whose horse had lost a shoe on the road had only to bring the horse to the place with a piece of money, leave both there for a while, and come back: he would find the money gone and the horse new shod.',
+    'Wise did not believe it. He thought the stones a Danish monument, and left the story for somebody with more leisure.',
+  ],
+  source: 'F. Wise, A Letter to Dr Mead concerning some Antiquities in Berkshire (Oxford, 1738).',
+  note: 'The smith on the downs shod horses, for a coin, unseen. That he hones a witch\'s gear, and that he works in the Artificer\'s tower in the Wildlands, is the game\'s.',
+};
+// The water iron is cooled in: a cure, in folk memory.
+const FORGE_WATER = {
+  tier: 'folk',
+  lore: [
+    'The water a blacksmith cools his iron in was a cure. Schoolchildren at Loughshinny in County Dublin, set in the 1930s to write down what the old people told them, recorded that it cures chilblains.',
+  ],
+  source: 'The Schools\' Collection (National Folklore Collection, University College Dublin), Loughshinny, Co. Dublin, 1930s.',
+  note: 'One cure, written down in one parish. That the water mends wounds is the game\'s.',
+};
+
+module.exports = { VILLAGE, VILLAGE_HOUSES, HOUSE_BY_ROOM, VH, WISE_WOMAN, LYKE_WAKE, WAYLAND, FORGE_WATER, isVillageRoom };
