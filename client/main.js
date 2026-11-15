@@ -3093,9 +3093,11 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'crypt_exited') {
-    if (me) { me.room = 'wilds'; me.x = msg.x; me.y = msg.y; }
-    swapToWildsMap();
-    setUnlockToast('You climb back out of the crypt.');
+    // up again where you went down: the Wilds, or a tomb in the Ember Wastes
+    const back = msg.room === 'ember_wastes' ? 'ember_wastes' : 'wilds';
+    if (me) { me.room = back; me.x = msg.x; me.y = msg.y; }
+    if (back === 'ember_wastes') swapToEmberMap(); else swapToWildsMap();
+    setUnlockToast(back === 'ember_wastes' ? 'You climb back out of the crypt, into the ash.' : 'You climb back out of the crypt.');
     return;
   }
 
@@ -16891,19 +16893,24 @@ function updateCamera(dt) {
 // Admin-only coordinate readout (top-right). Shows the room, the player's x/y
 // and the ground height under them — so floating/sunk decor can be reported by
 // exact position. Throttled; a no-op (and hidden) for non-admins.
-let _coordBarLast = 0;
+let _coordBarLast = 0, _coordFrames = 0, _coordFpsAt = 0, _coordFps = 0, _coordLights = 0, _coordLightsAt = 0;
 function updateCoordBar() {
   if (!amAdmin) return;
   const el = document.getElementById('coordBar');
   if (!el || el.classList.contains('hidden') || !me) return;
   const now = performance.now();
+  // frames a second, and what the frame is made of: counted every call, shown with the rest
+  _coordFrames++;
+  if (now - _coordFpsAt >= 1000) { _coordFps = Math.round(_coordFrames * 1000 / (now - _coordFpsAt)); _coordFrames = 0; _coordFpsAt = now; }
   if (now - _coordBarLast < 120) return;
   _coordBarLast = now;
   const gnd = Math.round(getFloorHeight(me.room, me.x, me.y));
+  let nLights = 0; if (activeScene && now - _coordLightsAt > 2000) { _coordLightsAt = now; activeScene.traverse((o) => { if (o.isLight && o.visible) nLights++; }); _coordLights = nLights; }
   const sign = gnd >= 0 ? '+' : '';
   el.innerHTML = `<span class="cbK">${roomLabel(me.room)}</span>\n`
     + `x ${Math.round(me.x)}   y ${Math.round(me.y)}\n`
-    + `<span class="cbK">gnd</span> ${sign}${gnd}`;
+    + `<span class="cbK">gnd</span> ${sign}${gnd}\n`
+    + `<span class="cbK">fps</span> ${_coordFps || '…'}   <span class="cbK">lights</span> ${_coordLights}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -21657,7 +21664,7 @@ if (location.search.includes('testdrive=1')) {
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
     // every placed thing the Wilds knows of, by name: [name, x, y, r] (flat zones, and whatever the server sent with a place)
     wildsPlaces() { const out = wildsFlatZones().map((z, i) => ['zone' + i, z.x, z.y, z.r]); const walk = (k, v, d) => { if (!v || typeof v !== 'object' || d > 3) return; if (typeof v.x === 'number' && typeof v.y === 'number') out.push([k, v.x, v.y, v.r || v.radius || 0]); if (Array.isArray(v)) v.forEach((e, i) => walk(k + '.' + (e && e.id ? e.id : i), e, d + 1)); else for (const q in v) walk(k + '.' + q, v[q], d + 1); }; if (world2) for (const k in world2) walk(k, world2[k], 0); return out; },
-    dangerDoors() { return { crypt: WILDS_KIOSKS.filter((k) => k.portal === 'crypt_enter').slice(0, 3).map((k) => [Math.round(k.x), Math.round(k.z)]), ember: [Math.round(EMBER_PORTAL_KIOSK.x), Math.round(EMBER_PORTAL_KIOSK.z)] }; },
+    dangerDoors() { return { tombs: (EMBER_STATIC_KIOSKS || []).filter((k) => k.portal === 'crypt_enter').map((k) => [Math.round(k.x), Math.round(k.z)]), crypt: WILDS_KIOSKS.filter((k) => k.portal === 'crypt_enter').slice(0, 3).map((k) => [Math.round(k.x), Math.round(k.z)]), ember: [Math.round(EMBER_PORTAL_KIOSK.x), Math.round(EMBER_PORTAL_KIOSK.z)] }; },
     grass() { return wildsGrassCounts(); },   // how many tufts each ring of the Wilds' grass is drawing
     legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },

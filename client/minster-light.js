@@ -23,7 +23,9 @@ export const MINSTER_FLAMES = {
   windows: [[-2.4, -1.66, 1.6], [-1.3, -1.66, 1.6], [-0.2, -1.66, 1.6], [0.9, -1.66, 1.6], [3.4, -1.3, 1.2], [4.2, -1.3, 1.2], [3.4, 1.3, 1.2], [4.2, 1.3, 1.2], [2.6, -2.9, 1.45]],
 };
 // How many real lights each quality gets (the rest is glow, which costs nothing to the other shaders).
-export const MINSTER_LIGHTS = { low: 1, medium: 3, high: 5 };
+// Kept few: every real light is paid for by every lit surface in the Wastes, near it or not. Medium has no more than
+// the Wastes had before the minster was lit (this one replaces the old east-window lamp).
+export const MINSTER_LIGHTS = { low: 0, medium: 1, high: 3 };
 
 const MN_VERT_DECL = 'varying vec3 vMnW; varying vec3 vMnN;\n';
 const MN_FRAG = `
@@ -118,8 +120,11 @@ export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, u
   // warm light on the ground all round: the place stands in a pool of it
   if (glowTex) {
     const mid = at(0.2, 0, 0);
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(unit * 9.5, 40), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff9440, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-    pool.rotation.x = -Math.PI / 2; pool.position.set(mid.x, 4, mid.z); pool.renderOrder = 2; scene.add(pool);
+    // (not fogged: from out on the field the lit ground is what shows the minster standing on something)
+    for (const [r, op, y] of [[9.5, 0.3, 14], [5.2, 0.34, 15]]) {
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(unit * r, 40), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff9440, transparent: true, opacity: op, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      pool.rotation.x = -Math.PI / 2; pool.position.set(mid.x, y, mid.z); pool.renderOrder = 2; scene.add(pool);
+    }
   }
   // real lights, as many as the quality allows: the nave first, then the door, the altar end, the belfry, the west bays
   const want = [
@@ -130,7 +135,7 @@ export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, u
     [at(-2.0, 0, 1.4), 0xffb060, 1.0, unit * 5],
   ];
   const lights = [];
-  for (const [w, color, power, reach] of want.slice(0, MINSTER_LIGHTS[quality] || 1)) {
+  for (const [w, color, power, reach] of want.slice(0, MINSTER_LIGHTS[quality] || 0)) {
     const l = new THREE.PointLight(color, power, reach, 1.6); l.position.set(w.x, w.y, w.z); scene.add(l);
     lights.push({ l, base: power, k: 2.1 + lights.length * 1.3 });
   }
@@ -144,7 +149,7 @@ export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, u
 // Where they stand, from the town's middle (x east, y south). The street runs south from the square to the barricade;
 // the last two stand either side of the breach in the minster's wall.
 export const TOWN_LAMPS = [[-190, 3380], [190, 3060], [-190, 2740], [200, 2420], [-330, 2060], [330, 1840], [-210, 1500], [210, 1180], [-560, 500], [60, 500]];
-export const TOWN_LIGHTS = { low: 0, medium: 1, high: 2 };
+export const TOWN_LIGHTS = { low: 0, medium: 0, high: 1 };
 // Set the lamps down. Returns tick(seconds).
 export function lightTown(THREE, scene, mid, { quality = 'high', glowTex } = {}) {
   const iron = new THREE.MeshLambertMaterial({ color: 0x1c1a1a }), flame = new THREE.MeshBasicMaterial({ color: 0xffc878 });

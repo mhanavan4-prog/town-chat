@@ -313,6 +313,7 @@ function buildEmberScene() {
     });
   }
 
+  const tombKiosks = [], tombWalls = [];
   // Tombs + ruined gateways clustered at each landmark — gives the POIs the
   // look of a long-dead necropolis on the ember flat.
   if (canKK) {
@@ -327,6 +328,15 @@ function buildEmberScene() {
         g.position.set(lm.x + (rnd() - 0.5) * 900, 0, lm.y + (rnd() - 0.5) * 900);
         scorch(g, 0.08 + rnd() * 0.1);
         scene.add(g);
+        // Every tomb out here is a way down, as in the Wilds: the same crypt lies under all of them, and you come
+        // up again where you went in. Solid, with its name over it.
+        if (key === 'prop_crypt') {
+          const tx = g.position.x, tz = g.position.z;
+          tombKiosks.push({ x: tx, z: tz, portal: 'crypt_enter', radius: 105 });
+          tombWalls.push({ x: tx - 34, y: tz - 34, w: 68, h: 68 });
+          if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('⚰️ A tomb: the crypt'); l.position.set(tx, 150, tz); scene.add(l); }
+          if (typeof makeGlowTexture === 'function') { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x7fd0a0, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.set(150, 110, 1); sp.position.set(tx, 45, tz); scene.add(sp); }
+        }
       }
     }
   }
@@ -504,6 +514,7 @@ function buildEmberScene() {
   // model streams in after the scene is first built, so it is set down when
   // it arrives.
   scene.userData.walls = minsterWalls();
+  for (const w of tombWalls) scene.userData.walls.push(w);
   let minsterBuilt = false;
   const buildMinster = () => {
     if (minsterBuilt || !(KK && KK.has && KK.has('em_minster') && KK.staticInstance)) return;
@@ -735,7 +746,7 @@ function buildEmberScene() {
   }
 
   // what can be stood at and used, each with its name over it
-  const ashKiosks = [...fieldKiosks, ...ringKiosks, ...marchKiosks, ...folkKiosks];
+  const ashKiosks = [...fieldKiosks, ...ringKiosks, ...marchKiosks, ...folkKiosks, ...tombKiosks];
   for (const id in ASH_SPOTS) {
     const sp = ASH_SPOTS[id];
     ashKiosks.push({ x: sp.x, z: sp.y, npc: 'ash', ashId: id, hint: sp.hint, radius: 130 });
