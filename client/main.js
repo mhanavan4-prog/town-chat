@@ -55,6 +55,7 @@ import { wildsWaters } from './wilds-water.js';
 import { makeGroundNoise } from './wilds-ground.js';
 import { dressTownTiles } from './town-ground.js';
 import { watchHudLane } from './hud-lane.js';
+import { createLootBag } from './loot-bag.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
@@ -3463,6 +3464,7 @@ function onWsMessage(ev) {
     setUnlockToast(msg.message);
     return;
   }
+  if (msg.type === 'loot_bag') { lootBag.show(msg); return; }   // what is on the body, to choose from (client/loot-bag.js)
 
   // Ember Wastes mob-vs-mob skirmish — no player was hit, so nothing else
   // would trigger the attacker's lunge animation. Broadcast to everyone
@@ -7790,7 +7792,7 @@ function handleCanvasClick(clientX, clientY) {
       ws.send(JSON.stringify({ type: 'harvest', decorId: hit.decorId }));
     }
   } else if (hit.kind === 'loot') {
-    ws.send(JSON.stringify({ type: 'loot_corpse', targetType: hit.lootType, targetId: hit.targetId }));
+    ws.send(JSON.stringify({ type: 'loot_peek', targetType: hit.lootType, targetId: hit.targetId }));   // opens the bag; nothing is taken until you choose
   }
 }
 
@@ -19645,8 +19647,26 @@ function sitOnBench() {
   ws.send(JSON.stringify({ type: 'sit', seated: true, x: me.x, z: me.y, facing: me.facing }));
 }
 
+// The loot bag (client/loot-bag.js) and the body it would open on: the nearest loot icon within reach.
+const lootBag = createLootBag({ send: (m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }, touch: () => document.body.classList.contains('touchMode') });
+const LOOT_REACH = 80;   // the server allows 90
+function nearestLoot(reach = LOOT_REACH) {
+  if (!me || me.isDead) return null;
+  const rp = getRenderPos(me);
+  let best = null, bd = reach;
+  for (const key in lootIconVisuals) {
+    const sp = lootIconVisuals[key];
+    if (!sp.visible || sp.parent !== activeScene || !sp.userData || sp.userData.kind !== 'loot') continue;
+    const d = Math.hypot(sp.position.x - rp.x, sp.position.z - rp.z);
+    if (d < bd) { bd = d; best = sp.userData; }
+  }
+  return best;
+}
 function tryInteract() {
   if (!me || broomRide) return;
+  // Loot first: F by a body opens its bag, and F again with the bag open takes all of it.
+  if (lootBag.isOpen()) { lootBag.takeAll(); return; }
+  { const loot = !seatedAt && nearestLoot(); if (loot) { ws.send(JSON.stringify({ type: 'loot_peek', targetType: loot.lootType, targetId: loot.targetId })); return; } }
   if (seatedAt) { const wasOutdoor = seatedAt.outdoor; standUp(); if (wasOutdoor) ws.send(JSON.stringify({ type: 'sit', seated: false })); return; }
   if (nearestTownBench()) { sitOnBench(); return; }
   const seat = findNearestSeat(); // null outdoors (currentInterior is null), so this is a no-op there
@@ -19791,6 +19811,9 @@ function updateInteractHint() {
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
     return;
   }
+  // Loot: the prompt by a body, and the bag closes itself once you have walked off from it.
+  if (lootBag.isOpen()) { const tg = lootBag.target(), nl = nearestLoot(150); if (!nl || nl.targetId !== tg.targetId) lootBag.close(); else { hint.classList.remove('hidden'); document.getElementById('interactHintText').textContent = `${interactVerb()} take all`; return; } }
+  if (nearestLoot()) { hint.classList.remove('hidden'); document.getElementById('interactHintText').textContent = `${interactVerb()} loot`; return; }
   const seat = findNearestSeat();
   if (seat && !seatIsOccupied(seat)) {
     hint.classList.remove('hidden');
@@ -21406,6 +21429,7 @@ if (location.search.includes('testdrive=1')) {
     },
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
+    loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
