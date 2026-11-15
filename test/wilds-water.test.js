@@ -67,5 +67,8 @@ check('reeds are for medium and high; low keeps only the water and the stones', 
 check('the water is not a shadow caster and does not write depth (grass and reeds show through its edge)', /depthWrite: false/.test(raw) && /noShadowCaster = true/.test(raw));
 check('names are this module\'s own (one bundle, one scope)', !/\bconst (SS|hash|lerp|clamp)\b = /.test(raw.split('\n').filter((l) => !/^\s/.test(l)).join('\n')));
 
+const manifest = JSON.parse(read('tools/audio/sfx.manifest.json')).sfx.find((x) => x.id === 'wade');
+check('wading has its own step: a prompt in the manifest, and the ordinary footstep wherever the recording is missing', !!manifest && /One step only/.test(manifest.prompt) && /wade: 'footstep'/.test(main) && /playSfx\(wadingNow\(\) \? sfxOrStandIn\('wade'\) : 'footstep'\)/.test(main) && /s - wildsHeightAt\(me\.x, me\.y\) > 1/.test(main));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
