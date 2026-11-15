@@ -51,7 +51,7 @@ import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } f
 import createCreatures from './creatures.js';
 import { makeHealthBarSprite, updateHealthBar, makeLootIconSprite, makeSignSprite, makeNpcNameSprite, HOVER_NAME_SPRITES, QUIET_SIGNS } from './sprites.js';
 import createWildsScene from './wilds-scene.js';
-import { wildsWaters } from './wilds-water.js';
+import { wildsWaters, waterLoudness, waterCourses } from './wilds-water.js';
 import { makeGroundNoise } from './wilds-ground.js';
 import { dressTownTiles } from './town-ground.js';
 import { watchHudLane } from './hud-lane.js';
@@ -3907,7 +3907,7 @@ function isVisuallyLocked(b) {
 // original names, so every downstream call site below is unchanged.
 // ---------------------------------------------------------------------------
 const _audio = createAudio({ getMe: () => me, setUnlockToast });
-const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
+const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop, setSfxLoopVol } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
 const SFX_STAND_IN = { wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
@@ -18320,6 +18320,20 @@ const { openNotifModal } = _notif;
       ctx.save(); ctx.strokeStyle = 'rgba(200,190,140,0.45)'; ctx.lineWidth = Math.max(2, world2.drove.width * mapScale); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath(); world2.drove.pts.forEach((q, i) => (i ? ctx.lineTo(PX(q[0]), PY(q[1])) : ctx.moveTo(PX(q[0]), PY(q[1])))); ctx.stroke(); ctx.restore();
     }
+    // The water (client/wilds-water.js): the rill and the beck as they run, each to its pool, and the ford.
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const c of waterCourses()) {
+      ctx.strokeStyle = 'rgba(96,160,214,0.75)'; ctx.lineWidth = Math.max(1.5, c.half * 2 * mapScale);
+      ctx.beginPath(); c.line.forEach((q, i) => (i ? ctx.lineTo(PX(q[0]), PY(q[1])) : ctx.moveTo(PX(q[0]), PY(q[1])))); ctx.stroke();
+      ctx.fillStyle = 'rgba(96,160,214,0.6)'; ctx.beginPath(); ctx.arc(PX(c.mere.x), PY(c.mere.y), Math.max(2, c.mere.r * mapScale), 0, Math.PI * 2); ctx.fill();
+      if (c.name === 'beck') {
+        const mid = c.line[Math.floor(c.line.length * 0.72)];
+        globalThis.__mapLabel('💧 The beck', PX(mid[0]) - 14, PY(mid[1]) - 6, '#9cc8ec', 5);
+        globalThis.__mapLabel('The mere', PX(c.mere.x), PY(c.mere.y) + Math.max(6, c.mere.r * mapScale) + 3, '#9cc8ec', 3);
+        if (c.ford) globalThis.__mapLabel('the ford', PX(c.ford.x), PY(c.ford.y) - 12, '#b9c9d6', 2);
+      }
+    }
+    ctx.restore();
     // Landmark props, their names the weightiest on the map.
     for (const poi of WILDS_POI) propMarker(ctx, PX(poi.x), PY(poi.y), poi.kind, poi.label, '#cbbdf0', propS, { color: poi.color, weight: 8 });
     // The two old places near the portal: the Shepherd's Race (east) and the
@@ -20811,6 +20825,18 @@ function wadingNow() {
   const s = wildsWaters(wildsRawHeightAt).surfaceAt(me.x, me.y);
   return s !== null && s - wildsHeightAt(me.x, me.y) > 1;
 }
+// The sound of the water running, louder as you come near it and gone a little way off (client/wilds-water.js). One
+// loop ('beck_run'); until it is recorded there is nothing to hear, and nothing breaks.
+let _beckHeard = false, _beckCheckAt = 0;
+function tickBeckSound(now) {
+  if (now < _beckCheckAt) return;
+  _beckCheckAt = now + 400;
+  const vol = (activeScene === wildsScene && me && !me.isDead && me.room === 'wilds') ? waterLoudness(me.x, me.y) : 0;
+  if (vol > 0.01) {
+    if (!_beckHeard) { _beckHeard = true; startSfxLoop('beck_run', vol, 2); }
+    else setSfxLoopVol('beck_run', vol, 0.6);
+  } else if (_beckHeard) { _beckHeard = false; stopSfxLoop('beck_run', 2.5); }
+}
 const FOOT_STRIDE = 110; // world units walked per footstep sound — cadence scales with speed
 let _footAccum = 0;      // distance banked toward the next step (primed when standing still)
 
@@ -21200,6 +21226,7 @@ function update(dt) {
   updateStatusVisuals(dt);
   updateFireballs();
   tickPracticeScarecrow(performance.now());
+  tickBeckSound(performance.now());
   updateGroundTrapVisuals();
   updateHotbarCooldown();
   updateWerewolfNpc(dt);

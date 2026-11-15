@@ -229,6 +229,15 @@ function startSfxLoop(name, vol, fadeSec) {
   sfxLoops[name] = 'pending';
   loadSfxId(name).then((ok) => { if (ok) go(); else if (sfxLoops[name] === 'pending') delete sfxLoops[name]; });
 }
+// Turn a playing loop up or down (the beck, louder as you near it). Nothing happens if it is not playing yet.
+function setSfxLoopVol(name, vol, rampSec) {
+  const l = sfxLoops[name];
+  if (!l || l === 'pending' || !audioCtx) return;
+  try {
+    const t = audioCtx.currentTime, to = Math.max(0.0001, vol * (SFX_FILE_GAIN[name] != null ? SFX_FILE_GAIN[name] : 1));
+    l.g.gain.cancelScheduledValues(t); l.g.gain.setValueAtTime(l.g.gain.value, t); l.g.gain.linearRampToValueAtTime(to, t + (rampSec || 0.6));
+  } catch (e) { /* gone */ }
+}
 function stopSfxLoop(name, fadeSec) {
   const l = sfxLoops[name];
   delete sfxLoops[name];
@@ -598,7 +607,7 @@ if (muteBtn) {
 
   return {
     ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel,
-    playSfx, setSfxMuted, startSfxLoop, stopSfxLoop,
+    playSfx, setSfxMuted, startSfxLoop, stopSfxLoop, setSfxLoopVol,
     // Quest-line narration (voiced offer pitches).
     playNarration, stopNarration, narrationAvailable,
     // True once a recorded file for `id` is loaded — lets callers prefer a
