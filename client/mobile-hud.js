@@ -101,6 +101,19 @@ function showPinned(on) {
     const stack = document.getElementById('chatNotifStack');
     if (stack) for (const b of [...stack.children]) if (!b.classList.contains('system') && !b.querySelector('img')) b.remove();
   } else if (!Modals.isOpen('mobileChatOpen')) cp.classList.add('mobileClosed');
+  watchPinnedBottom(cp, on);
+}
+// Where the kept-open window ends, for what is docked below it (the finds line: index.html reads --pinnedChatBottom).
+let _pinWatch = null;
+function watchPinnedBottom(cp, on) {
+  const st = document.body && document.body.style;
+  if (!st || typeof st.setProperty !== 'function' || typeof cp.getBoundingClientRect !== 'function') return;
+  const note = () => { if (!cp.classList.contains('pinned')) return; const b = cp.getBoundingClientRect().bottom; if (b > 0) st.setProperty('--pinnedChatBottom', Math.round(b) + 'px'); };
+  if (_pinWatch) { _pinWatch.disconnect(); _pinWatch = null; }
+  if (!on) { st.removeProperty('--pinnedChatBottom'); return; }
+  note();
+  if (typeof ResizeObserver === 'function') { _pinWatch = new ResizeObserver(note); _pinWatch.observe(cp); }
+  if (!watchPinnedBottom.bound) { watchPinnedBottom.bound = true; window.addEventListener('resize', note); window.addEventListener('orientationchange', () => setTimeout(note, 250)); }
 }
 function setChatPinned(on) {
   try { localStorage.setItem(PIN_KEY, on ? '1' : '0'); } catch (e) { /* private window: it lasts the visit */ }
