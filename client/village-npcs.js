@@ -8,8 +8,8 @@
 export default function createVillageNpcs({ createHumanoid, kkSetState, lerpAngle, getWildsScene, KK }) {
   let villageNpcVisuals = {};
 
-function buildVillageNpcRig(charId) {
-  const built = createHumanoid(charId);
+function buildVillageNpcRig(charId, id) {
+  const built = createHumanoid(charId, null, 'villager:' + id); // the same villager, the same look
   built.group.visible = false;
   if (getWildsScene()) getWildsScene().add(built.group);
   return { group: built.group, armL: built.armL, armR: built.armR, legL: built.legL, legR: built.legR, kk: built.kk };
@@ -17,7 +17,7 @@ function buildVillageNpcRig(charId) {
 
 function getOrCreateVillageNpcVisual(id, charId) {
   if (!villageNpcVisuals[id]) {
-    const rig = buildVillageNpcRig(charId);
+    const rig = buildVillageNpcRig(charId, id);
     villageNpcVisuals[id] = {
       ...rig, charId,
       x: 0, y: 0, targetX: 0, targetY: 0, facing: 0, targetFacing: 0,
@@ -35,7 +35,7 @@ function upgradeVillageNpcsToKK() {
     const v = villageNpcVisuals[id];
     if (v.kk || !KK.charReady(v.charId)) continue;
     if (v.group && v.group.parent) v.group.parent.remove(v.group);
-    const rig = buildVillageNpcRig(v.charId);
+    const rig = buildVillageNpcRig(v.charId, id);
     v.group = rig.group; v.armL = rig.armL; v.armR = rig.armR; v.legL = rig.legL; v.legR = rig.legR; v.kk = rig.kk;
   }
 }

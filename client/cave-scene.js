@@ -79,7 +79,7 @@ function buildCaveScene() {
   const hazelRoot = new THREE.Group();
   hazelRoot.position.set(400, 0, 160);
   hazelRoot.rotation.y = Math.PI;
-  const witchMesh = createHumanoid(0).group;
+  const witchMesh = createHumanoid(0, null, 'witchMesh').group;
   witchMesh.scale.setScalar(1.25); // imposing — taller than any player
   // Deepen her robes to a darker witch-violet so she doesn't read as just
   // another player Witch. SkeletonUtils already forked her materials per

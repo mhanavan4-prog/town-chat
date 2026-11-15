@@ -713,7 +713,7 @@ function buildEmberScene() {
   for (const f of ASH_FOLK) {
     const holder = new THREE.Group(); holder.visible = false; scene.add(holder);
     if (typeof createStaticNpc === 'function') {
-      try { const npc = createStaticNpc(f.charId); if (npc && npc.group) { npc.group.position.set(f.x, 0, f.y); npc.group.rotation.y = f.facing; holder.add(npc.group); } } catch (e) { /* the kiosk still works */ }
+      try { const npc = createStaticNpc(f.charId, null, 'ash:' + (f.id || f.name)); if (npc && npc.group) { npc.group.position.set(f.x, 0, f.y); npc.group.rotation.y = f.facing; holder.add(npc.group); } } catch (e) { /* the kiosk still works */ }
     }
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, 100, f.y); holder.add(l); }
     scene.userData.folk[f.id] = holder;
@@ -807,7 +807,7 @@ function buildEmberScene() {
   let wardenGroup = null;
   if (typeof createStaticNpc === 'function') {
     try {
-      const warden = createStaticNpc(2); // charId 2 reads as a hard-bitten fighter
+      const warden = createStaticNpc(2, null, 'warden'); // charId 2 reads as a hard-bitten fighter
       if (warden && warden.group) {
         warden.group.position.set(WARDEN_X, wardenGY, WARDEN_Z);
         warden.group.rotation.y = Math.PI; // face south, toward arriving players

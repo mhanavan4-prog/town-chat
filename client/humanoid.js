@@ -6,6 +6,9 @@
 // that spawns a humanoid. THREE/LEGEND_FX are globals; the character data tables
 // (CHAR/CHARACTER_PRESETS/KK) and the KayKit state helper are injected.
 // ---------------------------------------------------------------------------
+import { npcLook } from './npc-looks.js';
+import { WARDROBE } from './wardrobe.js';
+
 export default function createHumanoidBuilder({ CHAR, CHARACTER_PRESETS, KK, kkSetState, resolveLook }) {
 // ---------------------------------------------------------------------------
 // Eyes/brows/mouth, placed at a fixed local +Z offset on the head sphere —
@@ -266,10 +269,17 @@ function createHumanoidClassic(charId, presetOverride) {
 // Tier-3 dispatcher: KayKit model when loaded, classic build otherwise.
 // presetOverride callers (Ember Wastes mobs with custom palettes) always
 // get the classic builder — their look is bespoke by design.
+// appearance: a player's Wardrobe choice (an object, or null for the class's own look). Anything else is an NPC: a
+// string is that NPC's seed (its id), and nothing at all takes the next number, so no two NPCs are quite alike
+// (client/npc-looks.js).
+let _npcSeq = 0;
 function createHumanoid(charId, presetOverride, appearance) {
+  const isNpc = appearance === undefined || typeof appearance === 'string';
+  const npcSeed = isNpc ? (typeof appearance === 'string' ? appearance : 'n' + (_npcSeq++)) : null;
   const built = (presetOverride || !KK.charReady(charId))
     ? createHumanoidClassic(charId, presetOverride)
-    : createKayKitHumanoid(charId, appearance);
+    : createKayKitHumanoid(charId, isNpc ? null : appearance, npcSeed);
+  if (built && built.group && npcSeed) built.group.userData.npcSeed = npcSeed;
   // Mark the whole figure so the shadow tagger can let characters CAST ground
   // shadows but not RECEIVE them — self-shadowing on these small models under
   // the wide follow shadow map produced saw-tooth acne across the body.
@@ -277,11 +287,13 @@ function createHumanoid(charId, presetOverride, appearance) {
   return built;
 }
 
-function createKayKitHumanoid(charId, appearance) {
+function createKayKitHumanoid(charId, appearance, npcSeed) {
   const preset = CHARACTER_PRESETS[charId] || CHARACTER_PRESETS[0];
   const t = KK.models[KK.charKey(charId)];
   const inst = THREE.SkeletonUtils.clone(t.scene);
-  const s = 68 / t.size.y;
+  let s = 68 / t.size.y;
+  const npc = npcSeed ? npcLook(charId, npcSeed, (WARDROBE[charId] || {}).toggles) : null;
+  if (npc) s *= npc.height;
   inst.scale.setScalar(s);
   const group = new THREE.Group();
   group.add(inst);
@@ -292,6 +304,7 @@ function createKayKitHumanoid(charId, appearance) {
   const look = resolveLook(charId, appearance);
   const keep = look.showProps;        // prop node names to SHOW (rest hidden)
   const hideCosmetic = look.hideCosmetic; // headwear/cape to HIDE (toggled off)
+  if (npc) { look.bodyTint = npc.bodyTint; look.accentTint = npc.accentTint; for (const m of npc.hide) hideCosmetic.push(m); }
   // Phase 3 dyes: tint colors multiplied over the atlas. Outfit = body + sleeves
   // + legs (_Body/_ArmLeft/_ArmRight/_LegLeft/_LegRight across every class);
   // accent = headwear + cape (_Hat/_Helmet/_Cape). Head / skull / jaw / eyes and
@@ -452,18 +465,18 @@ function createKayKitByKey(key, heightScale) {
   // and swaps it to the KayKit rig in place once that class's model is ready.
   // Drop-in for createHumanoid at those call sites (same return shape).
   const _staticNpcs = [];
-  function createStaticNpc(charId, presetOverride) {
-    const built = createHumanoid(charId, presetOverride);
+  function createStaticNpc(charId, presetOverride, seed) {
+    const built = createHumanoid(charId, presetOverride, seed);
     // presetOverride figures (bespoke Ember-Wastes palettes) are classic by
     // design — never upgrade those. Only track real fallback builds.
-    if (!presetOverride && !built.kk) _staticNpcs.push({ group: built.group, charId, done: false });
+    if (!presetOverride && !built.kk) _staticNpcs.push({ group: built.group, charId, done: false, seed: built.group.userData.npcSeed });
     return built;
   }
   function upgradeStaticNpcs() {
     for (const rec of _staticNpcs) {
       if (rec.done || !rec.group || !KK.charReady(rec.charId)) continue;
       const old = rec.group;
-      const nb = createHumanoid(rec.charId);
+      const nb = createHumanoid(rec.charId, null, rec.seed); // the same person as before, only better drawn
       nb.group.position.copy(old.position);
       nb.group.quaternion.copy(old.quaternion);
       nb.group.scale.copy(old.scale);

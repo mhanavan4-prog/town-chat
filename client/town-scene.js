@@ -11,7 +11,7 @@ import { makeTurnipLanterns } from './props-turnip.js';
 export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, mobileLite, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
-    const mesh = createHumanoid(npc.charId).group;
+    const mesh = createHumanoid(npc.charId, null, npc.id).group;
     mesh.position.set(npc.x, 0, npc.y);
     // Face toward the spawn hub (1600, 1100) so they look natural
     mesh.rotation.y = Math.atan2(1600 - npc.x, 1100 - npc.y);
@@ -340,7 +340,7 @@ function buildMidnightPeddler(scene) {
   // and matches everyone else instead of the old cone+sphere blob. The Witch
   // model (charId 0) reads as a purple-robed, pointed-hat, mysterious figure
   // that suits the Midnight Peddler; change the charId for a different look.
-  const pg = createHumanoid(0).group;
+  const pg = createHumanoid(0, null, 'pg').group;
   pg.position.set(0, 0, -12);     // stand behind the table
   pg.rotation.y = Math.PI;        // face the customer side (flip to 0 if reversed)
   g.add(pg);
@@ -388,7 +388,7 @@ function buildLocksmith(scene) {
   // Tumbler is a proper humanoid now — the same createHumanoid build the town's
   // other NPCs and players use (charId 4, the Rogue, suits a lock-man). A
   // rotating brass key floats over him as the sign of his trade.
-  const figure = createHumanoid(4).group;
+  const figure = createHumanoid(4, null, 'figure').group;
   figure.rotation.y = Math.atan2(1600 - LOCKSMITH_SPOT.x, 1100 - LOCKSMITH_SPOT.y);
   g.add(figure);
   const keyMat = new THREE.MeshBasicMaterial({ color: 0xffd27a });

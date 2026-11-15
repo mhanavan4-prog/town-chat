@@ -12,7 +12,7 @@ export default function createTownTorchNpcs({ createHumanoid, getFloorHeight, kk
 // Build the rig + name label and drop it into the scene. Returns the visual's
 // render fields (group/limb pivots and the KayKit handle, when the model is up).
 function buildTorchNpcRig(charId, name) {
-  const built = createHumanoid(charId);
+  const built = createHumanoid(charId, null, 'keeper:' + name);
   built.group.visible = false;
   // Local (0, 90, 0) — rotating the group around Y (facing) never moves
   // a point that sits exactly on the Y axis, so this stays put above

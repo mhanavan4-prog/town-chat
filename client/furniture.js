@@ -687,7 +687,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       // counter hugs the west wall at x~50, so there's no room behind it without
       // clipping the back-bar shelf). This keeps him off the dining floor and
       // well clear of the Champions' Table out in the centre.
-      const bartender = createHumanoid(3).group;
+      const bartender = createHumanoid(3, null, 'bartender').group;
       bartender.position.set(95, 0, 240);
       bartender.rotation.y = Math.atan2(cx - 95, cz - 240); // face into the room
       scene.add(bartender);
@@ -696,7 +696,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(bartenderLabel);
       kiosksOut.push({ x: 95, z: 240, npc: 'npc', npcId: 'npc_bartender', npcName: 'Barkeep Joss' });
 
-      const patron = createHumanoid(0).group;
+      const patron = createHumanoid(0, null, 'patron').group;
       patron.position.set(460, 0, 90);
       patron.rotation.y = Math.atan2(cx - 460, cz - 90);
       scene.add(patron);
@@ -854,7 +854,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     });
 
     if (kiosksOut) {
-      const scholar = createHumanoid(2).group;
+      const scholar = createHumanoid(2, null, 'scholar').group;
       scholar.position.set(150, 0, 60);
       scholar.rotation.y = Math.atan2(cx - 150, cz - 60);
       scene.add(scholar);
@@ -863,7 +863,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(scholarLabel);
       kiosksOut.push({ x: 150, z: 60, npc: 'npc', npcId: 'npc_scholar', npcName: 'Scholar Elior' });
 
-      const apprentice = createHumanoid(4).group;
+      const apprentice = createHumanoid(4, null, 'apprentice').group;
       apprentice.position.set(320, 0, 60);
       apprentice.rotation.y = Math.atan2(cx - 320, cz - 60);
       scene.add(apprentice);
@@ -1290,7 +1290,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
         if (kiosksOut) kiosksOut.push({ x: roomW - 90, z: 356, npc: 'relic', relicId: 'moon_relic', npcName: '🌙 Moon Relic' });
       })();
 
-      const alchemist = createHumanoid(0).group;
+      const alchemist = createHumanoid(0, null, 'alchemist').group;
       alchemist.position.set(150, 0, roomD - 90);
       alchemist.rotation.y = Math.atan2(cx - 150, cz - (roomD - 90));
       scene.add(alchemist);
@@ -1299,7 +1299,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(alchemistLabel);
       kiosksOut.push({ x: 150, z: roomD - 90, npc: 'npc', npcId: 'npc_apothecary', npcName: 'Apothecary Vex' });
 
-      const tinkerer = createHumanoid(4).group;
+      const tinkerer = createHumanoid(4, null, 'tinkerer').group;
       tinkerer.position.set(roomW - 150, 0, roomD - 90);
       tinkerer.rotation.y = Math.atan2(cx - (roomW - 150), cz - (roomD - 90));
       scene.add(tinkerer);
@@ -1748,7 +1748,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
       // The two NPCs flank the west doorway (keeping the door gap itself clear).
       const tailorX = roomW * 0.10, tailorZ = roomD * 0.30;
-      const tailor = createHumanoid(2).group;
+      const tailor = createHumanoid(2, null, 'tailor').group;
       tailor.position.set(tailorX, 0, tailorZ);
       tailor.rotation.y = Math.atan2(hallCx - tailorX, hallCz - tailorZ);
       scene.add(tailor);
@@ -1758,7 +1758,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       kiosksOut.push({ x: tailorX, z: tailorZ, npc: 'npc', npcId: 'npc_tailor', npcName: 'Tailor Ines' });
 
       const nobleX = roomW * 0.10, nobleZ = roomD * 0.70;
-      const noble = createHumanoid(3).group;
+      const noble = createHumanoid(3, null, 'noble').group;
       noble.position.set(nobleX, 0, nobleZ);
       noble.rotation.y = Math.atan2(hallCx - nobleX, hallCz - nobleZ);
       scene.add(noble);
@@ -1853,7 +1853,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     });
 
     if (kiosksOut) {
-      const armorer = createHumanoid(1).group;
+      const armorer = createHumanoid(1, null, 'armorer').group;
       armorer.position.set(150, 0, roomD * 0.4);
       armorer.rotation.y = Math.atan2(cx - 150, cz - roomD * 0.4);
       scene.add(armorer);
@@ -1862,7 +1862,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(armorerLabel);
       kiosksOut.push({ x: 150, z: roomD * 0.4, npc: 'npc', npcId: 'npc_armorer', npcName: 'Armorer Beck' });
 
-      const knight = createHumanoid(3).group;
+      const knight = createHumanoid(3, null, 'knight').group;
       knight.position.set(roomW - 150, 0, roomD * 0.4);
       knight.rotation.y = Math.atan2(cx - (roomW - 150), cz - roomD * 0.4);
       scene.add(knight);
@@ -2134,7 +2134,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     if (kiosksOut) {
       const npcZ = stationZ + 28, kioskZ = stationZ - 26;
 
-      const teller = createHumanoid(3).group; // "Knight" preset — reads well as a uniform
+      const teller = createHumanoid(3, null, 'teller').group; // "Knight" preset — reads well as a uniform
       teller.position.set(tellerX, 0, npcZ);
       teller.rotation.y = Math.PI;
       scene.add(teller);
@@ -2143,7 +2143,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(tellerSign);
       kiosksOut.push({ id: 'bank_teller', x: tellerX, z: kioskZ, npc: 'teller' });
 
-      const courier = createHumanoid(4).group; // "Wanderer" preset — distinct from teller/auctioneer
+      const courier = createHumanoid(4, null, 'courier').group; // "Wanderer" preset — distinct from teller/auctioneer
       courier.position.set(courierX, 0, npcZ);
       courier.rotation.y = Math.PI;
       scene.add(courier);
@@ -2152,7 +2152,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
       scene.add(courierSign);
       kiosksOut.push({ id: 'bank_courier', x: courierX, z: kioskZ, npc: 'courier' });
 
-      const auctioneer = createHumanoid(2).group; // "Mystic" — visually distinct from the teller
+      const auctioneer = createHumanoid(2, null, 'auctioneer').group; // "Mystic" — visually distinct from the teller
       auctioneer.position.set(auctioneerX, 0, npcZ);
       auctioneer.rotation.y = Math.PI;
       scene.add(auctioneer);
@@ -2175,7 +2175,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
 
       // The bank's "shop" is already the teller/auctioneer above — this one
       // just gives quest hints, same as every other building's hint-NPC.
-      const guard = createHumanoid(1).group;
+      const guard = createHumanoid(1, null, 'guard').group;
       guard.position.set(150, 0, 150);
       guard.rotation.y = Math.atan2(cx - 150, roomD * 0.38 - 150);
       scene.add(guard);

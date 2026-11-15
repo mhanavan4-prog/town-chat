@@ -77,7 +77,7 @@ export default function createCallersInTown({ KK, createKayKitByKey, createHuman
         if (kkSetState && built.kk) kkSetState(built.kk, 'Idle');
       }
     }
-    if (!group && createHumanoid) { try { group = createHumanoid(body.key === 'npc_farmer_b' ? 3 : 0).group; } catch (e) { group = null; } }
+    if (!group && createHumanoid) { try { group = createHumanoid(body.key === 'npc_farmer_b' ? 3 : 0, null, 'caller:' + body.key).group; } catch (e) { group = null; } }
     if (!group) group = new THREE.Group();
     group.position.set(spot.x, 0, spot.y);
     // Facing the square, where you'll come from.
