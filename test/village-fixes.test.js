@@ -18,7 +18,7 @@ check('the sign and the door-spot are both drawn at the door', /WILDS_KIOSKS\.pu
 check('no two houses share a door', Object.values(H).every((a) => Object.values(H).every((b) => a === b || Math.hypot(a.door.x - b.door.x, a.door.y - b.door.y) > 2 * VH.doorRange)));
 
 check('the fire is made of an ember bed, five tongues of flame out of step, sparks, and a light that flickers', /const TONGUES = \[/.test(fire) && (fire.match(/0x[0-9a-f]{6}, 0\.\d+, \d\.\d, \d\.\d\]/g) || []).length === 5 && /OctahedronGeometry/.test(fire) && /l\.intensity = l\.userData\.base \*/.test(fire) && /AdditiveBlending/.test(fire));
-check('all three of the village\'s hearths are lit with it, and so is the one at home', (scene.match(/      hearth\(/g) || []).length === 3 && /const hearth = \(x, z, size, power\) => \{ kkPlace\(scene, 'furn_hearth'/.test(scene) && /makeHearthFire\(THREE, 200 \/ 190, \{ light: false \}\)/.test(main));
+check('all four of the village\'s hearths are lit with it (the Smithy\'s too), and so is the one at home', (scene.match(/      hearth\(/g) || []).length === 4 && /const hearth = \(x, z, size, power\) => \{ kkPlace\(scene, 'furn_hearth'/.test(scene) && /makeHearthFire\(THREE, 200 \/ 190, \{ light: false \}\)/.test(main));
 check('the old glow painted over the hearths is gone', !/glow\([^)]*0xff8a30\)/.test(scene));
 check('the Moot Hall\'s high seat stands beside the hearth, not in front of it', /kkPlace\(scene, 'furn_highseat', h\.x \+ 200, 64, 90, 0, 'height'\)/.test(scene));
 

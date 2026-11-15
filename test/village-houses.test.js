@@ -19,7 +19,7 @@ const mk = (extra) => ({ id: 'p', ws: 'p', room: 'wilds', x: 0, y: 0, health: 40
 const last = (type) => [...sent].reverse().find((m) => m.type === type);
 const said = (re) => sent.some((m) => m.type === 'toast' && re.test(m.message));
 
-check('five buildings are open, each with a room of its own, a door, a place to stand inside and something to use', Object.keys(H).join() === 'barn,tower,hall,cottage,lodging' && Object.values(H).every((h) => h.room.startsWith('vh_') && HOUSE_BY_ROOM[h.room] === h && h.spots.length >= 1 && h.spawn.x === h.width / 2 && h.spawn.y < h.height && h.blurb.length > 40 && h.spots.every((s) => s.x > 60 && s.x < h.width - 60 && s.y > 60 && s.y < h.height - 60 && s.hint)));
+check('six buildings are open, each with a room of its own, a door, a place to stand inside and something to use', Object.keys(H).join() === 'barn,tower,hall,cottage,lodging,forge' && Object.values(H).every((h) => h.room.startsWith('vh_') && HOUSE_BY_ROOM[h.room] === h && h.spots.length >= 1 && h.spawn.x === h.width / 2 && h.spawn.y < h.height && h.blurb.length > 40 && h.spots.every((s) => s.x > 60 && s.x < h.width - 60 && s.y > 60 && s.y < h.height - 60 && s.hint)));
 check('a village room is known by its name, and nothing else is taken for one', isVillageRoom('vh_barn') && !isVillageRoom('wilds') && !isVillageRoom('vh_nowhere') && !isVillageRoom(null));
 check('the doors stand apart from one another, in the village', (() => { const d = Object.values(H).map((h) => h.door); return d.every((a, i) => d.every((b, j) => i === j || Math.hypot(a.x - b.x, a.y - b.y) > 400) && Math.hypot(a.x - 5000, a.y - 3000) < 1050); })());
 

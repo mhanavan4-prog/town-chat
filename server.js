@@ -4736,6 +4736,13 @@ function decayGear(player) {
     m[itemId] = Math.max(0, Math.round((cur - DURA_DECAY) * 10) / 10);
   }
 }
+// Every worn high-tier item made sharp again, and the player told (the repair button, and the Smithy's groat stone).
+function honeAllGear(player) {
+  const m = gearEdgeMap(player && player.accountKey); if (!m) return;
+  for (const slot of EQUIP_SLOTS) { const id = player[invEquipField(slot)]; if (isHighTierItem(id)) m[id] = DURA_MAX; }
+  send(player.ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+  send(player.ws, { type: 'skill_state', ...skillStatePayload(player) });
+}
 // Gold to make every worn high-tier item sharp again (full-moon discount).
 function repairCostFor(player) {
   const key = player && player.accountKey;
@@ -9234,7 +9241,7 @@ function tonightLines(player, t) {
   lines.push(seen ? '🕯️ You have seen tonight\'s corpse candle.' : '🕯️ Nothing has gone down the road south yet that you have seen. Be at the coffin stone.');
   return lines;
 }
-const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
+const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, gearWorn: (p) => repairCostFor(p), honeGear: (p) => honeAllGear(p), bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
@@ -17922,11 +17929,8 @@ wss.on('connection', (ws, req) => {
       const account = ensureBankAccount(player.accountKey);
       if (account.balance < cost) { send(ws, { type: 'shop_error', message: `Repairing costs ${cost} gold, you have ${account.balance}.` }); return; }
       account.balance -= cost;
-      const m = gearEdgeMap(player.accountKey);
-      for (const slot of EQUIP_SLOTS) { const id = player[invEquipField(slot)]; if (isHighTierItem(id)) m[id] = DURA_MAX; }
+      honeAllGear(player);
       saveBankAccounts(); saveAccounts();
-      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
-      send(ws, { type: 'skill_state', ...skillStatePayload(player) });
       send(ws, { type: 'toast', message: `🔧 Your gear is honed sharp again — ${cost} gold.` });
       return;
     }
