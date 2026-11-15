@@ -36,6 +36,9 @@ export const WILDS_WATERS = [
 ];
 export const WILDS_BECK = WILDS_WATERS[1];
 
+// How far the sound of the running water carries, and how loud it is beside it (the 'beck_run' loop).
+export const WATER_HEARD = 520, WATER_LOUD = 0.5;
+
 const wbSS = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // The course as a smooth line, one point every `step` or so (Catmull-Rom through the given points).
@@ -356,4 +359,29 @@ export function buildWildsWater(THREE, scene, beck, heightAt, noiseTex, quality)
     group, reeds: reeds ? reeds.count : 0,
     update(t, sky, tint) { U.uWT.value = t; if (sky) U.uWSky.value.copy(sky); if (reeds && tint) reeds.material.color.copy(tint); },
   };
+}
+
+// ── Hearing it, and finding it on the map ───────────────────────────────────
+// How far (x, z) is from the nearest water's edge (0 when in it). Needs no ground: only where the water runs.
+let _wbCourses = null;
+export function waterCourses(list = WILDS_WATERS) {
+  if (list === WILDS_WATERS && _wbCourses) return _wbCourses;
+  const out = list.map((B) => ({ name: B.name, half: B.half, mere: B.mere, ford: B.ford || null, line: beckLine(B.pts, 40) }));
+  if (list === WILDS_WATERS) _wbCourses = out;
+  return out;
+}
+export function waterDistance(x, z, list) {
+  let best = Infinity;
+  for (const c of waterCourses(list)) {
+    for (let i = 0; i < c.line.length; i++) { const d = Math.hypot(x - c.line[i][0], z - c.line[i][1]) - c.half; if (d < best) best = d; }
+    const dm = Math.hypot(x - c.mere.x, z - c.mere.y) - c.mere.r; if (dm < best) best = dm;
+  }
+  return Math.max(0, best);
+}
+// How loud the water is from (x, z): WATER_LOUD beside it, falling away to nothing at WATER_HEARD.
+export function waterLoudness(x, z, list) {
+  const d = waterDistance(x, z, list);
+  if (d >= WATER_HEARD) return 0;
+  const k = 1 - d / WATER_HEARD;
+  return Math.round(WATER_LOUD * k * k * 1000) / 1000;
 }
