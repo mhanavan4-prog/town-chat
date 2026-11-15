@@ -3934,6 +3934,7 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
     if (maxRange != null && Math.hypot(PRACTICE_TARGET.x - player.x, PRACTICE_TARGET.y - player.y) > maxRange + PRACTICE_TARGET.r) return { ok: false, range: true };
     broadcastHitFx(player.room, 'practice', PRACTICE_TARGET.id, dmg, false, player.id);
     const prog = getProgress(player);
+    noteFirstStep(player, 'struck');
     let xp = 0;
     if (!_isDot && (prog.practiceHits || 0) < PRACTICE_TARGET.lessons) {
       prog.practiceHits = (prog.practiceHits || 0) + 1;
@@ -9754,19 +9755,24 @@ app.post('/api/push/unsubscribe', (req, res) => {
 });
 
 // ── First Steps (Session L onboarding) ──────────────────────────────────────
-// A visible win inside the first 20 minutes: three tiny goals every newcomer
+// A visible win inside the first 20 minutes: six small goals every newcomer
 // can hit, each celebrated the moment it lands, with a small purse at the
 // end. Solo Leveling's post-EVOLUTION lesson, Thornreach-sized. Retired
 // forever once done (and never shown to veterans — see the join gate).
+// The one guide a newcomer has (it used to be two: this card, and a separate "what next" line that said something
+// else). In the order a first quarter of an hour goes: learn the sword where nothing hits back, say hello, try an
+// ability, begin the story, then the two that take you out of the square.
 const FIRST_STEPS = [
+  { id: 'struck',    label: 'Strike the practice scarecrow',  icon: '🌾' },
   { id: 'talked',    label: 'Speak with a townsperson',       icon: '💬' },
   { id: 'ability',   label: 'Use a class ability',            icon: '✨' },
+  { id: 'story',     label: 'Begin your story',               icon: '📜' },
   { id: 'killed',    label: 'Fell one night creature',        icon: '⚔️' },
   { id: 'harvested', label: 'Harvest something — a town tree or a Wilds plant', icon: '🌿' }
 ];
 const FIRST_STEPS_REWARD_GOLD = 50;
 function firstStepsState(prog) {
-  if (!prog.firstSteps) prog.firstSteps = { talked: false, ability: false, harvested: false, killed: false, done: false };
+  if (!prog.firstSteps) prog.firstSteps = { struck: false, talked: false, ability: false, story: false, harvested: false, killed: false, done: false };
   return prog.firstSteps;
 }
 function firstStepsPayload(player, justCompleted) {
@@ -12380,12 +12386,17 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
         send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       }
-      // First Steps — newcomers get their three-goal tracker; anyone who
+      // First Steps — newcomers get their tracker; anyone who
       // predates it at level 5+ has it quietly retired.
       {
         const fsProg = getProgress(player);
         const fsSt = firstStepsState(fsProg);
         if (!fsSt.done && fsProg.level >= 5) { fsSt.done = true; if (player.accountKey) saveProgress(); }
+        // The two newer steps, for someone who had done them before they were steps.
+        if (!fsSt.done) {
+          if ((fsProg.practiceHits || 0) > 0) fsSt.struck = true;
+          const stSt = getStoryState(player); if (stSt && (stSt.active || stSt.chapter > 0)) fsSt.story = true;
+        }
         if (!fsSt.done) send(ws, firstStepsPayload(player, null));
       }
       // ── Login streaks + the "while you were gone" letter (Session L) ──
@@ -14236,6 +14247,7 @@ wss.on('connection', (ws, req) => {
       st.active = true;
       st.progress = 0;
       if (player.accountKey) saveProgress();
+      noteFirstStep(player, 'story');
       // Funnel: chapter STARTS (completions are counted separately in
       // completeChapter). 'beganN' is once per account / guest session, so the
       // dashboard can show who began Chapter 1 vs who finished it.

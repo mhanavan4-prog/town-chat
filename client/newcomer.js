@@ -1,9 +1,11 @@
 // What a first-time player is told, and when. Pure: main.js feeds it what it knows and shows what comes back.
 //
+// There is one guide: First Steps (server.js FIRST_STEPS). On a desktop it is the card in the corner; on a phone the
+// card is folded to a pill to keep it out of the thumb's way, so the step in hand is shown as one always-on line in
+// the story tracker instead. Both say the same thing.
+//
 // All of this is the game's own teaching, not lore: there is nothing from the record here.
 
-// The "what next" line stops at this level: by then the player has fought, begun the story and levelled twice.
-export const GUIDE_UNTIL_LEVEL = 3;
 // Below this level, dying to a creature is met with a reassurance (it costs nothing; say so).
 export const GENTLE_DEATH_BELOW = 5;
 // Doors that lead somewhere a low-level character will die at once, and the level they are built for. First picks.
@@ -12,20 +14,26 @@ export const DOOR_WARNINGS = {
   ember: { level: 12, name: 'the Ember Wastes', why: 'Every creature there is hostile, and so is every other player.' },
 };
 
-// The one line a newcomer sees: the next thing worth doing. null when there is nothing to say (or they are past it).
-// k: { level, struck (ever landed a blow), story: { active, complete, waiting (a chapter ready to begin), title }, touch }
+// How to do each step, by hand (d: keyboard and mouse, m: touch).
+export const FIRST_STEP_HINTS = {
+  struck:    { d: 'Walk up to the practice scarecrow by the square and press R (or click it).', m: 'Walk up to the practice scarecrow by the square and tap the sword.' },
+  talked:    { d: 'Walk up to a glowing townsperson and press F to talk.',              m: 'Walk up to a glowing townsperson and tap the prompt that appears.' },
+  ability:   { d: 'Press 1 to use your first ability — your hotbar runs along the bottom.', m: 'Tap an ability on the right to use it.' },
+  story:     { d: 'Press J for your Journal and begin Chapter 1.',                      m: 'Tap here to begin Chapter 1.' },
+  killed:    { d: 'Night creatures roam after dark — press R, or click one, to strike.', m: 'Night creatures roam after dark — tap one to strike.' },
+  harvested: { d: 'Take the north portal to the Wilds, then click a plant to harvest it.', m: 'Take the north portal to the Wilds, then tap a plant to harvest it.' },
+};
+export function firstStepHint(id, touch) { const h = FIRST_STEP_HINTS[id]; return h ? (touch ? h.m : h.d) : ''; }
+
+// The always-on line: the First Step in hand. null when there is nothing to say: First Steps is done or was never
+// given, or the card itself is on show (`card`: a desktop).
+// k: { steps: [{ id, label, icon, done }], done, touch, card }
 export function newcomerNextStep(k) {
-  if (!k || (k.level || 1) >= GUIDE_UNTIL_LEVEL) return null;
-  if (!k.struck) {
-    return { id: 'strike', title: '🧭 First steps', text: k.touch
-      ? 'Walk up to the practice scarecrow by the square and tap the sword.'
-      : 'Walk up to the practice scarecrow by the square and press R (or click it).' };
-  }
-  const s = k.story;
-  if (s && !s.complete && !s.active && s.waiting) {
-    return { id: 'story', title: '🧭 What next', text: `Begin your story: ${s.title || 'Chapter 1'}. ${k.touch ? 'Tap here.' : 'Click here, or press J for your Journal.'}`, action: 'begin' };
-  }
-  return null; // a chapter is under way: the story tracker itself says what to do
+  if (!k || k.done || k.card || !Array.isArray(k.steps) || !k.steps.length) return null;
+  const cur = k.steps.find((s) => !s.done);
+  if (!cur) return null;
+  const n = k.steps.filter((s) => s.done).length;
+  return { id: cur.id, title: `🏮 First Steps · ${n}/${k.steps.length}`, text: `${cur.icon} ${cur.label}. ${firstStepHint(cur.id, k.touch)}`, action: cur.id === 'story' ? 'begin' : '' };
 }
 
 // Should this door stop and warn first? Returns the warning, or null to let them through.

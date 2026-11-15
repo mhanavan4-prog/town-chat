@@ -62,7 +62,7 @@ import createCallersInTown from './callers-in-town.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
 import { createPerch, perchTop } from './perch.js';
-import { newcomerNextStep, doorWarning, gentleDeathLine } from './newcomer.js';
+import { newcomerNextStep, doorWarning, gentleDeathLine, firstStepHint } from './newcomer.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
 import createMobsWilds from './mobs-wilds.js';
@@ -2267,6 +2267,7 @@ function onWsMessage(ev) {
 
   if (msg.type === 'first_steps') {
     firstStepsState = msg;
+    refreshNewcomer();
     // Show the full card briefly (join snapshot or a step landing), then
     // collapse back to the tiny pill so it never crowds a new thumb.
     fsSetExpanded(true, 8000);
@@ -2473,7 +2474,6 @@ function onWsMessage(ev) {
     // those (red, with the shake), and mob hits only arrive that way.
     if (!(msg.targetType === 'player' && msg.targetId === myId)) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
-      if (msg.casterId === myId) noteFirstStrike();
       if (msg.casterId === myId && msg.targetType !== 'player') spawnMyDmgNum(msg.targetType, msg.targetId, msg.dmg, !!msg.dead);   // mine: on the foe's body, floating away from me
       else if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
       // Flinch the struck player's body (my own is handled by 'struck'). Skip a
@@ -4321,27 +4321,16 @@ const {
   getNextStep: () => newcomerStep(),
 });
 // ── A first-time player (client/newcomer.js) ────────────────────────────────
-// Whether this browser has ever landed a blow: the first lesson, and the one the sword button glows for.
-let everStruck = false;
-try { everStruck = !!localStorage.getItem('tc_first_strike'); } catch (e) {}
+// The step in hand, as the always-on line. A desktop shows the First Steps card itself, so it gets no line.
 function newcomerStep() {
-  if (!me || !gameStarted) return null;
-  const s = storyState, ch = s && s.chapter;
-  return newcomerNextStep({
-    level: me.level || 1, struck: everStruck, touch: MOBILE_UI,
-    story: s ? { active: !!s.active, complete: !!s.complete, waiting: !!(ch && ch.levelOk !== false), title: ch && ch.title } : null,
-  });
+  if (!me || !gameStarted || !firstStepsState) return null;
+  return newcomerNextStep({ steps: firstStepsState.steps, done: firstStepsState.done, touch: MOBILE_UI, card: !MOBILE_UI });
 }
 function refreshNewcomer() {
   updateStoryTracker();
-  const step = newcomerStep(), b = document.getElementById('btnStrike');
-  if (b) b.classList.toggle('coach', !!(step && step.id === 'strike'));
-}
-function noteFirstStrike() {
-  if (everStruck) return;
-  everStruck = true;
-  try { localStorage.setItem('tc_first_strike', '1'); } catch (e) {}
-  refreshNewcomer();
+  // the sword button glows until the scarecrow has been struck
+  const b = document.getElementById('btnStrike'), cur = firstStepsState && !firstStepsState.done && (firstStepsState.steps || []).find((x) => !x.done);
+  if (b) b.classList.toggle('coach', !!(cur && cur.id === 'struck'));
 }
 {
   const t = document.getElementById('storyTracker');
@@ -4358,7 +4347,8 @@ function doorHeldBack(door) {
   const now = Date.now();
   if (doorWarned.door === door && now - doorWarned.at < 20000) { doorWarned = { door: null, at: 0 }; return false; }
   doorWarned = { door, at: now };
-  setUnlockToast(w.text);
+  // on screen whatever the notice settings: it is the answer to what she just did, and the reason she is still outside
+  setUnlockToast(w.text, { always: true, level: 'important' });
   return true;
 }
 // 📍 Quest waypoint — a pin over the current story objective (or an edge arrow
@@ -7055,6 +7045,7 @@ let jumpActive = false, jumpT = 0;
 const myPerch = createPerch({ jumpHeight: JUMP_HEIGHT, jumpDuration: JUMP_DURATION });
 function myFeatherMult() { return me && me.activeStatus && me.activeStatus.type === 'feather' ? 2.4 : 1; }
 function myFeet() { return myPerch.feet(jumpActive, jumpT, myFeatherMult()); }
+let _camPerch = 0; // the camera's share of it, smoothed
 // The top to give a collider for this object: its own height, if a jump gets onto it (0 = a wall).
 function standTop(group) {
   if (!group) return 0;
@@ -8576,7 +8567,11 @@ function buildAbilityWheel() {
   const wheel = document.getElementById('abilityWheel');
   if (!wheel || !myActionCatalog) return;
   wheel.innerHTML = '';
-  const ids = orderedAbilityIds().slice(5); // everything past the 5-slot arc
+  const open = orderedAbilityIds().slice(5); // everything past the 5-slot arc
+  // …and what is still to come, in the order it opens, each with its level: on a phone this is where the kit
+  // ahead of you can be seen (the desktop bar has its lock slot; the Spellbook and Attacks lists show it too).
+  const locked = myAbilityUnlocks ? Object.keys(myActionCatalog).filter((id) => !abilityOpen(id)).sort((a, b) => myAbilityUnlocks[a] - myAbilityUnlocks[b]) : [];
+  const ids = open.concat(locked);
   const n = ids.length;
   if (!n) return;
   const cx = 150, cy = 150;             // wheel box is 300×300
@@ -8592,6 +8587,16 @@ function buildAbilityWheel() {
     b.style.left = (cx + Math.cos(ang) * R - 28) + 'px';
     b.style.top = (cy + Math.sin(ang) * R - 28) + 'px';
     b.style.animationDelay = (i * 0.015) + 's';
+    if (!abilityOpen(id)) {
+      const lv = myAbilityUnlocks[id];
+      b.classList.add('awLocked');
+      b.insertAdjacentHTML('beforeend', `<span class="awLv">🔒 ${lv}</span>`);
+      b.title = `${ab.name || id} opens at Level ${lv}`;
+      b.addEventListener('click', (e) => { e.preventDefault(); setUnlockToast(`🔒 ${ab.name || id} opens at Level ${lv}.`, { always: true }); });
+      b.style.left = (cx + Math.cos(ang) * R - 28) + 'px'; b.style.top = (cy + Math.sin(ang) * R - 28) + 'px';
+      wheel.appendChild(b);
+      return;
+    }
     if (actionOnCooldown(id)) b.classList.add('onCd');
     b.addEventListener('click', (e) => { e.preventDefault(); castFromHotbar(id); toggleAbilityWheel(false); });
     attachAbilityPeek(b, () => ({ id, icon: ab.icon, name: ab.name, kind: ab.kind, description: ab.description }));
@@ -14058,7 +14063,8 @@ function renderCottageFurniture(layout) {
         const INSET = 4; // a hair smaller than the model so you slide along, not snag
         const rx = fb.min.x + INSET, rz = fb.min.z + INSET;
         const rw = (fb.max.x - fb.min.x) - INSET * 2, rh = (fb.max.z - fb.min.z) - INSET * 2;
-        if (rw > 2 && rh > 2) newWalls.push({ x: rx, y: rz, w: rw, h: rh });
+        // a bed, a chest, a stool: whatever a jump gets onto can be stood on (client/perch.js)
+        if (rw > 2 && rh > 2) { const wall = { x: rx, y: rz, w: rw, h: rh }, top = perchTop(fb.max.y); if (top) wall.top = top; newWalls.push(wall); }
       }
     }
   }
@@ -14851,6 +14857,8 @@ function buildPracticeScarecrow(scene) {
   g.traverse((o) => { if (o !== g && o.isMesh) o.userData = Object.assign({}, o.userData, { kind: 'practice', targetId: PRACTICE_SPOT.id }); });
   scene.add(g);
   practiceScarecrow = g;
+  // its post is solid (a thing to hit, not to walk through); too tall to stand on
+  walls.push({ x: PRACTICE_SPOT.x - 7, y: PRACTICE_SPOT.y - 7, w: 14, h: 14 });
 }
 function tickPracticeScarecrow(now) {
   if (!practiceScarecrow) return;
@@ -16813,7 +16821,10 @@ function updateCamera(dt) {
   // stair profile made the whole view pitch-bump on every profile knee
   // while climbing. The camera now glides exactly with the character.
   const vMe = visuals[myId];
-  const floorYOffset = (vMe && vMe.floorYS !== undefined && vMe.floorRoomS === me.room) ? vMe.floorYS : getFloorHeight(me.room, rp.x, rp.z);
+  // …and rises with whatever she is standing on (client/perch.js), gliding, and not bobbing with each hop.
+  _camPerch += (myPerch.standing(jumpActive) - _camPerch) * 0.12;
+  if (_camPerch < 0.05) _camPerch = 0;
+  const floorYOffset = ((vMe && vMe.floorYS !== undefined && vMe.floorRoomS === me.room) ? vMe.floorYS : getFloorHeight(me.room, rp.x, rp.z)) + _camPerch;
   let targetX = rp.x + dirX * horizBack;
   let targetZ = rp.z + dirZ * horizBack;
   const flightY = (vMe && vMe.flightY) || 0; // aloft on the besom: the camera rides up with her, and a little further back
@@ -17283,13 +17294,7 @@ function fsSetExpanded(on, autoCollapseMs) {
 }
 // Concrete "how to actually do it" guidance for each First Step — this is what
 // turns the checklist into a guided first session. Phrased per input type.
-const FS_HINTS = {
-  talked:    { d: 'Walk up to a glowing townsperson and press F to talk.',              m: 'Walk up to a glowing townsperson and tap the prompt that appears.' },
-  ability:   { d: 'Press 1 to use your first ability — your hotbar runs along the bottom.', m: 'Tap an ability on the right to use it.' },
-  killed:    { d: 'Night creatures roam after dark — press R, or click one, to strike.', m: 'Night creatures roam after dark — tap one to strike.' },
-  harvested: { d: 'Take the north portal to the Wilds, then click a plant to harvest it.', m: 'Take the north portal to the Wilds, then tap a plant to harvest it.' }
-};
-function fsHint(id) { const h = FS_HINTS[id]; return h ? (MOBILE_UI ? h.m : h.d) : ''; }
+function fsHint(id) { return firstStepHint(id, MOBILE_UI); }
 function renderFirstSteps() {
   const chip = document.getElementById('firstStepsChip');
   if (!chip) return;
@@ -18607,7 +18612,7 @@ setInterval(() => { if (Modals.isOpen('auctionModalOpen')) renderAuctionModal();
 // just the menu and the request.
 // ---------------------------------------------------------------------------
 const _spellbook = createSpellbook({
-  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`),
+  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`, { always: true }),
   send: (data) => ws.send(data),
   cancelTargeting, setDefaultFloatPos, SPELL_CATALOG, armTargeting,
   buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, visuals,
@@ -18866,7 +18871,7 @@ function buildHotbar() {
       const lock = document.createElement('div'); lock.className = 'hotbarSlot hotbarLocked'; lock.textContent = '🔒';
       const lv = document.createElement('span'); lv.className = 'hotbarLockLv'; lv.textContent = 'Lv ' + nx.level; lock.appendChild(lv);
       lock.title = `${myActionCatalog[nx.id].name} opens at Level ${nx.level}`;
-      lock.addEventListener('click', () => setUnlockToast(`🔒 ${myActionCatalog[nx.id].name} opens at Level ${nx.level}.`));
+      lock.addEventListener('click', () => setUnlockToast(`🔒 ${myActionCatalog[nx.id].name} opens at Level ${nx.level}.`, { always: true }));
       bar.appendChild(lock);
     } }
   bar.classList.remove('hidden');
@@ -19141,7 +19146,7 @@ function attachCastOnRelease(btn) {
 // ---------------------------------------------------------------------------
 let myAttackCatalog = null;
 const _attacks = createAttacks({
-  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`),
+  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`, { always: true }),
   send: (data) => ws.send(data),
   getMe: () => me,
   getWorld: () => world,
@@ -21639,6 +21644,7 @@ if (location.search.includes('testdrive=1')) {
     // try gear on, for looking at (the picture only; nothing is equipped): wear({ equippedWeapon: 'iron_sword', ... }), wear(null) to stop
     // every placed thing the Wilds knows of, by name: [name, x, y, r] (flat zones, and whatever the server sent with a place)
     wildsPlaces() { const out = wildsFlatZones().map((z, i) => ['zone' + i, z.x, z.y, z.r]); const walk = (k, v, d) => { if (!v || typeof v !== 'object' || d > 3) return; if (typeof v.x === 'number' && typeof v.y === 'number') out.push([k, v.x, v.y, v.r || v.radius || 0]); if (Array.isArray(v)) v.forEach((e, i) => walk(k + '.' + (e && e.id ? e.id : i), e, d + 1)); else for (const q in v) walk(k + '.' + q, v[q], d + 1); }; if (world2) for (const k in world2) walk(k, world2[k], 0); return out; },
+    dangerDoors() { return { crypt: WILDS_KIOSKS.filter((k) => k.portal === 'crypt_enter').slice(0, 3).map((k) => [Math.round(k.x), Math.round(k.z)]), ember: [Math.round(EMBER_PORTAL_KIOSK.x), Math.round(EMBER_PORTAL_KIOSK.z)] }; },
     grass() { return wildsGrassCounts(); },   // how many tufts each ring of the Wilds' grass is drawing
     legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },

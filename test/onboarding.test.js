@@ -35,16 +35,18 @@ setTimeout(() => {
 
   // ── Step set ──
   const ids = hooks.FIRST_STEPS.map(s => s.id);
-  check('First Steps has four goals', hooks.FIRST_STEPS.length === 4, ids);
+  check('First Steps has six goals, the scarecrow first', hooks.FIRST_STEPS.length === 6 && ids[0] === 'struck', ids);
   check('the new "ability" step is present', ids.includes('ability'), ids);
-  check('the four pillars are covered', ['talked', 'ability', 'killed', 'harvested'].every(x => ids.includes(x)), ids);
+  check('the four pillars are covered', ['struck', 'talked', 'ability', 'story', 'killed', 'harvested'].every(x => ids.includes(x)), ids);
 
   const A = join('Novice');
   const payload = hooks.firstStepsPayload(A.p, null);
-  check('the payload lists all four, none done', payload.steps.length === 4 && payload.steps.every(s => !s.done), payload.steps);
+  check('the payload lists all four, none done', payload.steps.length === 6 && payload.steps.every(s => !s.done), payload.steps);
   check('the first-win purse is 50 gold', payload.rewardGold === 50, payload.rewardGold);
 
   // ── Completion needs all four ──
+  hooks.noteFirstStep(A.p, 'struck');
+  hooks.noteFirstStep(A.p, 'story');
   hooks.noteFirstStep(A.p, 'talked');
   hooks.noteFirstStep(A.p, 'ability');
   hooks.noteFirstStep(A.p, 'killed');
