@@ -164,7 +164,9 @@ function renderInventoryItemsPanel() {
     const left = document.createElement('span');
     left.innerHTML = `🎒 Pack <b class="${used >= cap ? 'packFull' : ''}">${used}/${cap}</b>`;
     const right = document.createElement('span');
-    right.textContent = bonus ? `+${bonus} from your bag` : 'A bigger bag adds slots for good';
+    // …and the herb bag, which is where your plants are if you cannot see them here.
+    const hb = st.herbBag;
+    right.textContent = hb && hb.tier ? `${hb.icon} Herb bag ${hb.used}/${hb.kinds} sorts (Mother Yarrow's panel)` : (bonus ? `+${bonus} from your bag` : 'A bigger bag adds slots for good');
     packLine.appendChild(left);
     packLine.appendChild(right);
   }

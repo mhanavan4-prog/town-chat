@@ -3523,7 +3523,14 @@ function ensureBankAccount(key) {
 // Adds qty of itemId to the account, stacking onto an existing slot of the
 // same item first. Returns false (without partially applying) if there's
 // no room for it at all.
+// The herb bag (lib/herbBag.js): a second place that only plants go into. Add, count and remove all look in it, so
+// nothing that asks "how many have you?" needs to know it is there.
+const HERB_BAG_NOT_PLANTS = new Set(['salt', 'hearth_loaf', 'wolf_pact_brew']);
+const herbBag = require('./lib/herbBag')({
+  HERB_IDS: [...Object.keys(PLANT_CATALOG).filter((k) => !BREW_RESULT_KEYS.has(k) && !HERB_BAG_NOT_PLANTS.has(k)), 'berries'],
+});
 function addItemToAccount(account, itemId, qty) {
+  if (herbBag.tryAdd(account, itemId, qty)) return true;   // a plant, and the bag has a place for it
   const existing = account.slots.find(s => s && s.itemId === itemId);
   if (existing) { existing.qty += qty; return true; }
   const emptyIdx = account.slots.findIndex(s => !s);
@@ -3533,7 +3540,7 @@ function addItemToAccount(account, itemId, qty) {
 }
 
 function countItemQty(account, itemId) {
-  return account.slots.reduce((sum, s) => sum + (s && s.itemId === itemId ? s.qty : 0), 0);
+  return account.slots.reduce((sum, s) => sum + (s && s.itemId === itemId ? s.qty : 0), 0) + herbBag.count(account, itemId);
 }
 
 // Removes qty of itemId, taking from however many stacked slots it takes.
@@ -3550,6 +3557,7 @@ function removeItemFromAccount(account, itemId, qty) {
     remaining -= take;
     if (s.qty <= 0) account.slots[i] = null;
   }
+  if (remaining > 0) herbBag.removeUpTo(account, itemId, remaining);   // the rest from the herb bag (the pack is emptied first: it is the scarcer room)
   return true;
 }
 
@@ -3629,6 +3637,7 @@ function inventoryStatePayload(player) {
   return {
     packCapacity: packCapacity(player), packBase: PACK_BASE_SLOTS, packBonus: packBonusOf(player),
     slots: inv.slots,
+    herbBag: herbBag.payload(inv, ITEM_CATALOG),   // the herb bag: its tier, what is in it, what Mother Yarrow sells
     equippedWeapon: inv.equippedWeapon || null,
     equippedHead:   inv.equippedHead   || null,
     equippedChest:  inv.equippedChest  || null,
@@ -17587,6 +17596,33 @@ wss.on('connection', (ws, req) => {
     }
 
     // ── Green-witch gardening: plant a herb, let it grow, harvest more ──
+    // The herb bag: buy the next one from Mother Yarrow, take a plant out into the pack, or stow the pack's plants.
+    if (msg.type === 'herb_bag_buy') {
+      if (player.isDead) return;
+      const inv = getInventory(player), want = Math.floor(Number(msg.tier)), have = herbBag.tierOf(inv), b = herbBag.TIERS[want];
+      const no = (message) => send(ws, { type: 'garden_error', message });
+      if (!player.accountKey) return no('Log into an account and Mother Yarrow will sell you a bag.');
+      if (!b || want <= have) return no('You have as good a bag already.');
+      const acct = ensureBankAccount(player.accountKey);
+      if (acct.balance < b.gold) return no(`${b.name} is ${b.gold} gold; you have ${acct.balance}.`);
+      acct.balance -= b.gold; inv.herbBag = want;
+      const moved = herbBag.sweep(inv);
+      saveBankAccounts(); saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      send(ws, { type: 'bank_state', ...bankStatePayload(player.accountKey) });
+      send(ws, { type: 'toast', level: 'important', message: `${b.icon} ${b.name}: ${b.says}${moved ? ` (${moved} sort${moved === 1 ? '' : 's'} of plant moved out of your pack into it.)` : ''}` });
+      return;
+    }
+    if (msg.type === 'herb_take' || msg.type === 'herb_stow' || msg.type === 'herb_state') {   // herb_state: just tell me what I have
+      if (player.isDead) return;
+      const inv = getInventory(player);
+      if (msg.type === 'herb_stow') herbBag.sweep(inv);
+      else if (msg.type === 'herb_take') { const r = herbBag.takeOut(inv, String(msg.itemId || '')); if (r === 'full') send(ws, { type: 'garden_error', message: 'Your pack is full: there is nowhere to take it out to.' }); }
+      if (player.accountKey) saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
+      return;
+    }
+
     if (msg.type === 'garden_state') {
       if (!player.accountKey) { send(ws, { type: 'garden_state', plots: [], plantable: PLANTABLE_HERBS }); return; }
       maybeGiveLacnungaSeeds(player); // the Nine Herbs (blueprint G) — once, after the Cottage Garden
@@ -18971,6 +19007,7 @@ global.__testHooks = {
 
   LEGENDARY_CATALOG, legendaryWeeklySet, legendaryWeekIndex, AUCTION_MS_FEE,
   ensureBankAccount, addItemToAccount, removeItemFromAccount, countItemQty,
+  herbBag, // test-only: the herb bag
   listings, resolveListing, ITEM_CATALOG, EQUIP_STATS,
   // Auction-from-inventory (Session M): pack-sourced listings + returns.
   // `listings` above is the boot-time array reference and goes stale the
