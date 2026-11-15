@@ -622,7 +622,8 @@ function buildEmberScene() {
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, 130, f.y); scene.add(l); }
   }
   for (const f of FIELD_FINDS) {
-    fieldKiosks.push({ x: f.x, z: f.y, npc: 'field', fieldId: f.id, hint: f.hint, radius: 150 });
+    // (a walled find, a barrow or the chapel, is offered from outside its wall: data/emberField.js findReach, less 20)
+    fieldKiosks.push({ x: f.x, z: f.y, npc: 'field', fieldId: f.id, hint: f.hint, radius: Math.max(150, /barrow|chapel/.test(f.model) ? Math.round(f.size * 0.32 * 1.42) + 40 : 0) });
     if (/barrow|chapel/.test(f.model)) { const h = f.size * 0.32; scene.userData.walls.push({ x: f.x - h, y: f.y - h, w: h * 2, h: h * 2 }); }
     if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite(`${f.icon} ${f.name}`); l.position.set(f.x, Math.max(130, f.size * 0.55), f.y); scene.add(l); }
   }

@@ -90,4 +90,13 @@ const FINDS = [
 
 const FINDS_BY_ID = Object.fromEntries(FINDS.map((f) => [f.id, f]));
 
-module.exports = { TRACK, POSTS, FIELD, FINDS, FINDS_BY_ID };
+// How near you must come to a find. The barrows and the chapel are walled (you cannot walk through them), and the wall
+// is a square of half-side size * 0.32 round the middle: for the long grave that is 166, so nobody could ever come
+// within the plain 170 of its middle on foot, and the three chapters that send you to it could not be finished.
+// A walled find is reached from outside its wall: its corner, and a little over.
+const WALLED = /barrow|chapel/;
+function findReach(f) {
+  return Math.max(FIELD.range, WALLED.test(f.model) ? Math.round(f.size * 0.32 * 1.42) + 60 : 0);
+}
+
+module.exports = { TRACK, POSTS, FIELD, FINDS, FINDS_BY_ID, findReach };
