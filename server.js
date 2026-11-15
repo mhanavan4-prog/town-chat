@@ -3527,7 +3527,8 @@ function ensureBankAccount(key) {
 // nothing that asks "how many have you?" needs to know it is there.
 const HERB_BAG_NOT_PLANTS = new Set(['salt', 'hearth_loaf', 'wolf_pact_brew']);
 const herbBag = require('./lib/herbBag')({
-  HERB_IDS: [...Object.keys(PLANT_CATALOG).filter((k) => !BREW_RESULT_KEYS.has(k) && !HERB_BAG_NOT_PLANTS.has(k)), 'berries'],
+  // every plant of the garden, and everything gathered off the Wilds' trees and bushes (data/flora.js)
+  HERB_IDS: [...new Set([...Object.keys(PLANT_CATALOG).filter((k) => !BREW_RESULT_KEYS.has(k) && !HERB_BAG_NOT_PLANTS.has(k)), 'berries', ...require('./data/flora').FLORA_IDS])],
 });
 function addItemToAccount(account, itemId, qty) {
   if (herbBag.tryAdd(account, itemId, qty)) return true;   // a plant, and the bag has a place for it
@@ -3615,6 +3616,9 @@ function getInventory(player) {
       inventories[player.accountKey] = starterInventory(player.charId);
       saveInventories();
     }
+    // The herb bag learned to hold what is gathered off the Wilds' trees and bushes (data/flora.js): once, for a
+    // bag bought before that, what is already in the pack goes into it.
+    { const inv0 = inventories[player.accountKey]; if (inv0 && inv0.herbBag && !inv0.floraSwept) { herbBag.sweep(inv0); inv0.floraSwept = true; saveInventories(); } }
     // Packs saved before bags existed are the base size; grow them to whatever
     // this account has unlocked.
     return ensurePackSize(player, inventories[player.accountKey]);
@@ -14923,6 +14927,28 @@ wss.on('connection', (ws, req) => {
     // ── Destroy an inventory stack — free a slot when the satchel is full. The
     // client two-taps to confirm; the server just bins the stack at slotIdx (or a
     // qty of it). Only touches unequipped pack slots, never worn gear or the bank.
+    // ── Moving the pack about: one stack to another slot (they change places; two of a kind become one), or the
+    // whole pack put in order (gear, then brews, then plants, then the rest, each by name).
+    if (msg.type === 'inventory_move' || msg.type === 'inventory_tidy') {
+      if (!player.accountKey) { send(ws, { type: 'use_error', message: 'Log into an account to manage your satchel.' }); return; }
+      const inv = getInventory(player), n = inv.slots.length;
+      if (msg.type === 'inventory_move') {
+        const from = Math.floor(Number(msg.from)), to = Math.floor(Number(msg.to));
+        if (!(from >= 0 && from < n && to >= 0 && to < n) || from === to || !inv.slots[from]) return;
+        const a = inv.slots[from], b = inv.slots[to];
+        if (b && b.itemId === a.itemId) { b.qty += a.qty; inv.slots[from] = null; }
+        else { inv.slots[to] = a; inv.slots[from] = b || null; }
+      } else {
+        const nameOf = (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || (PLANT_CATALOG[id] && PLANT_CATALOG[id].name) || id;
+        const rank = (id) => ((ITEM_CATALOG[id] && ITEM_CATALOG[id].slot) ? 0 : BREW_RESULT_KEYS.has(id) || /potion|tea$|brew|draught|tonic|elixir/.test(id) ? 1 : (herbBag.isHerb(id) || PLANT_CATALOG[id]) ? 2 : 3);
+        const held = inv.slots.filter(Boolean).sort((x, y) => (rank(x.itemId) - rank(y.itemId)) || nameOf(x.itemId).localeCompare(nameOf(y.itemId)));
+        for (let i = 0; i < n; i++) inv.slots[i] = held[i] || null;
+      }
+      saveInventories();
+      send(ws, { type: 'inventory_state', ...inventoryStatePayload(player), moved: msg.type === 'inventory_move' ? Math.floor(Number(msg.to)) : null });
+      return;
+    }
+
     if (msg.type === 'destroy_item') {
       if (!player.accountKey) { send(ws, { type: 'use_error', message: 'Log into an account to manage your satchel.' }); return; }
       const inv = getInventory(player);
