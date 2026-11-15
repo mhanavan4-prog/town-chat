@@ -10145,6 +10145,12 @@ const GFX = (() => {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.PointsMaterial({ color: 0xd8ffa0, size: _mob ? 4 : 5.5, sizeAttenuation: !_mob, transparent: true,
       opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    // a firefly is a round soft glow, and never a big one: up close a plain point is a white square a hand wide
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.5, 9.0);');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <map_particle_fragment>', '#include <map_particle_fragment>\n  diffuseColor.a *= smoothstep(0.5, 0.1, length(gl_PointCoord - 0.5));');
+    };
+    mat.customProgramCacheKey = () => 'firefly-round';
     const pts = new THREE.Points(geo, mat);
     pts.frustumCulled = false;
     scene.add(pts);
@@ -16499,7 +16505,14 @@ const { applyEquipVisual, applyMyEquipVisual, applyStatusVisual } = createEquipV
   staticModel: (key, size, mode) => (KK.staticInstance ? KK.staticInstance(key, size, mode) : null),
 });
 // a legendary's model has come in: whoever has it on is drawn again, in the model
-if (KK.onGear) KK.onGear(() => { for (const id in players) if (visuals[id]) applyEquipVisual(id, players[id]); });
+function redrawWornGear() { for (const id in players) if (visuals[id]) applyEquipVisual(id, players[id]); }
+if (KK.onGear) KK.onGear(redrawWornGear);
+// The everyday gear models come in with the rest of the world, after the body may already be standing there in the
+// plain stand-ins. Other players are redrawn by the state stream; nothing redrew YOU until the pack was opened, so
+// your own gear showed only after a look in the inventory. Each asset that lands redraws whoever is waiting on it
+// (a no-op for gear already drawn in its model).
+if (KK.onAssetLoad) KK.onAssetLoad(redrawWornGear);
+if (KK.promise && typeof KK.promise.then === 'function') KK.promise.then(redrawWornGear).catch(() => {});
 
 
 // ── Player visuals ─ extracted to client/player-visuals.js (Phase C, the core
@@ -21656,6 +21669,7 @@ if (location.search.includes('testdrive=1')) {
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
+    gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
