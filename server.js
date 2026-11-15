@@ -15428,8 +15428,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'field_use') {
       // Coming up to a thing on the field is a place found, for a story chapter that sends you to it (data/quests.js
       // Episode III): by its own id, and by its kind, so "a knight's barrow" is either barrow. Whether or not it pays today.
-      { const { FINDS, FIELD } = require('./data/emberField'); const f = FINDS.find((x) => x.id === String(msg.id || ''));
-        if (f && !player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - f.x, player.y - f.y) <= FIELD.range) { storyEvent(player, 'visit_room', { room: 'field_' + f.id }); storyEvent(player, 'visit_room', { room: 'field_' + f.id.split('_')[0] }); } }
+      { const { FINDS, findReach } = require('./data/emberField'); const f = FINDS.find((x) => x.id === String(msg.id || ''));
+        if (f && !player.isDead && player.room === 'ember_wastes' && Math.hypot(player.x - f.x, player.y - f.y) <= findReach(f)) { storyEvent(player, 'visit_room', { room: 'field_' + f.id }); storyEvent(player, 'visit_room', { room: 'field_' + f.id.split('_')[0] }); } }
       if (emberField.use(player, String(msg.id || ''))) { advanceQuestProgress(player, 'event', 'field_find'); saveAccounts(); saveBankAccounts(); }
       return;
     }
