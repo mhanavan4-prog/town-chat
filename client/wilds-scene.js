@@ -784,7 +784,7 @@ function addVillageBuildings(scene) {
     scene.add(built.group);
     artLabelY = 104;
   } else {
-    const artificer = createHumanoid(1).group;
+    const artificer = createHumanoid(1, null, 'artificer').group;
     artificer.position.set(artX, 0, artZ); artificer.rotation.y = Math.PI; scene.add(artificer);
   }
   const artLabel = makeNpcNameSprite('⚒️ The Artificer');
@@ -852,7 +852,7 @@ function addVillageBuildings(scene) {
       built.group.position.set(myX, 0, myZ); scene.add(built.group);
     }
   } else {
-    try { const yarrow = createHumanoid(0).group; yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow); } catch (e) { /* streaming */ }
+    try { const yarrow = createHumanoid(0, null, 'yarrow').group; yarrow.position.set(myX, 0, myZ); yarrow.rotation.y = 0; scene.add(yarrow); } catch (e) { /* streaming */ }
   }
   const yarrowLabel = makeNpcNameSprite('🌿 Mother Yarrow');
   yarrowLabel.position.set(myX, 60, myZ); scene.add(yarrowLabel);
@@ -1404,7 +1404,7 @@ function addGiantWerewolfTree(scene) {
 // Spawn humanoid NPCs for both factions and register quest kiosks
 function buildWildsNPCs(scene) {
   for (const npc of WILDS_NPCS) {
-    const mesh = createHumanoid(npc.charId).group;
+    const mesh = createHumanoid(npc.charId, null, npc.id).group;
     mesh.position.set(npc.x, 0, npc.y);
     // Face roughly toward the center of the map (spawn side)
     mesh.rotation.y = Math.atan2(5000 - npc.x, 8800 - npc.y);

@@ -94,7 +94,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       hearth(k.x, 34, 150, 0.9);
       lamp(k.x, 110, 70, 0.8, 480);
       try {
-        const keeper = createHumanoid ? createHumanoid(3).group : null;
+        const keeper = createHumanoid ? createHumanoid(3, null, 'keeper').group : null;
         if (keeper) { keeper.position.set(k.x + 70, 0, k.y - 40); keeper.traverse((o) => { if (!o.isMesh && !o.isSkinnedMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color) m.color.lerp(new THREE.Color(0x5a5048), 0.5); }); scene.add(keeper); }
       } catch (e) { /* the house keeps itself */ }
       sign('🕯️ The keeper — Press F', k.x + 70, 118, k.y - 40);
@@ -116,7 +116,7 @@ export default function createVillageHouse({ kkPlace, makeSignSprite, makeGlowTe
       sign('🌿 Remedies — Press F', w.x, 150, w.y - 110);
       // Dame Averil herself, by the fire: the Witch's body, in an old woman's greys and browns
       try {
-        const dame = createHumanoid ? createHumanoid(0).group : null;
+        const dame = createHumanoid ? createHumanoid(0, null, 'dame').group : null;
         if (dame) {
           dame.position.set(u.x, 0, u.y - 60); dame.rotation.y = 0; // facing into the room (south)
           dame.traverse((o) => { if (!o.isMesh && !o.isSkinnedMesh) return; for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && m.color) m.color.lerp(new THREE.Color(0x6a5a48), 0.5); });

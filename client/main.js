@@ -21572,6 +21572,7 @@ if (location.search.includes('testdrive=1')) {
       const coded = rows.filter((r) => r.p).reduce((a, r) => a + r.n, 0);
       return { total, inView, distinct: rows.length, instanced: inst, codeBuilt: coded, top: rows.slice(0, top || 20) };
     },
+    npcLooks() { const out = []; activeScene.traverse((o) => { if (o.userData && o.userData.npcSeed && o.visible) { let tint = null, hidden = 0; o.traverse((m) => { if (m.isMesh || m.isSkinnedMesh) { if (!m.visible) hidden++; if (tint == null && /_Body$/.test(m.name) && m.material && m.material.color) tint = m.material.color.getHexString(); } }); out.push([o.userData.npcSeed, tint, hidden, Math.round(o.position.x), Math.round(o.position.z)]); } }); return out; },
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
