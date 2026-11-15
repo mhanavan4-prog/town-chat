@@ -2652,9 +2652,11 @@ function onWsMessage(ev) {
       // 🗡️ Durability: per-item edge, total repair cost, any fully-dulled gear.
       gearEdge: msg.gearEdge || {},
       repairCost: msg.repairCost || 0,
-      gearDulled: !!msg.gearDulled
+      gearDulled: !!msg.gearDulled,
+      herbBag: msg.herbBag || null   // the herb bag (lib/herbBag.js): tier, contents, what Mother Yarrow sells
     };
     renderInventoryItemsPanel();
+    if (gardenView === 'bag' && !document.getElementById('gardenModal').classList.contains('hidden')) renderGardenModal();
     if (Modals.isOpen('bankModalOpen')) populateBankDepositSelect();
     if (Modals.isOpen('auctionModalOpen')) populateAuctionItemSelect();
     if (Modals.isOpen('bedChestModalOpen')) renderManorChest(); // keep the pack grid in sync
@@ -12923,7 +12925,7 @@ function gardenMoonTier() {
   if (m && ['waxing_crescent', 'first_quarter', 'waxing_gibbous'].includes(m.key)) return { yield: 3, label: '🌔 the waxing moon' };
   return { yield: 2, label: 'the moon' };
 }
-function gardenHerbCount(id) { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === id) n += (it.qty || 1); return n; }
+function gardenHerbCount(id) { const s = (lastInventoryState && lastInventoryState.slots) || []; let n = 0; for (const it of s) if (it && it.itemId === id) n += (it.qty || 1); const hb = lastInventoryState && lastInventoryState.herbBag; if (hb) for (const h of hb.herbs || []) if (h.itemId === id) n += h.qty; return n; }   // pack and herb bag both
 function gardenFmtLeft(ms) { const m = Math.ceil(ms / 60000); return m <= 1 ? 'under a minute' : m + ' min'; }
 // Mother Yarrow's voice in the garden panel — a short line that reacts to how
 // far along the Green Path you are, so tending the garden always feels like
@@ -12968,8 +12970,10 @@ function renderGardenModal() {
   const tabs = `<div class="gardenTabs">`
     + `<button class="gtab${gardenView === 'beds' ? ' on' : ''}" data-view="beds">🌿 Garden</button>`
     + (alm ? `<button class="gtab${gardenView === 'almanac' ? ' on' : ''}" data-view="almanac">📖 Almanac <span class="gtabCount">${alm.discovered}/${alm.total}</span></button>` : '')
+    + `<button class="gtab${gardenView === 'bag' ? ' on' : ''}" data-view="bag">🧺 Herb bag${herbBagNow() && herbBagNow().tier ? ` <span class="gtabCount">${herbBagNow().used}/${herbBagNow().kinds}</span>` : ''}</button>`
     + `</div>`;
   if (gardenView === 'almanac' && alm) { renderAlmanacInto(el, tabs, alm); return; }
+  if (gardenView === 'bag') { renderHerbBagInto(el, tabs, send); return; }
   const mt = gardenMoonTier();
   let h = tabs;
   // The Green Path — a gardening questline surfaced right here, since sowing and
@@ -13042,6 +13046,31 @@ function gardenBedsBlock(plots, plantable, where, rushCost) {
   return h;
 }
 
+// The herb bag page of Mother Yarrow's panel: the bag you have and what is in it, and the bags she sells.
+function herbBagNow() { return (lastInventoryState && lastInventoryState.herbBag) || null; }
+function herbBagHtml(hb) {
+  if (!hb) return '<div class="gardenHint">Mother Yarrow is looking for her bags…</div>';
+  let h = '<div class="yarrowSays"><div class="ysWho">Mother Yarrow</div><div class="ysLine">“' + (hb.tier ? (hb.all ? 'That hamper has a place for every plant that grows. You will not need another.' : 'A bag only for plants. They go into it of themselves, and your pack is left for the rest.') : 'Every leaf you pick is taking up a place in your pack. Take a bag that is only for plants.') + '”</div></div>';
+  if (hb.tier) {
+    h += `<div class="gardenHomeHead">${esc(hb.icon)} ${esc(hb.name)} · ${hb.used} of ${hb.all ? 'every sort (' + hb.total + ')' : hb.kinds + ' sorts'}</div>`;
+    h += hb.herbs.length ? '<div class="hbRows">' + hb.herbs.map((r) => `<div class="hbRow"><span class="hbIcon">${esc(r.icon)}</span><span class="hbName">${esc(r.name)}</span><span class="hbQty">×${r.qty}</span><button type="button" class="hbOut" data-herb="${esc(r.itemId)}">Take out</button></div>`).join('') + '</div>'
+      : '<div class="gardenHint">Empty. Plants you pick or are given go straight into it.</div>';
+    h += '<div class="gardenHint">To sell, trade or use a plant, take it out into your pack first. Brewing and sowing reach into the bag on their own. <button type="button" class="hbStow">Stow my pack\'s plants</button></div>';
+  }
+  const next = hb.shop.filter((b) => !b.owned);
+  if (next.length) {
+    h += '<div class="gardenHomeHead" style="margin-top:12px">🧺 Bags she sells</div><div class="hbShop">' + next.map((b) => `<div class="hbBuy"><div class="hbBuyHead">${esc(b.icon)} <b>${esc(b.name)}</b> · ${b.all ? 'every sort of plant (' + b.kinds + ')' : b.kinds + ' sorts'}</div><div class="hbBuySays">${esc(b.says)}</div><button type="button" class="hbBuyBtn" data-tier="${b.tier}">Buy · 🪙 ${b.gold}</button></div>`).join('') + '</div>';
+  }
+  return h;
+}
+function renderHerbBagInto(el, tabs, send) {
+  if (!herbBagNow()) send({ type: 'herb_state' });   // not told yet (the pack is only sent when something in it changes): ask
+  el.innerHTML = tabs + herbBagHtml(herbBagNow());
+  el.querySelectorAll('.hbOut').forEach((b) => b.addEventListener('click', () => send({ type: 'herb_take', itemId: b.getAttribute('data-herb') })));
+  el.querySelectorAll('.hbBuyBtn').forEach((b) => b.addEventListener('click', () => send({ type: 'herb_bag_buy', tier: +b.getAttribute('data-tier') })));
+  el.querySelectorAll('.hbStow').forEach((b) => b.addEventListener('click', () => send({ type: 'herb_stow' })));
+  wireGardenTabs(el);
+}
 // Hooks up the Garden / Almanac tab buttons (present in both views).
 function wireGardenTabs(el) {
   el.querySelectorAll('.gtab').forEach((b) => b.addEventListener('click', () => {
