@@ -2176,13 +2176,8 @@
   /* banners that still come (system lines, pictures) go under the window, not over it */
   body.touchMode.chatPinned #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 236px); }
   @media (orientation:landscape) { body.touchMode.chatPinned #chatNotifStack { top:calc(max(6px, env(safe-area-inset-top)) + 150px); } }
-  /* With the finds line up (Balefires in the Wilds, the count in a dungeon) and the chat kept open, upright: the chat
-     keeps its place under the vitals and the finds line goes below it (asked for). The chat's height changes with what
-     is in it, so client/mobile-hud.js measures its bottom into --pinnedChatBottom; 236px is where a full one ends. */
-  @media (orientation:portrait) {
-    body.touchMode.chatPinned #dungeonFindsHud, body.touchMode.chatPinned.inDelveRun #dungeonFindsHud { top:calc(var(--pinnedChatBottom, 236px) + 6px); }
-    body.touchMode.chatPinned.findsHudUp #chatNotifStack { top:calc(var(--pinnedChatBottom, 236px) + 38px); }
-  }
+  /* (What is docked under the kept-open chat on a phone, the finds line and the rest, is in #hudLane: see THE LANE.
+     client/mobile-hud.js measures the chat's bottom into --pinnedChatBottom for it.) */
   /* any full panel or the menu over it: the window steps aside like the rest of the HUD */
   body.touchMode.panelOpen #chatPanel.pinned { display:none !important; }
 
@@ -3260,15 +3255,24 @@
 
 <!-- Session L HUD: active calendar event pill, the newcomer First Steps
      tracker, and the in-delve floor chip. All small, all self-hiding. -->
-<div id="bellTag" class="hidden"></div>
-<div id="eventTag" class="hidden"></div>
-<div id="gatherHint" class="hidden"></div>
-<div id="dungeonFindsHud" class="hidden" title="Bone keys you hold, braziers lit, seals broken"></div>
-<div id="delveHud" class="hidden">
-  <div id="delveHudFloor">🕳️ Floor 1</div>
-  <div id="delveHudKills">0 / 6</div>
-  <div id="delveHudBoons"></div>
+<!-- THE LANE. Every small thing that shows at the top middle of the screen is a child of #hudLane and nothing else
+     may sit there: the lane lays its children out one under another, so two of them cannot share a place. To add a
+     new pill, put it in here; do not give it a position of its own (the lane's rule overrides it, and
+     test/hud-lane.test.js fails anything at the top middle that is not in the lane). -->
+<div id="hudLane">
+  <div id="delveHud" class="hidden">
+    <div id="delveHudFloor">🕳️ Floor 1</div>
+    <div id="delveHudKills">0 / 6</div>
+    <div id="delveHudBoons"></div>
+  </div>
+  <div id="dungeonFindsHud" class="hidden" title="Bone keys you hold, braziers lit, seals broken"></div>
+  <div id="eventTag" class="hidden"></div>
+  <div id="bellTag" class="hidden"></div>
+  <div id="targetingBanner" class="hidden">
+    <span id="targetingBannerText"></span>
+  </div>
 </div>
+<div id="gatherHint" class="hidden"></div>
 
 <!-- ── Controls guide ─────────────────────────────────────────────────────
      Auto-shows once on a player's very first join (per browser), then
@@ -3488,7 +3492,7 @@
     border-color:#ffe9a0; box-shadow:0 0 18px rgba(255,200,80,0.6);
     animation:bellPulse 1s ease-in-out infinite;
   }
-  @keyframes bellPulse { 0%,100% { transform:translateX(-50%) scale(1); } 50% { transform:translateX(-50%) scale(1.05); } }
+  @keyframes bellPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }   /* (the lane centres it) */
   body.touchMode #bellTag { top:30px; font-size:11.5px; }
   /* In a Delve run the floor HUD (#delveHud) owns the top-center slot, so drop
      the bell banner below it instead of letting the two stack on the same row. */
@@ -3541,6 +3545,36 @@
   body.inDelveRun #dungeonFindsHud { top:100px; }
   body.inDelveRun #dungeonFindsHud:not(.hidden) ~ #bellTag, body.inDelveRun.findsHudUp #bellTag { top:136px; }
   body.panelOpen #dungeonFindsHud, body.composeOpen #dungeonFindsHud { display:none; }
+  /* ── THE LANE (#hudLane): one rule for everything at the top middle ──────────────────────────────────────────────
+     Its children are laid out one under another, in the order they stand in the page, so no two can overlap however
+     many are up. The rule below takes away any position a child gives itself (!important: a later rule cannot
+     quietly put one back). The toasts and the announce banner (#topStack, which has to sit above panels) start
+     where the lane ends: client/hud-lane.js measures that into --hudLaneBottom. */
+  #hudLane {
+    position:fixed; top:62px; left:0; right:0; z-index:8;
+    display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  }
+/* On a phone the top middle belongs to the vitals and the buttons, so the lane is a column down the left, under the
+     XP strip; and when the chat is kept open (upright) the lane starts under the chat, which keeps the place nearest
+     the vitals. Sideways the kept-open chat is at the top middle, clear of the lane. */
+  body.touchMode #hudLane { top:calc(max(8px, env(safe-area-inset-top)) + 86px); align-items:flex-start; padding-left:max(10px, env(safe-area-inset-left)); box-sizing:border-box; }
+  @media (orientation:portrait) { body.touchMode.chatPinned #hudLane { top:calc(var(--pinnedChatBottom, 236px) + 6px); } }
+  body.touchMode #hudLane > * { max-width:66vw; }
+  /* the chat banners come below whatever the lane holds */
+  body.touchMode #chatNotifStack, body.touchMode.chatPinned #chatNotifStack { top:max(calc(max(8px, env(safe-area-inset-top)) + 86px), calc(var(--hudLaneBottom, 0px) + 6px)); }
+  @media (orientation:portrait) { body.touchMode.chatPinned #chatNotifStack { top:max(calc(var(--pinnedChatBottom, 236px) + 6px), calc(var(--hudLaneBottom, 0px) + 6px)); } }
+  @media (orientation:landscape) { body.touchMode.chatPinned #chatNotifStack { top:max(calc(max(6px, env(safe-area-inset-top)) + 150px), calc(var(--hudLaneBottom, 0px) + 6px)); } }
+  /* The loading pill (above everything, at the very top, while graphics stream in) is the one thing over the lane:
+     while it shows, the lane starts below it. */
+  body:has(.loadPill.show) #hudLane { top:88px; }
+  #hudLane > * {
+    position:static !important; top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
+    transform:none; flex:0 0 auto;
+  }
+  #hudLane > .tagFaded { display:none; }   /* a faded tag gives its place up */
+  #topStack { top:max(100px, calc(var(--hudLaneBottom, 0px) + 8px)); }
+  body.touchMode #topStack { top:max(max(96px, calc(env(safe-area-inset-top) + 88px)), calc(var(--hudLaneBottom, 0px) + 8px)); }
+  #attackHitNotification { top:max(72px, calc(var(--hudLaneBottom, 0px) + 8px)); }
   /* On a phone the middle of the screen is where you are looking, so the line
      is docked at the left edge under the XP strip instead (above ground it
      counts the Wilds' balefires; underground, keys, goals and the rare room). */
@@ -3551,7 +3585,6 @@
   }
   /* …and what else is docked there on a phone steps down a line to make room. */
   body.touchMode.findsHudUp #firstStepsChip { top:134px; }
-  body.touchMode.findsHudUp #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 118px); }
   /* The daybook (client/oldways.js): a tick, a name, and the day or a hint. */
   .dbRow { display:flex; gap:10px; align-items:flex-start; padding:7px 2px; border-top:1px solid rgba(255,255,255,0.07); opacity:0.72; }
   .dbRow.done { opacity:1; }
@@ -5157,9 +5190,6 @@
 
 <div id="hotbar" class="hidden"></div>
 
-<div id="targetingBanner" class="hidden">
-  <span id="targetingBannerText"></span>
-</div>
 
 <!-- Quest dialogue — shown when the player talks to an NPC quest-giver -->
 <div id="questDialogue" class="overlay hidden">

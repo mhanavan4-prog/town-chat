@@ -54,6 +54,7 @@ import createWildsScene from './wilds-scene.js';
 import { wildsWaters } from './wilds-water.js';
 import { makeGroundNoise } from './wilds-ground.js';
 import { dressTownTiles } from './town-ground.js';
+import { watchHudLane } from './hud-lane.js';
 import createCountStones from './count-stones.js';
 import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
@@ -11985,6 +11986,7 @@ function exitCrypt() {
 let villageHouseCatalog = {};     // id -> { room, name, door, width, height, spawn, spots, … }
 const VH_WORLDS = {};             // id -> { width, height, buildings: [], spawn }
 let vhScene = null, vhId = null;
+watchHudLane();   // the top-middle lane: where it ends is where the toasts begin (client/hud-lane.js)
 const _villageHouse = createVillageHouse({ kkPlace, makeSignSprite, makeGlowTexture, createHumanoid, GFX });
 function isVHRoom(room) { return typeof room === 'string' && room.startsWith('vh_'); }
 function vhIdOf(room) { for (const h of Object.values(villageHouseCatalog)) if (h.room === room) return h.id; return null; }
