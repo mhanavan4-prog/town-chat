@@ -38,7 +38,7 @@ const lsizes = LIDS.map((id) => [id, fs.statSync(path.join(root, 'public/kk/gear
 check('each legendary model is under 100 KB', lsizes.every(([, s]) => s < 100000), lsizes.filter(([, s]) => s >= 100000));
 check('they are not fetched up front: no place in the manifest, asked for when first worn, and whoever wears one is redrawn when it lands',
   !/LEGEND_GEAR_IDS\) MANIFEST/.test(main) && /function wantGear\(itemId\)/.test(main) && /if \(!t\) \{ wantGear\(itemId\); return null; \}/.test(main)
-  && /KK\.onGear\(\(\) => \{ for \(const id in players\) if \(visuals\[id\]\) applyEquipVisual\(id, players\[id\]\); \}\)/.test(main));
+  && /function redrawWornGear\(\) \{ for \(const id in players\) if \(visuals\[id\]\) applyEquipVisual\(id, players\[id\]\); \}/.test(main) && /KK\.onGear\(redrawWornGear\)/.test(main));
 check('a chest piece asks for its model too (it is drawn only once the model is in)', /chest: \(v, itemId\) => \{ if \(v\.kk && itemId && KK\.wantGear\) KK\.wantGear\(itemId\);/.test(main));
 check('a hat is fitted to the class it is on (the Knight\'s hair, the Mystic\'s hood, the Necromancer\'s skull)', /head: \{[^\n]*byChar: \{ 0: [^\n]*5: \{/.test(mod) && /seat\.byChar && seat\.byChar\[v\.kk\.charId\]/.test(main) && /mixer, act, inst, charId,/.test(hum));
 
