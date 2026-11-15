@@ -61,6 +61,7 @@ import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
+import { createPerch, perchTop } from './perch.js';
 import { newcomerNextStep, doorWarning, gentleDeathLine } from './newcomer.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
@@ -3839,7 +3840,7 @@ const _collision = createCollision({
   getDungeonLore: () => dungeonLoreCatalog,
   getDelveState: () => delveState,
 });
-const { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel } = _collision;
+const { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel, perchAt } = _collision;
 
 // ---------------------------------------------------------------------------
 // The Town Pass — two buildings (the Phantom Parlor and the Starlight Arcade) are
@@ -7050,6 +7051,15 @@ document.addEventListener('focusout', (e) => {
 // duration (see syncVisuals()/update()).
 const JUMP_DURATION = 0.45, JUMP_HEIGHT = 34;
 let jumpActive = false, jumpT = 0;
+// Standing on things (client/perch.js): what I stand at, and where my feet are through a jump.
+const myPerch = createPerch({ jumpHeight: JUMP_HEIGHT, jumpDuration: JUMP_DURATION });
+function myFeatherMult() { return me && me.activeStatus && me.activeStatus.type === 'feather' ? 2.4 : 1; }
+function myFeet() { return myPerch.feet(jumpActive, jumpT, myFeatherMult()); }
+// The top to give a collider for this object: its own height, if a jump gets onto it (0 = a wall).
+function standTop(group) {
+  if (!group) return 0;
+  try { const b = new THREE.Box3().setFromObject(group); return perchTop(b.max.y - group.position.y); } catch (e) { return 0; }
+}
 // Which body-locomotion the LOCAL player is doing this frame, by facing-relative
 // input: 'forward' | 'back' | 'strafeL' | 'strafeR'. Remote players always face
 // their travel direction (facing is inferred from motion), so only the local
@@ -7061,6 +7071,7 @@ function tryJump() {
   jumpActive = true;
   if (typeof playSfx === 'function') playSfx('jump');
   jumpT = 0;
+  myPerch.takeoff();
   // Body jump to match the positional hop — a one-shot on the local kk visual,
   // sped to land about when the arc does. No-op on the classic fallback body or
   // before the movement-anim donor has streamed in.
@@ -11459,6 +11470,8 @@ const {
   buildTownNPCs, buildTownRitualTorch, buildTownTemple, kkTownDressing,
 } = createTownScene({
   KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid: createStaticNpc, getDoorSide, getDoorWorldPos, kkPlace,
+  // a small solid thing in town: a collider, with a top if a jump gets onto it (client/perch.js)
+  addSolid: (g, x, y, r) => { if (!g) return; const wall = { x: x - r, y: y - r, w: r * 2, h: r * 2 }, top = standTop(g); if (top) wall.top = top; walls.push(wall); },
   makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture,
   getMe: () => me,
   mobileLite: MOBILE_UI, // mobile GPU-fill pass: drop the clustered temple ambiance lights
@@ -11756,8 +11769,10 @@ function makeBonePile(x, z) {
 // forest, and the chunky pieces finally collide (user report: "no collision
 // in the Wilds"). Trees/gravestones/ruins register into WILDS_WALLS; bone
 // piles stay walk-through (ankle-height).
-function wildsCollide(x, z, r) {
-  WILDS_WALLS.push({ x: x - r, y: z - r, w: r * 2, h: r * 2 });
+function wildsCollide(x, z, r, top) {
+  const wall = { x: x - r, y: z - r, w: r * 2, h: r * 2 };
+  if (top) wall.top = top; // something to stand on (client/perch.js)
+  WILDS_WALLS.push(wall);
 }
 function addSpookyDecor(scene, w2) {
   // Everything added here is organic scatter (spooky trees, gravestones, bone
@@ -11807,8 +11822,7 @@ function addSpookyDecor(scene, w2) {
   for (const [cx, cz] of [[1200,1500],[3500,2800],[6000,1200],[2000,7000],[7500,4000],[6300,9150],[8200,8200],[900,6500]]) {
     for (let i = 0; i < 9; i++) {
       const x = cx + rng(-110, 110), z = cz + rng(-110, 110);
-      scene.add(makeGravestone(x, z));
-      wildsCollide(x, z, 6);
+      { const gs = makeGravestone(x, z); scene.add(gs); wildsCollide(x, z, 6, standTop(gs)); }
     }
     // Spooky trees around graveyard
     for (let i = 0; i < 5; i++) {
@@ -15442,13 +15456,20 @@ function addNatureDecor(scene, w, pool, wallsOut) {
       group = makeKayBush(d.x, d.y, d.scale) || makeShrub(d.x, d.y, d.scale);
     } else if (d.type === 'rock') {
       group = makeKayRock(d.x, d.y, d.scale) || makeRock(d.x, d.y, d.scale);
+      // A rock is solid now, and one no taller than a jump can be stood on (client/perch.js).
+      { const r = 9 * (d.scale || 1), top = standTop(group); const wall = { x: d.x - r, y: d.y - r, w: r * 2, h: r * 2 }; if (top) wall.top = top; wallsTarget.push(wall); }
     } else if (d.type === 'flower') {
       group = makeWildflowers(d.x, d.y, d.scale) || makeFlowerPatch(d.x, d.y, d.scale);
     } else if (PROP_BUILDERS[d.type]) {
       const spec = PROP_BUILDERS[d.type];
       group = spec.make(d);
       const c = spec.collide(d);
-      if (c) wallsTarget.push({ x: d.x - c.w / 2, y: d.y - c.h / 2, w: c.w, h: c.h });
+      if (c) {
+        const wall = { x: d.x - c.w / 2, y: d.y - c.h / 2, w: c.w, h: c.h };
+        const top = c.top != null ? c.top : standTop(group); // a crate, a barrel, a bench: whatever a jump gets onto
+        if (top) wall.top = top;
+        wallsTarget.push(wall);
+      }
     } else if (PLANT_VISUALS[d.type]) {
       group = makePlant(d.type, d.x, d.y);
     } else {
@@ -16467,7 +16488,7 @@ const {
   updateStatusVisuals, updateWerewolfNpc, ensurePlayerVisual, destroyPlayerVisual, syncVisuals, refreshPlayerAppearance,
 } = createPlayerVisuals({
   CHAR, JUMP_DURATION, JUMP_HEIGHT, KK, applyEquipVisual, applyStatusVisual, contextMatches, createHumanoid, getDayNightState, getFloorHeight, getRenderPos, kkDrivePlayer, kkSetState, lerpAngle, makeGhostMesh, setUnlockToast, visuals,
-  getActiveScene: () => activeScene, getGroundY: () => groundY, getJumpActive: () => jumpActive, getJumpT: () => jumpT,
+  getActiveScene: () => activeScene, getGroundY: () => groundY, getJumpActive: () => jumpActive, getJumpT: () => jumpT, getMyFeet: () => myFeet(), getPerchAt: (x, y) => (mode === 'outdoor' ? perchAt(x, y) : 0),
   getLextonNpc: () => lextonNpc, getMe: () => me, getMyId: () => myId, getPlayers: () => players,
   getSeatedAt: () => seatedAt, getWildsScene: () => wildsScene,
 });
@@ -20805,12 +20826,13 @@ function updateOutdoor(stepX, stepY) {
   if (world === world2 || world === DUNGEON_WORLD || world === CAVE_WORLD || world === VAULT_WORLD || world === EMBER_WORLD || world === REFUGE_WORLD || world === MANOR_WORLD || world === COTTAGE_WORLD || world === CRYPT_WORLD || isVHRoom(me.room) || me.room === 'witch_cave' || me.room === 'bank_vault' || me.room === 'ember_wastes' || me.room === 'ember_refuge' || me.room === 'manor' || me.room === 'cottage' || me.room === 'crypt') {
     // If you're already overlapping a collider (e.g. you placed furniture right
     // where you stand), don't lock up — let the move through so you can walk out.
-    const stuck = collides(me.x, me.y);
-    if (stuck || !collides(nx, me.y)) me.x = nx;
-    if (stuck || !collides(me.x, ny)) me.y = ny;
+    const ft = myFeet();
+    const stuck = collides(me.x, me.y, ft);
+    if (stuck || !collides(nx, me.y, ft)) me.x = nx;
+    if (stuck || !collides(me.x, ny, ft)) me.y = ny;
     // Auto-unstick: if still overlapping a collider (stood where a new collider
     // appeared, or clipped in on an older client), eject to the nearest clear edge.
-    if (stuck) { const freed = resolveStuck(me.x, me.y); if (freed) { me.x = freed.x; me.y = freed.y; } }
+    if (stuck) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
@@ -20844,11 +20866,12 @@ function updateOutdoor(stepX, stepY) {
 
   const blockedX = isLockedRoom(roomAt(nx, me.y));
   const blockedY = isLockedRoom(roomAt(me.x, ny));
-  if (blockedX) { showLockMessage(); } else if (!collides(nx, me.y)) { me.x = nx; }
-  if (blockedY) { showLockMessage(); } else if (!collides(me.x, ny)) { me.y = ny; }
+  const ft = myFeet();
+  if (blockedX) { showLockMessage(); } else if (!collides(nx, me.y, ft)) { me.x = nx; }
+  if (blockedY) { showLockMessage(); } else if (!collides(me.x, ny, ft)) { me.y = ny; }
   // Auto-unstick in town too — eject from any collider footprint you're inside
   // (door gaps/interiors aren't colliders, so standing in a room never triggers).
-  if (collides(me.x, me.y)) { const freed = resolveStuck(me.x, me.y); if (freed) { me.x = freed.x; me.y = freed.y; } }
+  if (collides(me.x, me.y, ft)) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
 
   me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
   me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
@@ -21107,6 +21130,11 @@ function update(dt) {
   if (jumpActive) {
     jumpT += dt;
     if (jumpT >= JUMP_DURATION) { jumpActive = false; jumpT = 0; }
+  }
+  // What I am standing on: a jump ends early when I come down onto something; off an edge, I fall.
+  if (me) {
+    const under = mode === 'outdoor' && !me.isDead ? perchAt(me.x, me.y) : 0;
+    if (myPerch.step(dt, jumpActive, jumpT, under, myFeatherMult())) { jumpActive = false; jumpT = 0; }
   }
 
   // Runs regardless of indoor/outdoor so the lighting is already correct
@@ -21612,6 +21640,9 @@ if (location.search.includes('testdrive=1')) {
     callersInTown() { return _callersInTown.shown(); }, // who stands by the Board (client/callers-in-town.js)
     cottageWardMarks() { const g = cottageScene && cottageScene.getObjectByName('cottageWards'); return g ? g.children.map((o) => ({ name: o.name, x: o.position.x, y: o.position.y, z: o.position.z })) : []; },
     jumping() { return jumpActive; },
+    feet() { return myFeet(); },
+    perches() { return walls.filter((w) => w.top).map((w) => [Math.round(w.x + w.w / 2), Math.round(w.y + w.h / 2), w.top, w.w, w.h]); },
+    jump() { tryJump(); },
     inventoryPanel(state) { lastInventoryState = state; renderInventoryItemsPanel(); return true; },
     gardenPanel(state) { lastGardenState = state; renderGardenModal(); const e = document.getElementById('gardenContent'); return e ? e.innerText : null; },
     toast(text, level) { setUnlockToast(text, level ? { level } : undefined); },

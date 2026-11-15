@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 import { makeTurnipLanterns } from './props-turnip.js';
 
-export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, mobileLite, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
+export default function createTownScene({ KK, OUTDOOR_KIOSKS, TOWN_NPCS, createHumanoid, getDoorSide, getDoorWorldPos, kkPlace, addSolid = () => {}, makeNpcNameSprite, makePentacleTexture, makeSigilFloorTexture, makeSignSprite, makeWhiteStoneTexture, getMe, mobileLite, TEMPLE_TORCH_LIGHTS, setDelveStoneGroup, setPeddlerStallGroup, setLocksmithGroup }) {
 function buildTownNPCs(scene) {
   for (const npc of TOWN_NPCS) {
     const mesh = createHumanoid(npc.charId, null, npc.id).group;
@@ -467,12 +467,12 @@ function kkTownDressing(scene, w) {
     // crypt centrepiece, two ragged rows of graves + markers
     kkPlace(scene, 'prop_crypt', gx, backZ + 20, 54, Math.PI);
     kkPlace(scene, 'prop_gravemark_a', gx - 50, gy, 20, 0.2);
-    kkPlace(scene, 'prop_grave_a',     gx - 18, gy - 2, 20, -0.15);
-    kkPlace(scene, 'prop_grave_b',     gx + 16, gy, 18, 0.25);
-    kkPlace(scene, 'prop_gravemark_b', gx + 50, gy - 2, 19, -0.3);
-    kkPlace(scene, 'prop_grave_a',     gx - 34, gy + 30, 19, 0.4);
-    kkPlace(scene, 'prop_gravemark_a', gx,      gy + 32, 18, -0.2);
-    kkPlace(scene, 'prop_grave_b',     gx + 34, gy + 30, 18, 0.1);
+    // The stones are solid now, and low enough to jump onto (client/perch.js).
+    for (const [key, sx, sy, size, rot] of [['prop_grave_a', gx - 18, gy - 2, 20, -0.15], ['prop_grave_b', gx + 16, gy, 18, 0.25],
+      ['prop_gravemark_b', gx + 50, gy - 2, 19, -0.3], ['prop_grave_a', gx - 34, gy + 30, 19, 0.4],
+      ['prop_gravemark_a', gx, gy + 32, 18, -0.2], ['prop_grave_b', gx + 34, gy + 30, 18, 0.1]]) {
+      addSolid(kkPlace(scene, key, sx, sy, size, rot), sx, sy, 7);
+    }
     // a half-sunk coffin, scattered bones, a lone skull
     const cof = kkPlace(scene, 'prop_coffin', gx - 60, gy + 44, 42, 0.5); if (cof) cof.position.y = -4;
     kkPlace(scene, 'prop_ribcage', gx + 58, gy + 40, 20, 0.6);

@@ -8,7 +8,7 @@
 // is a mutate-in-place const injected by reference (main's many readers share it);
 // reassigned world state (me/players/scenes/seatedAt/jump/lexton) via getters.
 // ---------------------------------------------------------------------------
-export default function createPlayerVisuals({ CHAR, JUMP_DURATION, JUMP_HEIGHT, KK, applyEquipVisual, applyStatusVisual, contextMatches, createHumanoid, getDayNightState, getFloorHeight, getRenderPos, kkDrivePlayer, kkSetState, lerpAngle, makeGhostMesh, setUnlockToast, visuals, getActiveScene, getGroundY, getJumpActive, getJumpT, getLextonNpc, getMe, getMyId, getPlayers, getSeatedAt, getWildsScene }) {
+export default function createPlayerVisuals({ CHAR, JUMP_DURATION, JUMP_HEIGHT, KK, applyEquipVisual, applyStatusVisual, contextMatches, createHumanoid, getDayNightState, getFloorHeight, getRenderPos, kkDrivePlayer, kkSetState, lerpAngle, makeGhostMesh, setUnlockToast, visuals, getActiveScene, getGroundY, getJumpActive, getJumpT, getMyFeet, getPerchAt, getLextonNpc, getMe, getMyId, getPlayers, getSeatedAt, getWildsScene }) {
 function updateStatusVisuals(dt) {
   const now = performance.now();
   for (const id in visuals) {
@@ -294,8 +294,9 @@ function syncVisuals(dt) {
     if (shouldShow) {
       const rp = getRenderPos(p);
       const seatedYOffset = ((id === getMyId() && getSeatedAt()) || p.seated) ? -8 : 0;
-      const featherMult = (id === getMyId() && getMe().activeStatus && getMe().activeStatus.type === 'feather') ? 2.4 : 1;
-      const jumpYOffset = (id === getMyId() && getJumpActive()) ? Math.sin(Math.PI * getJumpT() / JUMP_DURATION) * JUMP_HEIGHT * featherMult : 0;
+      // My feet are where the jump and whatever I stand on put them; anyone else overlapping something with a top is
+      // standing on it (client/perch.js).
+      const jumpYOffset = id === getMyId() ? getMyFeet() : getPerchAt(p.x, p.y);
       // Floor height rides a short critically-damped chase instead of
       // snapping — stray profile knees, ramp edges and zone boundaries all
       // land as a glide, not a pop. Room changes and teleports snap (you
