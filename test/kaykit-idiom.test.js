@@ -19,7 +19,7 @@ check('the ruins of Ashminster and the field chapel are built by the one builder
 const sizes = [...REBUILT, ...RUINS].map((n) => [n, fs.statSync(path.join(root, 'public/kk/home', n + '.glb')).size]);
 check('each rebuilt model is still small enough to stream (under 100 KB)', sizes.every(([, s]) => s < 100000), sizes.filter(([, s]) => s >= 100000));
 // The minster is the one great building of the Wastes: its own budget, and a plain one-segment chamfer to keep to it.
-check('the minster is in the idiom too: KayKit stone, broken off by courses, a plain chamfer, under 200 KB', /m\.bevel = 0\.035; m\.bevel_segments = 1/.test(body('minster')) && /_kk_strip\(/.test(body('minster')) && !/MIN_STONE/.test(body('minster')) && fs.statSync(path.join(root, 'public/kk/home/minster.glb')).size < 200000);
+check('the minster is in the idiom too: KayKit stone, broken off by courses, a plain chamfer, under 260 KB (it carries its candles, lamps and courses now)', /m\.bevel = 0\.035; m\.bevel_segments = 1/.test(body('minster')) && /_kk_strip\(/.test(body('minster')) && !/MIN_STONE/.test(body('minster')) && fs.statSync(path.join(root, 'public/kk/home/minster.glb')).size < 260000);
 const crit = fs.readFileSync(path.join(root, 'tools/models/build_critters.py'), 'utf8');
 check('the creatures are given the toy\'s proportions about their own joints (so the animation stands), sticks-for-legs left alone', /TOY = \{'head': 1\.\d+, 'leg': 1\.\d+, 'tail': 1\.\d+\}/.test(crit) && /toyify\(m, n\)/.test(crit) && /m\.pivots\[p\.node\]/.test(crit) && /TOY_PLAIN_LIMBS = \{[^}]*'spider'[^}]*'centipede'/.test(crit));
 console.log(`\n${pass} passed, ${fail} failed`);

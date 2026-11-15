@@ -7,6 +7,9 @@ import { bakeGeometry } from './bake-geometry.js';
 // ---------------------------------------------------------------------------
 import { makeGroundNoise } from './wilds-ground.js';
 import { dressEmberTiles, makeLavaPool } from './ember-ground.js';
+import { dressMinster } from './minster-light.js';
+import { hangGateVeil } from './gate-veil.js';
+
 export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc, GFX }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
 // Burnt-over any mesh: pull its colours toward charcoal/scorch so KayKit's
@@ -139,6 +142,7 @@ const MINSTER_SOLID = [
   [-5.5, -1.35, -3.0, 1.35],            // the tower
   [-5.5, 2.0, -4.3, 3.0], [-4.5, 2.5, -3.6, 3.4], [-3.8, 2.9, -3.0, 3.8], [-2.8, 3.5, -1.3, 4.5],   // the spire where it lies
   [-3.95, -2.35, -3.25, -1.65],         // the bell
+  [2.38, -0.6, 2.88, 0.6],              // the altar at the nave's east end
 ];
 function minsterWalls() {
   const { x: cx, y: cy, unit: u, turn } = EMBER_TOWN, c = Math.cos(turn), s = Math.sin(turn);
@@ -509,11 +513,13 @@ function buildEmberScene() {
     g.rotation.y = EMBER_TOWN.turn;
     g.position.set(EMBER_TOWN.x, 0, EMBER_TOWN.y);
     scene.add(g);
-    // the east window is the one warm thing in the place
-    const lamp = new THREE.PointLight(0xffb060, 0.9, 1400);
-    const c = Math.cos(EMBER_TOWN.turn), s = Math.sin(EMBER_TOWN.turn), ex = 5.3 * EMBER_TOWN.unit;
-    lamp.position.set(EMBER_TOWN.x + ex * c, 300, EMBER_TOWN.y - ex * s);
-    scene.add(lamp);
+    // Coursed stone, and lit: the belfry lantern, the door lamps, the candles, the east window, the light on the
+    // ground (client/minster-light.js). The one place out here to steer by.
+    {
+      const c = Math.cos(EMBER_TOWN.turn), s = Math.sin(EMBER_TOWN.turn), u = EMBER_TOWN.unit;
+      const at = (mx, my, mz) => { const X = mx * u, Z = -my * u; return { x: EMBER_TOWN.x + X * c + Z * s, y: (mz || 0) * u, z: EMBER_TOWN.y - X * s + Z * c }; };
+      scene.userData.minsterTick = dressMinster(THREE, scene, g, at, { quality: GFX && GFX.st ? GFX.st.quality : 'high', glowTex: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null, unit: u });
+    }
     if (typeof makeNpcNameSprite === 'function') {
       const label = makeNpcNameSprite('⛪ ' + EMBER_TOWN.name);
       label.scale.multiplyScalar(4);
@@ -694,6 +700,8 @@ function buildEmberScene() {
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x9adf6a, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.scale.set(380, 240, 1); glow.position.set(MARCH_GATE.x - 120, 90, MARCH_GATE.y); scene.add(glow);
   }
+  // the way through: a green veil between the posts, the Wilds showing through (client/gate-veil.js)
+  scene.userData.gateTick = hangGateVeil(THREE, scene, { x: MARCH_GATE.x, y: 0, z: MARCH_GATE.y }, { tone: 'green', quality: GFX && GFX.st ? GFX.st.quality : 'high', glowTex: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null });
   if (typeof makeNpcNameSprite === 'function') { const l = makeNpcNameSprite('🚧 The March gate: back to the Wilds'); l.position.set(MARCH_GATE.x, 290, MARCH_GATE.y); scene.add(l); }
   let marchPlaced = false;
   const buildMarch = () => {
