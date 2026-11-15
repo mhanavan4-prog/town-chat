@@ -7,6 +7,7 @@
 // switchers are injected; the gold-readout refresh via getter (declared later).
 // ---------------------------------------------------------------------------
 import { glyphHTML } from './ui-icons.js';
+import { ITEM_KINDS, itemKind, itemName } from './item-kinds.js';
 export default function createInventoryPanel({ ITEM_CATALOG, Modals, PLANT_EFFECTS, STAT_DISPLAY, buildItemIconEl, hideTooltip, showInvTab, showItemTooltip, toggleInventory, getEquipStatsCatalog, getLastInventoryState, getMyStatBlock, getWs, getUpdateGoldReadouts, getSelectedInvSlotIdx, setSelectedInvSlotIdx, playSfx }) {
 function renderStats() {
   const list = document.getElementById('invStatsList');
@@ -142,6 +143,9 @@ if (useDungeonTokenBtn) {
 // slots lives in the Bank modal instead (see openBankModal()/bankWithdrawBtn
 // above) since that's themed as something you do "at the bank."
 // ---------------------------------------------------------------------------
+// Moving things about the pack: the slot being moved by a tap on Move (invMoveFrom), or dragged with a mouse (invDragFrom).
+let invMoveFrom = null, invDragFrom = null;
+function tidyPack() { invMoveFrom = null; setSelectedInvSlotIdx(null); const ap = document.getElementById('invActionPanel'); if (ap) ap.classList.add('hidden'); getWs().send(JSON.stringify({ type: 'inventory_tidy' })); if (typeof playSfx === 'function') playSfx('ui_click'); }
 function renderInventoryItemsPanel() {
   if (!getLastInventoryState()) return;
   getUpdateGoldReadouts()(); // pack header purse strip stays current
@@ -169,14 +173,18 @@ function renderInventoryItemsPanel() {
     right.textContent = hb && hb.tier ? `${hb.icon} Herb bag ${hb.used}/${hb.kinds} sorts (Mother Yarrow's panel)` : (bonus ? `+${bonus} from your bag` : 'A bigger bag adds slots for good');
     packLine.appendChild(left);
     packLine.appendChild(right);
+    const tidy = document.createElement('button'); tidy.className = 'btn invTidyBtn'; tidy.textContent = '🧹 Tidy'; tidy.title = 'Put the pack in order: gear, brews, plants, then the rest';
+    tidy.addEventListener('click', tidyPack); packLine.appendChild(tidy);
   }
 
   const grid = document.getElementById('invSlotsGrid');
   if (!grid) return;
   grid.innerHTML = '';
+  grid.classList.toggle('moving', invMoveFrom != null);
+  const sendMove = (from, to) => { invMoveFrom = null; if (from === to) { renderInventoryItemsPanel(); return; } setSelectedInvSlotIdx(to); getWs().send(JSON.stringify({ type: 'inventory_move', from, to })); if (typeof playSfx === 'function') playSfx('ui_click'); };
   getLastInventoryState().slots.forEach((slot, idx) => {
     const cell = document.createElement('div');
-    cell.className = 'itemSlot' + (slot ? '' : ' empty') + (getSelectedInvSlotIdx() === idx ? ' selected' : '');
+    cell.className = 'itemSlot' + (slot ? '' : ' empty') + (getSelectedInvSlotIdx() === idx ? ' selected' : '') + (invMoveFrom === idx ? ' moveFrom' : '');
     if (slot) {
       const icon = buildItemIconEl(slot.itemId);
       const qty = document.createElement('span');
@@ -184,13 +192,32 @@ function renderInventoryItemsPanel() {
       qty.textContent = String(slot.qty);
       cell.appendChild(icon);
       cell.appendChild(qty);
+      // what it is, without hovering: its name under it, and a mark for its kind (client/item-kinds.js)
+      const kind = itemKind(slot.itemId, ITEM_CATALOG, PLANT_EFFECTS);
+      const mark = document.createElement('span'); mark.className = 'slotKind'; mark.style.background = ITEM_KINDS[kind].color; mark.title = ITEM_KINDS[kind].label; cell.appendChild(mark);
+      const nm = document.createElement('span'); nm.className = 'slotName'; nm.textContent = itemName(slot.itemId, ITEM_CATALOG); cell.appendChild(nm);
+      cell.dataset.kind = kind;
       cell.title = '';
       cell.addEventListener('mouseenter', (e) => showItemTooltip(e, slot.itemId));
       cell.addEventListener('mouseleave', hideTooltip);
-      cell.addEventListener('click', () => selectInvSlot(idx));
+      // drag it to another slot (a mouse) …
+      cell.draggable = true;
+      cell.addEventListener('dragstart', (e) => { try { e.dataTransfer.setData('text/plain', String(idx)); e.dataTransfer.effectAllowed = 'move'; } catch (err) { /* older browsers */ } invDragFrom = idx; hideTooltip(); });
     }
+    cell.addEventListener('dragover', (e) => { if (invDragFrom != null) { e.preventDefault(); cell.classList.add('dropOn'); } });
+    cell.addEventListener('dragleave', () => cell.classList.remove('dropOn'));
+    cell.addEventListener('drop', (e) => { e.preventDefault(); const from = invDragFrom; invDragFrom = null; if (from != null) sendMove(from, idx); });
+    // … or tap Move, then the slot it is to go to (a thumb). With something selected, an empty slot takes it at a tap.
+    cell.addEventListener('click', () => {
+      if (invMoveFrom != null) { sendMove(invMoveFrom, idx); return; }
+      const sel = getSelectedInvSlotIdx();
+      if (!slot) { if (sel != null && sel >= 0 && getLastInventoryState().slots[sel]) sendMove(sel, idx); return; }
+      selectInvSlot(idx);
+    });
     grid.appendChild(cell);
   });
+  // the Move button says what it is waiting for, and stops saying it once the thing has moved
+  { const mb = document.querySelector('#invActionButtons .invMoveBtn'); if (mb) mb.textContent = invMoveFrom != null ? '↔ Now tap a slot… (tap to cancel)' : '↔ Move'; }
 }
 
 function renderEquipSlot(elId, itemId, equipKind) {
@@ -323,6 +350,14 @@ function selectInvSlot(idx) {
     note.id = 'invEquippableNote';
     note.textContent = "Can't be equipped — visit the Bank to deposit or auction it.";
     buttons.appendChild(note);
+  }
+  // ↔ Move — tap it, then the slot this is to go to (it changes places with whatever is there)
+  {
+    const mv = document.createElement('button');
+    mv.className = 'btn invMoveBtn';
+    mv.textContent = invMoveFrom === idx ? '↔ Now tap a slot… (tap to cancel)' : '↔ Move';
+    mv.addEventListener('click', () => { invMoveFrom = invMoveFrom === idx ? null : idx; selectInvSlot(idx); });
+    buttons.appendChild(mv);
   }
   // 🗑️ Destroy — always available, so a full satchel can always be cleared. Two
   // taps to confirm (and it disarms itself after a moment) so a stack is never
