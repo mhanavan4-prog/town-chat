@@ -3337,6 +3337,14 @@ const WILDS_SEED_IDS = new Set((() => {
 // Actually hands over a previously-rolled pending loot list to whoever just
 // looted the body — mirrors what the old rollLoot used to do immediately,
 // just deferred to loot time. Returns label strings for the result toast.
+// What is on a body, as rows for the loot bag: each entry by its place in the list (which is how it is picked).
+function lootBagRows(pending) {
+  return pending.map((drop, i) => {
+    if (drop.kind === 'gold') return { i, icon: '🪙', name: `${drop.amount} gold`, qty: 1, kind: 'gold' };
+    const meta = ITEM_CATALOG[drop.itemId] || {};
+    return { i, icon: meta.icon || '❔', name: meta.name || drop.itemId, qty: drop.qty || 1, kind: 'item', rarity: meta.rarity || null };
+  });
+}
 function grantLoot(pending, player) {
   const inv = getInventory(player);
   const earned = [], held = [];
@@ -14532,7 +14540,11 @@ wss.on('connection', (ws, req) => {
     // same fairness rule as any other kill reward; everyone else just sees
     // the icon exists. Loot itself was already rolled at the moment of
     // death (see the 'strike' handler above) — this just hands it over.
-    if (msg.type === 'loot_corpse') {
+    // Looting a body. Three messages over one lookup:
+    //   loot_peek   open the bag: what is on the body, listed, nothing taken yet
+    //   loot_take   take the entries you picked (or all of them); what you leave stays on the body
+    //   loot_corpse the old one-press "take everything" (older clients, and a click that wants no bag)
+    if (msg.type === 'loot_corpse' || msg.type === 'loot_peek' || msg.type === 'loot_take') {
       const LOOT_RANGE = 90;
       const targetType = String(msg.targetType || '');
       const targetId = String(msg.targetId || '');
@@ -14556,28 +14568,39 @@ wss.on('connection', (ws, req) => {
           t = pool.find(x => x.id === targetId) || null;
         }
       }
-      if (!t) { send(ws, { type: 'loot_error', message: 'Nothing there to loot.' }); return; }
+      const closed = () => { if (msg.type !== 'loot_corpse') send(ws, { type: 'loot_bag', targetType, targetId, items: [] }); };
+      if (!t) { send(ws, { type: 'loot_error', message: 'Nothing there to loot.' }); closed(); return; }
       // lootKillerId === null means nobody in particular earned this one
       // (e.g. a mob killed by another mob in a skirmish, not a player) —
       // finders keepers. If it's set, only that specific player can claim it.
       if (!t.pendingLoot || !t.pendingLoot.length || (t.lootKillerId !== null && t.lootKillerId !== player.id)) {
-        send(ws, { type: 'loot_error', message: 'There’s nothing here for you to loot.' });
+        send(ws, { type: 'loot_error', message: 'There’s nothing here for you to loot.' }); closed();
         return;
       }
       const tx = targetType === 'player' ? t.deathX : t.x;
       const ty = targetType === 'player' ? t.deathY : t.y;
       if (Math.hypot(tx - player.x, ty - player.y) > LOOT_RANGE) {
-        send(ws, { type: 'loot_error', message: 'Get closer to loot that.' });
+        send(ws, { type: 'loot_error', message: 'Get closer to loot that.' }); closed();
         return;
       }
-      const earned = grantLoot(t.pendingLoot, player);
-      t.pendingLoot = null;
-      t.lootKillerId = null;
+      const bag = () => send(ws, { type: 'loot_bag', targetType, targetId, title: targetType === 'player' ? `${t.name || 'Someone'}'s body` : 'On the body', items: lootBagRows(t.pendingLoot || []) });
+      if (msg.type === 'loot_peek') { bag(); return; }
+      // Which entries: all of them, or the ones picked by their place in the bag as it was shown.
+      let take = t.pendingLoot, leave = [];
+      if (msg.type === 'loot_take' && !msg.all) {
+        const want = new Set((Array.isArray(msg.picks) ? msg.picks : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < t.pendingLoot.length));
+        if (!want.size) { bag(); return; }
+        take = t.pendingLoot.filter((_, k) => want.has(k)); leave = t.pendingLoot.filter((_, k) => !want.has(k));
+      }
+      const earned = grantLoot(take, player);
+      t.pendingLoot = leave.length ? leave : null;
+      if (!leave.length) t.lootKillerId = null;
       send(ws, { type: 'inventory_state', ...inventoryStatePayload(player) });
       if (earned.length) send(ws, { type: 'loot_drop', items: earned });
       if (earned.held && earned.held.length) {
         send(ws, { type: 'toast', level: 'important', message: `🎒 Pack full —${heldNote(earned.held).replace(' · 🎒 Pack full —', '')}` });
       }
+      if (msg.type === 'loot_take') bag();   // what is left, or an empty bag (which closes it)
       return;
     }
 
