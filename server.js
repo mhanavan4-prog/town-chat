@@ -3832,6 +3832,13 @@ function endDuelPair(a, b) {
   if (a && a.duels) delete a.duels[b.id];
   if (b && b.duels) delete b.duels[a.id];
 }
+// Where a dungeon lets you out again: the Wilds if you went down from them, the town from anywhere else. It used to
+// remember whatever room you were in, so going down from the Ember Wastes brought you "back" to the Wastes at the
+// town's coordinates, with the town on your screen and no body (reported). Going down from the Wastes leaves them.
+function dungeonHome(p) {
+  if (p.room === 'ember_wastes') { p.emberReturnX = null; p.emberReturnY = null; emberStorm.leave(p); }
+  return p.room === 'wilds' ? 'wilds' : 'outside';
+}
 function clearDuels(p) {
   if (!p) return;
   if (p.duels) { for (const oppId of Object.keys(p.duels)) { const o = players.get(oppId); if (o && o.duels) delete o.duels[p.id]; } p.duels = {}; }
@@ -15342,7 +15349,7 @@ wss.on('connection', (ws, req) => {
           }
         }
       }
-      player.dungeonReturnRoom = player.room || 'outside';
+      player.dungeonReturnRoom = dungeonHome(player);
       const sp = spawnWithJitter();
       player.x = sp.x; player.y = sp.y; player.room = room;
       player.roomLockUntil = Date.now() + 1500;
@@ -15352,7 +15359,7 @@ wss.on('connection', (ws, req) => {
       { const w = wandererOf(room); if (w && !w.dead) for (const who of [player, ...partyMembers]) send(who.ws, { type: 'toast', level: 'important', always: true, sfx: w.mobType, message: wandererWarning(w) }); }
       noteMilestone(player, 'delve');
       for (const member of partyMembers) {
-        member.dungeonReturnRoom = member.room || 'outside';
+        member.dungeonReturnRoom = dungeonHome(member);
         const msp = spawnWithJitter();
         member.x = msp.x; member.y = msp.y; member.room = room;
         member.roomLockUntil = Date.now() + 1500;
@@ -15435,7 +15442,7 @@ wss.on('connection', (ws, req) => {
       // (depth recorded, gold kept, room torn down when the last one leaves).
       dungeonFinds.onLeave(player);
       if (delveRunOf(player)) { delveLeave(player, 'exit'); return; }
-      const returnRoom = player.dungeonReturnRoom || 'outside';
+      const returnRoom = player.dungeonReturnRoom === 'wilds' ? 'wilds' : 'outside';   // the only two places a dungeon lets out (see dungeonHome)
       const returnPos = returnRoom === 'wilds' ? WORLD2.spawn : WORLD.spawn;
       player.x = returnPos.x;
       player.y = returnPos.y;
@@ -15585,7 +15592,7 @@ wss.on('connection', (ws, req) => {
       const bed = villageHouses.wakeAt(player);
       const woke = () => send(ws, { type: 'toast', level: 'important', always: true, sfx: 'lyke_wake', message: '🕯️ You wake at the Lyke-Wake. Somebody sat up with you all night; the candle is burnt down to the stick.' });
       if (player.room && player.room.startsWith('dungeon_')) {
-        const returnRoom = player.dungeonReturnRoom || 'outside';
+        const returnRoom = player.dungeonReturnRoom === 'wilds' ? 'wilds' : 'outside';   // the only two places a dungeon lets out (see dungeonHome)
         const returnPos = returnRoom === 'wilds' ? (bed || WORLD2.spawn) : WORLD.spawn;
         if (returnRoom === 'wilds' && bed) woke();
         player.x = returnPos.x; player.y = returnPos.y;
