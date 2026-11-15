@@ -13,6 +13,7 @@ import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
 import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
 import { wildsWaters, refineGround, buildWildsWater } from './wilds-water.js';
+import { buildWildsRim } from './wilds-rim.js';
 
 export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
@@ -267,10 +268,14 @@ function buildWildsScene(w2) {
         ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 30, w: 0.28 }] : []),
       ];
       richGround = dressWildsGround(THREE, ground, { world: w2, heightAt: wildsHeightAt, ways, places });
-      wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, quality: GFX && GFX.st ? GFX.st.quality : 'high' });
+      wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, quality: GFX && GFX.st ? GFX.st.quality : 'high', world: w2 });
       wildsGround = ground;
     } catch (e) { console.error('wilds ground: kept the old floor', e); richGround = null; wildsGrass = null; }
   }
+
+  // The rim: the ground climbs into fell all round the map, so the border is the foot of a slope and not the edge of
+  // the world (client/wilds-rim.js). Every tier.
+  try { buildWildsRim(THREE, scene, w2, wildsHeightAt); } catch (e) { console.error('wilds rim: none', e); }
 
   wildsWater = null;
   if (beck) {
@@ -598,16 +603,17 @@ function buildWildsScene(w2) {
   if (w2.finds && KK && KK.staticInstance) {
     for (const c of w2.finds.caches) {
       const g = greyed(KK.staticInstance('dg_cache', 62, 'fit'));
-      if (g) { g.position.set(c.x, 0, c.y); g.rotation.y = c.x; scene.add(g); }
+      if (g) { g.position.set(c.x, wildsHeightAt(c.x, c.y) - 2, c.y); g.rotation.y = c.x; scene.add(g); }   // on the ground, not at the height of the sea (it stood in the air wherever the moor dips)
       wildsFinds[c.id] = { kind: 'cache', g };
       WILDS_KIOSKS.push({ x: c.x, z: c.y, npc: 'wfind', findId: c.id, findKind: 'cache', radius: 80 });
     }
     for (const f of w2.finds.balefires) {
       const cairn = greyed(KK.staticInstance('dg_rockfall', 96, 'fit')), g = KK.staticInstance('dg_brazier', 78, 'height');
-      if (cairn) { cairn.position.set(f.x, 0, f.y); scene.add(cairn); }
+      const fy = wildsHeightAt(f.x, f.y);
+      if (cairn) { cairn.position.set(f.x, fy - 2, f.y); scene.add(cairn); }
       let flame = null;
       if (g) {
-        g.position.set(f.x, 8, f.y); scene.add(g);
+        g.position.set(f.x, fy + 8, f.y); scene.add(g);
         flame = new THREE.Mesh(new THREE.ConeGeometry(11, 46, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
         flame.position.y = 96; flame.visible = false;
         flame.onBeforeRender = () => { flame.scale.y = 0.85 + Math.sin(performance.now() * 0.006 + f.x) * 0.18; };
