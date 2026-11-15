@@ -3927,6 +3927,23 @@ function applyDamage(player, targetType, targetId, dmg, maxRange, opts) {
     return worldBossHit(player, dmg);
   }
 
+  // The practice scarecrow by the town spawn: somewhere to learn the sword where nothing hits back. It never falls,
+  // and its first few blows pay a little XP so the first swing a newcomer lands is worth something.
+  if (targetType === 'practice') {
+    if (player.room !== 'outside' || targetId !== PRACTICE_TARGET.id) return { ok: false };
+    if (maxRange != null && Math.hypot(PRACTICE_TARGET.x - player.x, PRACTICE_TARGET.y - player.y) > maxRange + PRACTICE_TARGET.r) return { ok: false, range: true };
+    broadcastHitFx(player.room, 'practice', PRACTICE_TARGET.id, dmg, false, player.id);
+    const prog = getProgress(player);
+    let xp = 0;
+    if (!_isDot && (prog.practiceHits || 0) < PRACTICE_TARGET.lessons) {
+      prog.practiceHits = (prog.practiceHits || 0) + 1;
+      xp = PRACTICE_TARGET.xp;
+      grantXP(player, xp);
+      if (prog.practiceHits === PRACTICE_TARGET.lessons) send(player.ws, { type: 'toast', level: 'important', message: '🌾 You have the swing of it. The scarecrow has no more to teach: the creatures beyond the square pay better.' });
+    }
+    return { ok: true, dead: false, dmg, name: 'the practice scarecrow', xp };
+  }
+
   if (targetType === 'player') {
     const t = players.get(targetId);
     if (!t || t.id === player.id || t.room !== player.room || t.isDead) return { ok: false };
@@ -7812,6 +7829,10 @@ const TOWN_SPAWN = WORLD.spawn;
 const TOWN_SAFE_RADIUS = 400;
 const inTownHavenXY = (x, y) => Math.hypot(x - TOWN_SPAWN.x, y - TOWN_SPAWN.y) < TOWN_SAFE_RADIUS;
 const townSafeZone = (p) => !!(p && p.room === 'outside' && inTownHavenXY(p.x, p.y));
+
+// The practice scarecrow (see applyDamage): inside the spawn haven, a few steps from where a newcomer first stands.
+// client/main.js draws it at the same spot (PRACTICE_SPOT); test/welcome.test.js holds the two together.
+const PRACTICE_TARGET = { id: 'scarecrow', x: 1750, y: 1010, r: 26, lessons: 5, xp: 6 };
 
 const mobs = MOB_SPAWNS.map((p, i) => ({
   id: 'mob_' + i,
@@ -19087,6 +19108,7 @@ global.__testHooks.charmBookRewards = charmBookRewards; // Charm Book rewards
 global.__testHooks.tendHearth = tendHearth; // smooring and kindling the fire
 global.__testHooks.hearthFireBody = hearthFireBody;
 global.__testHooks.lightFromNeedFire = lightFromNeedFire; // the need-fire relights your hearth
+global.__testHooks.PRACTICE_TARGET = PRACTICE_TARGET;
 global.__testHooks.doorKnock = doorKnock; // a dated caller at the door today, said once
 
 // A failed bind (EADDRINUSE from a double-start, EACCES on a privileged port)

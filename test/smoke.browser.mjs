@@ -110,8 +110,11 @@ try {
     check(`[char ${c.charId}] Journal shows Chapter 1 with a Begin button`,
       // every story runs to fifteen chapters now (Episodes III and IV, out in the Ember Wastes)
       journalText.includes('Chapter 1 of 15') && !!(await page.$('#journalBeginBtn')));
+    // Before a chapter is begun, a newcomer's tracker holds the "what next" line instead (client/newcomer.js).
+    check(`[char ${c.charId}] a newcomer is told what to do first`,
+      await page.$eval('#storyTracker', el => el.classList.contains('nextStep') && /scarecrow/.test(el.textContent)));
     await page.evaluate(() => document.getElementById('journalBeginBtn').click());
-    await page.waitForSelector('#storyTracker:not(.hidden)', { timeout: 3000 });
+    await page.waitForSelector('#storyTracker:not(.hidden):not(.nextStep)', { timeout: 3000 });
     check(`[char ${c.charId}] beginning a chapter shows the story tracker`, true);
     const trackerText = await page.$eval('#storyTrackerCount', el => el.textContent);
     check(`[char ${c.charId}] tracker shows the objective with 0 progress`, / 0 \/ \d+/.test(trackerText));

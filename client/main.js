@@ -61,6 +61,7 @@ import createDowseMarks from './dowse-marks.js';
 import createCallersInTown from './callers-in-town.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
+import { newcomerNextStep, doorWarning, gentleDeathLine } from './newcomer.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
 import createMobsWilds from './mobs-wilds.js';
@@ -1673,6 +1674,7 @@ function onWsMessage(ev) {
       last = performance.now();
       requestAnimationFrame(loop);
       gameStarted = true;
+      refreshNewcomer();
       // Time-to-playable: ms from page load to this first render after join
       // (performance.now() is relative to the page's time origin). First join
       // only — reconnects reuse the already-loaded client, so they're not loads.
@@ -1990,7 +1992,7 @@ function onWsMessage(ev) {
   // ── Story campaign messages — see the Journal section below ─────────────
   if (msg.type === 'story_state') {
     storyState = msg.storyline;
-    updateStoryTracker();
+    refreshNewcomer();
     { const wm = document.getElementById('welcomeModal'); if (wm && !wm.classList.contains('hidden')) openWelcomeModal(); } // refresh its Begin button
     if (Modals.isOpen('journalOpen')) renderJournal();
     return;
@@ -2040,6 +2042,7 @@ function onWsMessage(ev) {
     if (me) { me.xp = msg.xp; me.level = msg.level; me.skillPoints = msg.skillPoints; }
     applyMenuGates(msg.level);
     updateXPDisplay();
+    refreshNewcomer();
     updateSkillsBadge();
     if (Modals.isOpen('skillsOpen')) renderSkills();
     return;
@@ -2469,6 +2472,7 @@ function onWsMessage(ev) {
     // those (red, with the shake), and mob hits only arrive that way.
     if (!(msg.targetType === 'player' && msg.targetId === myId)) {
       const s = screenPosForTarget(msg.targetType, msg.targetId);
+      if (msg.casterId === myId) noteFirstStrike();
       if (msg.casterId === myId && msg.targetType !== 'player') spawnMyDmgNum(msg.targetType, msg.targetId, msg.dmg, !!msg.dead);   // mine: on the foe's body, floating away from me
       else if (s && s.visible) spawnDmgNum(s.x, s.y, msg.dmg, msg.dead ? 'kill' : '');
       // Flinch the struck player's body (my own is handled by 'struck'). Skip a
@@ -2524,7 +2528,7 @@ function onWsMessage(ev) {
     updateHealthHud();
     const v = visuals[myId];
     if (v) { v.deathAnimStartAt = performance.now(); }
-    showGhostOverlay(msg.byName);
+    showGhostOverlay(gentleDeathLine((me && me.level) || 1, !msg.mobId && !!Object.values(players).find((p) => p && p.name === msg.byName)));
     setUnlockToast(`💀 Slain by ${msg.byName}. You are a ghost.`);
     return;
   }
@@ -4313,7 +4317,49 @@ const {
 } = createHud({
   getMe: () => me, getGameStarted: () => gameStarted, getRestedUntil: () => restedUntil,
   getMyId: () => myId, getMyParty: () => myParty, getStoryState: () => storyState,
+  getNextStep: () => newcomerStep(),
 });
+// ── A first-time player (client/newcomer.js) ────────────────────────────────
+// Whether this browser has ever landed a blow: the first lesson, and the one the sword button glows for.
+let everStruck = false;
+try { everStruck = !!localStorage.getItem('tc_first_strike'); } catch (e) {}
+function newcomerStep() {
+  if (!me || !gameStarted) return null;
+  const s = storyState, ch = s && s.chapter;
+  return newcomerNextStep({
+    level: me.level || 1, struck: everStruck, touch: MOBILE_UI,
+    story: s ? { active: !!s.active, complete: !!s.complete, waiting: !!(ch && ch.levelOk !== false), title: ch && ch.title } : null,
+  });
+}
+function refreshNewcomer() {
+  updateStoryTracker();
+  const step = newcomerStep(), b = document.getElementById('btnStrike');
+  if (b) b.classList.toggle('coach', !!(step && step.id === 'strike'));
+}
+function noteFirstStrike() {
+  if (everStruck) return;
+  everStruck = true;
+  try { localStorage.setItem('tc_first_strike', '1'); } catch (e) {}
+  refreshNewcomer();
+}
+{
+  const t = document.getElementById('storyTracker');
+  if (t) t.addEventListener('click', () => {
+    if (t.dataset.action !== 'begin' || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'story_begin' }));
+  });
+}
+// A door that leads somewhere deadly for your level stops you once and says so; using it again goes through.
+let doorWarned = { door: null, at: 0 };
+function doorHeldBack(door) {
+  const w = doorWarning(door, (me && me.level) || 1);
+  if (!w) return false;
+  const now = Date.now();
+  if (doorWarned.door === door && now - doorWarned.at < 20000) { doorWarned = { door: null, at: 0 }; return false; }
+  doorWarned = { door, at: now };
+  setUnlockToast(w.text);
+  return true;
+}
 // 📍 Quest waypoint — a pin over the current story objective (or an edge arrow
 // toward it). Resolves the server's objective `goal` against map data the
 // client already holds; see client/waypoint.js.
@@ -4453,7 +4499,9 @@ function makeGhostMesh() {
   return g;
 }
 
-function showGhostOverlay() {
+function showGhostOverlay(gentle) {
+  const note = document.getElementById('ghostNote');
+  if (note) { note.textContent = gentle || ''; note.style.display = gentle ? 'block' : 'none'; }
   const el = document.getElementById('ghostOverlay');
   if (el) el.classList.remove('hidden');
 }
@@ -7462,6 +7510,7 @@ function getRaycastCandidates() {
       const v = decorVisuals[id];
       if (!v.harvested) list.push(v.group);
     }
+    if (practiceScarecrow) list.push(practiceScarecrow);
   } else if (activeScene === wildsScene) {
     for (const id in animalVisuals2) {
       const v = animalVisuals2[id];
@@ -7581,7 +7630,7 @@ function cancelTargeting() {
   if (banner) banner.classList.add('hidden');
 }
 
-const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob', 'world_boss', 'crypt_mob']);
+const ATTACKABLE_KINDS = new Set(['player', 'animal', 'mob', 'animal2', 'mob2', 'mob3', 'dungeon', 'ember_mob', 'world_boss', 'crypt_mob', 'practice']);
 
 function isValidArmedTarget(hit) {
   return !!hit && (hit.kind === 'player' || (armedTarget.canTargetMobs && ATTACKABLE_KINDS.has(hit.kind)));
@@ -7679,6 +7728,7 @@ function mobRenderPos(targetType, targetId) {
     animal2: animalVisuals2, mob2: mobVisuals2, mob3: mobVisuals3,
     dungeon: dungeonMobVisuals, ember_mob: emberMobVisuals, crypt_mob: cryptMobVisuals
   }[targetType];
+  if (targetType === 'practice') return { x: PRACTICE_SPOT.x, z: PRACTICE_SPOT.y };
   if (targetType === 'world_boss') { const p = worldBossVisualPos(); return p ? { x: p.x, z: p.y } : null; }
   const v = visualsMap && visualsMap[targetId];
   return v ? { x: v.x, z: v.y } : null;
@@ -10718,6 +10768,7 @@ function initScene(w) {
   EMBER_PORTAL_KIOSK.x = templeCx; EMBER_PORTAL_KIOSK.z = templeCz;
 
   kkTownDressing(scene, w);
+  buildPracticeScarecrow(scene);
   GFX.initSky(scene);
   // fireflies cluster on the fairy rings, the plaza well and the portal
   GFX.addFireflies(scene, [[2450, 820], [w.spawn.x - 140, w.spawn.y - 120], [1850, 600], [900, 1500], [2200, 1500]], 22);
@@ -14762,7 +14813,38 @@ const { getDayNightState, updateDayNightCycle } = createDayNight({
 // ---------------------------------------------------------------------------
 
 // Briefly flash a struck creature's material red as hit confirmation.
+// The practice scarecrow by the town spawn (server: PRACTICE_TARGET). Somewhere to learn the sword where nothing hits
+// back; a blow rocks it on its pole.
+const PRACTICE_SPOT = { id: 'scarecrow', x: 1750, y: 1010 };
+let practiceScarecrow = null, practiceRockAt = 0;
+function buildPracticeScarecrow(scene) {
+  const g = new THREE.Group();
+  const body = KK.staticInstance ? KK.staticInstance('prop_scarecrow', 58, 'fit') : null;
+  if (body) g.add(body);
+  else { // the model did not load: a pole and a crossbar still say what it is
+    const mat = new THREE.MeshLambertMaterial({ color: 0x8a6a3a });
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 54, 6), mat); pole.position.y = 27; g.add(pole);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 40, 6), mat); bar.rotation.z = Math.PI / 2; bar.position.y = 40; g.add(bar);
+  }
+  // one invisible body to aim at, so a click anywhere on it lands
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(16, 16, 60, 8), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = 30; g.add(hit);
+  const sign = makeSignSprite('Practice scarecrow');
+  if (sign) { sign.position.set(0, 76, 0); g.add(sign); }
+  g.position.set(PRACTICE_SPOT.x, 0, PRACTICE_SPOT.y);
+  g.rotation.y = -0.6;
+  g.userData = { kind: 'practice', targetId: PRACTICE_SPOT.id, name: 'Practice scarecrow' };
+  g.traverse((o) => { if (o !== g && o.isMesh) o.userData = Object.assign({}, o.userData, { kind: 'practice', targetId: PRACTICE_SPOT.id }); });
+  scene.add(g);
+  practiceScarecrow = g;
+}
+function tickPracticeScarecrow(now) {
+  if (!practiceScarecrow) return;
+  const t = (now - practiceRockAt) / 600;
+  practiceScarecrow.rotation.z = t >= 0 && t < 1 ? Math.sin(t * Math.PI * 4) * 0.22 * (1 - t) : 0;
+}
 function flashCreatureHit(kind, targetId) {
+  if (kind === 'practice') { practiceRockAt = performance.now(); return; }
   let v;
   if (kind === 'mob')     v = mobVisuals[targetId];
   else if (kind === 'mob2')    v = mobVisuals2[targetId];
@@ -19772,7 +19854,7 @@ function tryInteract() {
   if (kiosk && kiosk.portal === 'dungeon_exit') { exitDungeon(); return; }
   if (kiosk && kiosk.portal === 'cave_enter') { enterWitchCave(); return; }
   if (kiosk && kiosk.portal === 'cave_exit') { exitWitchCave(); return; }
-  if (kiosk && kiosk.portal === 'crypt_enter') { enterCrypt(); return; }
+  if (kiosk && kiosk.portal === 'crypt_enter') { if (!doorHeldBack('crypt')) enterCrypt(); return; }
   if (kiosk && kiosk.portal === 'crypt_exit') { exitCrypt(); return; }
   if (kiosk && kiosk.portal === 'vh_enter') { ws.send(JSON.stringify({ type: 'vh_enter', id: kiosk.vhId })); return; }
   if (kiosk && kiosk.portal === 'vh_exit') { ws.send(JSON.stringify({ type: 'vh_exit' })); return; }
@@ -19789,7 +19871,7 @@ function tryInteract() {
   }
   if (kiosk && kiosk.portal === 'vault_enter') { enterVault(); return; }
   if (kiosk && kiosk.portal === 'vault_exit') { exitVault(); return; }
-  if (kiosk && kiosk.portal === 'ember_enter') { enterEmberWastes(); return; }
+  if (kiosk && kiosk.portal === 'ember_enter') { if (!doorHeldBack('ember')) enterEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'ember_exit') { exitEmberWastes(); return; }
   if (kiosk && kiosk.portal === 'refuge_enter') { enterRefuge(); return; }
   if (kiosk && kiosk.portal === 'refuge_exit') { exitRefuge(); return; }
@@ -21089,6 +21171,7 @@ function update(dt) {
   updateAmbientChatter(dt);
   updateStatusVisuals(dt);
   updateFireballs();
+  tickPracticeScarecrow(performance.now());
   updateGroundTrapVisuals();
   updateHotbarCooldown();
   updateWerewolfNpc(dt);
