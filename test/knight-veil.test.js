@@ -30,6 +30,7 @@ setTimeout(() => {
     const p = hooks.players.get(s.lastOfType('init').id);
     p.accountKey = tag.toLowerCase(); s._isGuest = false;
     p.x = x; p.y = y;
+    hooks.getProgress(p).level = 20;   // every ability open: this test is about the abilities, not when they unlock (data/abilityUnlocks.js)
     return { s, p };
   }
 

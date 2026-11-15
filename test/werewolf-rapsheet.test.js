@@ -29,6 +29,7 @@ setTimeout(() => {
     s.emit('message', JSON.stringify({ type: 'join', name: tag, charId }));
     const p = hooks.players.get(s.lastOfType('init').id);
     p.accountKey = tag.toLowerCase(); s._isGuest = false;
+    hooks.getProgress(p).level = 20;   // every ability open: this test is about the abilities, not when they unlock (data/abilityUnlocks.js)
     return { s, p };
   }
 

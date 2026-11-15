@@ -6,7 +6,7 @@
 import { Modals } from './modals.js';
 import { glyphHTML, escHtml } from './ui-icons.js';
 
-export default function createSpellbook({ send, cancelTargeting, setDefaultFloatPos, SPELL_CATALOG, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, visuals }) {
+export default function createSpellbook({ send, cancelTargeting, setDefaultFloatPos, SPELL_CATALOG, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, visuals, abilityLockLevel = () => 0, sayLocked = () => {} }) {
 let selectedSpellId = null;
 
 function openSpellbook() {
@@ -37,19 +37,22 @@ function renderSpellList() {
   const list = document.getElementById('spellList');
   if (!list) return;
   list.innerHTML = '';
-  for (const id in SPELL_CATALOG) {
-    const spell = SPELL_CATALOG[id];
+  // The Spellbook is also where you see what is to come: the spells you have first, then the locked ones in the order
+  // they open, each with its level (data/abilityUnlocks.js).
+  const ids = Object.keys(SPELL_CATALOG).map((id, i) => [id, abilityLockLevel(id), i]).sort((a, b) => (a[1] - b[1]) || (a[2] - b[2])).map((x) => x[0]);
+  for (const id of ids) {
+    const spell = SPELL_CATALOG[id], lockLv = abilityLockLevel(id);
     const row = document.createElement('div');
-    row.className = 'spellRow' + (selectedSpellId === id ? ' selected' : '');
+    row.className = 'spellRow' + (selectedSpellId === id ? ' selected' : '') + (lockLv ? ' abilityLocked' : '');
     const name = document.createElement('div');
     name.className = 'spellName';
-    name.innerHTML = glyphHTML(id, 'listGi', spell.icon) + ' ' + escHtml(spell.name);
+    name.innerHTML = glyphHTML(id, 'listGi', spell.icon) + ' ' + escHtml(spell.name) + (lockLv ? ` <span class="abilityLockTag">🔒 Level ${lockLv}</span>` : '');
     const desc = document.createElement('div');
     desc.className = 'spellDesc';
     desc.textContent = spell.description;
     row.appendChild(name);
     row.appendChild(desc);
-    row.addEventListener('click', () => selectSpell(id));
+    row.addEventListener('click', () => { if (lockLv) sayLocked(spell.name, lockLv); else selectSpell(id); });
     list.appendChild(row);
   }
 }

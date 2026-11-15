@@ -4474,6 +4474,12 @@ function grantXP(player, amount) {
     prog.level++;
     prog.skillPoints++;
     leveled = true;
+    // What the new level opens (data/abilityUnlocks.js): said aloud, and the bar is told.
+    try {
+      const _lv = abilityUnlocksFor(player.charId), _cat = abilityCatalogFor(player.charId) || {};
+      for (const _id of abilitiesOpenedBetween(_lv, prog.level - 1, prog.level)) send(player.ws, { type: 'toast', level: 'important', always: true, message: `✨ New ability: ${_cat[_id] ? _cat[_id].name : _id}. It is on your bar.` });
+      sendAbilityUnlocks(player);
+    } catch (e) {}
     send(player.ws, {
       type: 'level_up',
       level: prog.level,
@@ -11563,6 +11569,15 @@ const NECROMANCER_ATTACK_CATALOG = {
   grave_chill:      { name: 'Grave Chill',      kind: 'targeted', effect: 'status', statusType: 'wither', durationMs: 18000 },
 };
 
+// Pickpocket: the Wanderer's Sleight of Hand, as a skill every class can learn. It opens at level 4 whatever else the
+// class has (data/abilityUnlocks.js), and is a little less sure than the Wanderer's own (25% to begin with, not 35%);
+// it grows with practice on the same count. The Witch casts from her Spellbook, so hers is listed there and handed
+// on to the same code (WITCH_ATTACKS).
+const PICKPOCKET_ALL = { name: 'Pickpocket', kind: 'targeted', effect: 'pickpocket', stealChance: 0.25, unlockLevel: 4 };
+for (const _cat of [WEREWOLF_ATTACK_CATALOG, MYSTIC_ATTACK_CATALOG, KNIGHT_ATTACK_CATALOG, NECROMANCER_ATTACK_CATALOG]) _cat.pickpocket = PICKPOCKET_ALL;
+const WITCH_ATTACKS = { pickpocket: PICKPOCKET_ALL };
+SPELL_CATALOG.pickpocket = { name: 'Pickpocket', icon: '🤏', kind: 'targeted', effect: 'pickpocket', unlockLevel: 4, description: "Peek into a target's pockets and try to lift an item." };
+
 const ATTACK_CATALOGS = {
   1: WEREWOLF_ATTACK_CATALOG,
   2: MYSTIC_ATTACK_CATALOG,
@@ -11570,6 +11585,24 @@ const ATTACK_CATALOGS = {
   4: WANDERER_ATTACK_CATALOG,
   5: NECROMANCER_ATTACK_CATALOG
 };
+
+// When each ability unlocks, by class (data/abilityUnlocks.js): three to begin with, the rest as you level.
+const { abilityUnlockLevels, abilitiesOpenedBetween } = require('./data/abilityUnlocks');
+const { defaultAbilityOrder } = require('./data/abilityOrder');
+const _abilityUnlocks = {};
+function abilityCatalogFor(charId) { return charId === 0 ? SPELL_CATALOG : (ATTACK_CATALOGS[charId] || null); }
+function abilityUnlocksFor(charId) {
+  if (!_abilityUnlocks[charId]) { const cat = abilityCatalogFor(charId); _abilityUnlocks[charId] = cat ? abilityUnlockLevels(defaultAbilityOrder(cat), cat) : {}; }
+  return _abilityUnlocks[charId];
+}
+// null if she may use it; otherwise the level it opens at.
+function abilityLockedUntil(player, abilityId) {
+  const need = abilityUnlocksFor(player.charId)[abilityId] || 1;
+  return (getProgress(player).level || 1) >= need ? null : need;
+}
+function sendAbilityUnlocks(player) {
+  try { send(player.ws, { type: 'ability_unlocks', level: getProgress(player).level || 1, levels: abilityUnlocksFor(player.charId) }); } catch (e) {}
+}
 
 const ATTACK_COOLDOWN_MS = 8000;
 const AOE_RADIUS = 200; // world units — roughly 3-4 character-widths
@@ -14145,6 +14178,7 @@ wss.on('connection', (ws, req) => {
       send(ws, storyStatePayload(player));
       return;
     }
+    if (msg.type === 'ability_unlocks') { sendAbilityUnlocks(player); return; }   // which abilities she has yet, and when the rest come
 
     // Funnel: what a first-time player does with the welcome card — begin the
     // story, explore freely, or dismiss it. Sent once by the client (first
@@ -14230,6 +14264,9 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'spell_error', message: 'Unknown spell.' });
         return;
       }
+      { const need = abilityLockedUntil(player, spellId); if (need) { send(ws, { type: 'spell_error', message: `🔒 ${spell.name} opens at Level ${need}.` }); return; } }
+      // Pickpocket is not a spell: it is handed on to the code every class's pickpocket runs.
+      if (spell.effect === 'pickpocket') { ws.emit('message', JSON.stringify({ ...msg, type: 'cast_attack', attackId: 'pickpocket' })); return; }
       const now = Date.now();
       // Each spell has its own independent cooldown (a map keyed by spellId)
       // rather than one shared timer across all 12 — casting Fireball no
@@ -14865,7 +14902,7 @@ wss.on('connection', (ws, req) => {
     }
 
     if (msg.type === 'cast_attack') {
-      const catalog = ATTACK_CATALOGS[player.charId];
+      const catalog = ATTACK_CATALOGS[player.charId] || (player.charId === 0 ? WITCH_ATTACKS : null);
       if (!catalog) {
         send(ws, { type: 'attack_error', message: 'This character has no attacks.' });
         return;
@@ -14876,6 +14913,7 @@ wss.on('connection', (ws, req) => {
         send(ws, { type: 'attack_error', message: 'Unknown attack.' });
         return;
       }
+      { const need = abilityLockedUntil(player, attackId); if (need) { send(ws, { type: 'attack_error', message: `🔒 ${attack.name} opens at Level ${need}.` }); return; } }
       const now = Date.now();
       // Deep Meditation is a defensive trance — immune, but you can't strike
       // while it holds (the trade that keeps 60s of immunity fair).
