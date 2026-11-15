@@ -2583,9 +2583,10 @@ function onWsMessage(ev) {
   }
 
   if (msg.type === 'dungeon_exited') {
-    if (me) { me.x = msg.x; me.y = msg.y; me.room = msg.room; }
+    const outRoom = msg.room === 'wilds' ? 'wilds' : 'outside';   // the scene shown below is one of these two; the room must match it
+    if (me) { me.x = msg.x; me.y = msg.y; me.room = outRoom; }
     mode = 'outdoor';
-    if (msg.room === 'wilds') {
+    if (outRoom === 'wilds') {
       swapToWildsMap();
     } else {
       swapToTownMap();
@@ -7471,6 +7472,13 @@ function getRaycastCandidates() {
     for (const id in emberMobVisuals) {
       const v = emberMobVisuals[id];
       if (v.group.visible) list.push(v.group);
+    }
+  } else if (cryptScene && activeScene === cryptScene) {
+    // The crypt's guardian. It was never listed here, so the sword found "no enemies nearby" with the Warden on top
+    // of you, and a click went through it: it could hit you and you could not hit it (reported from a phone).
+    for (const id in cryptMobVisuals) {
+      const v = cryptMobVisuals[id];
+      if (v.mesh.visible) list.push(v.mesh);
     }
   }
   // Loot icons live in whichever scene their corpse belongs to (see

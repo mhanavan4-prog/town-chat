@@ -33,3 +33,23 @@ test('the client says where it is the moment it is back', () => {
   const h = client.slice(client.indexOf("if (msg.type === 'you_respawned') {"), client.indexOf("if (msg.type === 'dungeon_entered') {"));
   assert.match(h, /ws\.send\(JSON\.stringify\(\{ type: 'move', x: msg\.x, y: msg\.y, room: msg\.room \}\)\)/);
 });
+
+test('a dungeon lets out into the Wilds or the town, never back into the Wastes', () => {
+  assert.match(server, /function dungeonHome\(p\) \{\s*if \(p\.room === 'ember_wastes'\) \{ p\.emberReturnX = null; p\.emberReturnY = null; emberStorm\.leave\(p\); \}\s*return p\.room === 'wilds' \? 'wilds' : 'outside';/);
+  assert.match(server, /player\.dungeonReturnRoom = dungeonHome\(player\);/);
+  assert.match(server, /member\.dungeonReturnRoom = dungeonHome\(member\);/);
+  assert.ok(!/dungeonReturnRoom = (player|member)\.room/.test(server));
+  assert.strictEqual((server.match(/const returnRoom = player\.dungeonReturnRoom === 'wilds' \? 'wilds' : 'outside';/g) || []).length, 2);
+  const h = client.slice(client.indexOf("if (msg.type === 'dungeon_exited') {"), client.indexOf("if (msg.type === 'bank_state') {"));
+  assert.match(h, /const outRoom = msg\.room === 'wilds' \? 'wilds' : 'outside';/);
+  assert.match(h, /me\.room = outRoom;/);
+});
+
+test('every scene that has a foe offers it to the sword: the crypt and its Warden included', () => {
+  const fn = client.slice(client.indexOf('function getRaycastCandidates() {'), client.indexOf('function raycastHitAt('));
+  for (const [scene, pool] of [['outdoorScene', 'mobVisuals'], ['wildsScene', 'mobVisuals2'], ['dungeonScene', 'dungeonMobVisuals'], ['emberScene', 'emberMobVisuals'], ['cryptScene', 'cryptMobVisuals']]) {
+    assert.ok(fn.includes('activeScene === ' + scene), scene);
+    assert.ok(fn.includes('in ' + pool + ')'), pool);
+  }
+  assert.match(client, /ATTACKABLE_KINDS = new Set\(\[[^\]]*'crypt_mob'/);
+});
