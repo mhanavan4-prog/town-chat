@@ -27,6 +27,8 @@ export function createPerch({ jumpHeight, jumpDuration }) {
   return {
     // Where my feet are, above the ground.
     feet(jumping, t, mult) { return jumping ? base + arc(t, mult) : h; },
+    // What I am standing on (not counting a jump's rise): the camera follows this, not every hop.
+    standing(jumping) { return jumping ? base : h; },
     takeoff() { base = h; },
     reset() { h = 0; base = 0; },
     // Once a frame, after moving. `target` is the top under me (0 for the ground). Returns true when a jump should

@@ -320,6 +320,7 @@ setTimeout(async () => {
   hooks.storyEvent(newbie.player, 'talk_npc', { npcId: 'npc_mara' });
   hooks.storyEvent(newbie.player, 'harvest_plant', { itemId: 'berries' });
   hooks.noteFirstStep(newbie.player, 'ability'); // the fourth deed (first cast)
+  hooks.noteFirstStep(newbie.player, 'struck'); hooks.noteFirstStep(newbie.player, 'story'); // the scarecrow, and the story begun
   const fsBefore = hooks.ensureBankAccount('newbie1').balance;
   hooks.storyEvent(newbie.player, 'kill_mob', { pool: 'mob', mobType: 'x' });
   const fsMsg = newbie.sock.allOfType('first_steps').pop();

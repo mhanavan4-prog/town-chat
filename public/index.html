@@ -2062,6 +2062,10 @@
   }
   .awBtn .uiIcon { width:62%; height:62%; display:block; }
   .awBtn.onCd { opacity:0.42; }
+  /* An ability still to come: there to be looked forward to, with the level it opens at. */
+  .awBtn.awLocked { border-color:rgba(255,217,138,0.45); background:rgba(20,16,30,0.9); }
+  .awBtn.awLocked .uiIcon { opacity:0.35; }
+  .awBtn .awLv { position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); font-size:10px; font-weight:800; color:#ffd98a; background:rgba(12,9,20,0.95); border:1px solid rgba(255,217,138,0.45); border-radius:8px; padding:0 5px; white-space:nowrap; }
   .awBtn.awOffense { border-color:rgba(255,120,110,0.75); }
   .awBtn.awSupport { border-color:rgba(120,232,200,0.75); }
   .awBtn.awUtility { border-color:rgba(185,140,255,0.65); }
@@ -3302,7 +3306,7 @@
     <div id="welcomeSteps">
       <div class="welcomeStep"><span class="welcomeNum">1</span><div><div class="ctlDesktop"><b>Follow the gold pin.</b> Your Chapter 1 objective is marked on screen and on the map (<b>M</b>). The <b>Journal</b> (<b>J</b>) holds your whole story.</div><div class="ctlMobile hidden"><b>Follow the gold pin.</b> Your Chapter 1 objective is marked on screen, and on the map in the <b>☰</b> menu — where the <b>Journal</b> keeps your whole story too.</div></div></div>
       <div class="welcomeStep"><span class="welcomeNum">2</span><div id="welcomeCtlDesktop" class="ctlDesktop"><b>W/S</b> walk · <b>A/D</b> <span class="ctlAD">turn</span> · <b>Q/E</b> <span class="ctlQE">strafe</span> · <b>drag</b> <span class="ctlDrag">to look</span> · <b>F</b> talk / enter · <b>1–9</b> abilities</div><div id="welcomeCtlMobile" class="ctlMobile hidden"><b>Joystick</b> to move · <b>drag</b> to look · tap the <b>glowing prompt</b> to talk or enter · the <b>action wheel</b> casts</div></div>
-      <div class="welcomeStep"><span class="welcomeNum">3</span><div><b>First Steps</b> (bottom corner) — say hello, use an ability, fell a night creature, harvest something. All four earn <b>50 gold</b>.</div></div>
+      <div class="welcomeStep"><span class="welcomeNum">3</span><div><b>First Steps</b> — strike the practice scarecrow, say hello, use an ability, begin your story, fell a night creature, harvest something. All six earn <b>50 gold</b>.</div></div>
     </div>
     <button class="btn" id="welcomeStartBtn" style="margin-top:10px;">Begin Chapter 1 →</button>
     <button class="btn" id="welcomeExploreBtn" style="margin-top:6px; background:#2a2446; color:#c6bce0;">Just explore for now</button>

@@ -52,6 +52,13 @@ test('a jump onto a crate, a walk along it, and a fall off the edge', async () =
   assert.ok(c2.collides(290, 10, P.feet(true, 0.225)), 'the top of a jump is still under it');
 });
 
+test('the camera follows what is stood on, not the hop', async () => {
+  const { createPerch } = await import('../client/perch.js');
+  const P = createPerch({ jumpHeight: 34, jumpDuration: 0.45 });
+  P.step(1 / 60, false, 0, 19); assert.strictEqual(P.standing(false), 19);
+  P.takeoff(); assert.strictEqual(P.standing(true), 19, 'mid-jump it is still the crate'); assert.ok(P.feet(true, 0.2) > 40);
+});
+
 test('it is wired: movement asks where my feet are, everyone is drawn by the same rule, and things have tops', () => {
   const m = read('client/main.js');
   assert.match(m, /const stuck = collides\(me\.x, me\.y, ft\);/);
@@ -60,5 +67,8 @@ test('it is wired: movement asks where my feet are, everyone is drawn by the sam
   assert.match(m, /const top = c\.top != null \? c\.top : standTop\(group\);/, 'crates, barrels, benches');
   assert.match(m, /wildsCollide\(x, z, 6, standTop\(gs\)\)/, 'gravestones in the Wilds');
   assert.match(read('client/player-visuals.js'), /const jumpYOffset = id === getMyId\(\) \? getMyFeet\(\) : getPerchAt\(p\.x, p\.y\);/);
+  assert.match(m, /const wall = \{ x: rx, y: rz, w: rw, h: rh \}, top = perchTop\(fb\.max\.y\);/, 'cottage furniture');
+  assert.match(m, /_camPerch \+= \(myPerch\.standing\(jumpActive\) - _camPerch\) \* 0\.12;/, 'the camera rises with what she stands on');
+  assert.match(m, /walls\.push\(\{ x: PRACTICE_SPOT\.x - 7, y: PRACTICE_SPOT\.y - 7, w: 14, h: 14 \}\);/, 'the scarecrow is solid');
   assert.match(read('client/town-scene.js'), /addSolid\(kkPlace\(scene, key, sx, sy, size, rot\), sx, sy, 7\);/, 'the town graveyard');
 });
