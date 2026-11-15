@@ -3887,7 +3887,7 @@ const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
-const SFX_STAND_IN = { passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
+const SFX_STAND_IN = { wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
 function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
@@ -20577,6 +20577,13 @@ function baseMoveSpeed() {
   return mode === 'indoor' ? SPEED / INDOOR_SCALE : SPEED;
 }
 const TURN_SPEED = 3.0;  // radians/sec
+// In the Wilds' water (client/wilds-water.js) with it over your feet: the step is a splash ('wade'; the ordinary
+// footstep until that is recorded).
+function wadingNow() {
+  if (activeScene !== wildsScene || !me || !world2) return false;
+  const s = wildsWaters(wildsRawHeightAt).surfaceAt(me.x, me.y);
+  return s !== null && s - wildsHeightAt(me.x, me.y) > 1;
+}
 const FOOT_STRIDE = 110; // world units walked per footstep sound — cadence scales with speed
 let _footAccum = 0;      // distance banked toward the next step (primed when standing still)
 
@@ -20885,7 +20892,7 @@ function update(dt) {
     const stepped = Math.hypot(stepX, stepY);
     if (stepped > 0.0001) {
       _footAccum += stepped;
-      if (_footAccum >= FOOT_STRIDE) { _footAccum -= FOOT_STRIDE; if (typeof playSfx === 'function') playSfx('footstep'); }
+      if (_footAccum >= FOOT_STRIDE) { _footAccum -= FOOT_STRIDE; if (typeof playSfx === 'function') playSfx(wadingNow() ? sfxOrStandIn('wade') : 'footstep'); }
     } else {
       _footAccum = FOOT_STRIDE;
     }
@@ -21360,6 +21367,7 @@ if (location.search.includes('testdrive=1')) {
     },
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
+    wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },
     // Turn the camera round you (radians from its usual place behind you), to look at what stands at your back.
