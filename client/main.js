@@ -10885,10 +10885,20 @@ let wildsFindsState = null; // the day's balefires and searched cairns, as the s
 function showWildsFindsHud(msg) {
   const el = document.getElementById('dungeonFindsHud');
   if (!el || !(me && me.room === 'wilds')) return;
+  // Once the day's fires are all lit there is nothing left to count: the pill says so for a few seconds as the last
+  // one catches, and then takes itself off. Someone who comes back with them already lit is not shown it at all.
+  const justDone = msg.complete && _balefiresWereDone === false;
+  _balefiresWereDone = !!msg.complete;
+  clearTimeout(_balefiresDoneT);
+  if (msg.complete && !justDone) { if (el.dataset.of === 'wilds') hideFindsHud(el); return; }
   el.innerHTML = `<span class="${msg.complete ? 'dfDone' : ''}">🔥 Balefires ${msg.complete ? '✓' : `${(msg.lit || []).length}/${msg.total}`}</span>`;
   el.dataset.of = 'wilds';
   el.classList.remove('hidden'); document.body.classList.add('findsHudUp');
+  if (justDone) _balefiresDoneT = setTimeout(() => { if (el.dataset.of === 'wilds') hideFindsHud(el); }, BALEFIRES_DONE_MS);
 }
+const BALEFIRES_DONE_MS = 8000;
+let _balefiresWereDone = null, _balefiresDoneT = 0; // null: not yet heard from the server this visit
+function hideFindsHud(el) { el.classList.add('hidden'); document.body.classList.remove('findsHudUp'); }
 setInterval(() => {
   const el = document.getElementById('dungeonFindsHud');
   const room = me ? String(me.room || '') : '';
@@ -11323,6 +11333,7 @@ const _emberStorm = createEmberStorm({ getScene: () => emberScene, getCamera: ()
   say: (m) => setUnlockToast(m, { level: 'important', always: true }),
   isNight: () => { try { return !!getDayNightState().isNight; } catch (e) { return false; } } });
 function updateEmberAmbient(dt) {
+  if (emberScene && activeScene === emberScene && emberScene.userData.minsterTick) emberScene.userData.minsterTick(performance.now() / 1000);   // the minster's lights (client/minster-light.js)
   if (!emberAmbient || activeScene !== emberScene) return;
   const cam = emberCamera;
   const cx = cam ? cam.position.x : EMBER_WORLD.spawn.x;
@@ -21190,6 +21201,7 @@ function update(dt) {
   updateCryptMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updateEmberAmbient(dt);
+  if (activeScene && activeScene.userData && activeScene.userData.gateTick) activeScene.userData.gateTick(performance.now() / 1000);   // the March gate's veil (client/gate-veil.js)
   _emberStorm.update(dt);
   if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
   updateWorldBossVisuals(dt);

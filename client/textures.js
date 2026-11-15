@@ -72,18 +72,27 @@ export function makeGroundVariation() {
 }
 
 let _glowTexCache = null;
+// Built from numbers, not painted on a canvas: Safari put green speckles in the middle of the canvas version (its
+// gradient, read back through premultiplied alpha), and every ember, lamp-glow and gate-glow in the game wore them.
+// The same falloff as before: white at the heart, warm at four-tenths out, nothing at the rim.
+export function glowPixels(N = 64) {
+  const px = new Uint8Array(N * N * 4), mid = (N - 1) / 2, r0 = N / 32, r1 = N * 15 / 32;
+  const stops = [[0, 255, 255, 255, 1], [0.4, 255, 220, 150, 0.5], [1, 255, 200, 120, 0]];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const t = Math.max(0, Math.min(1, (Math.hypot(x - mid, y - mid) - r0) / (r1 - r0)));
+    const k = t <= stops[1][0] ? 0 : 1, a = stops[k], b = stops[k + 1], f = (t - a[0]) / (b[0] - a[0]), i = (y * N + x) * 4;
+    for (let c = 0; c < 3; c++) px[i + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * f);
+    px[i + 3] = Math.round((a[4] + (b[4] - a[4]) * f) * 255);
+  }
+  return px;
+}
 export function makeGlowTexture() {
   if (_glowTexCache) return _glowTexCache;
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 64;
-  const ctx = c.getContext('2d');
-  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.4, 'rgba(255,220,150,0.5)');
-  grad.addColorStop(1, 'rgba(255,200,120,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 64, 64);
-  _glowTexCache = new THREE.CanvasTexture(c);
+  const N = 64;
+  _glowTexCache = new THREE.DataTexture(glowPixels(N), N, N, THREE.RGBAFormat);
+  _glowTexCache.magFilter = _glowTexCache.minFilter = THREE.LinearFilter;
+  _glowTexCache.generateMipmaps = false;
+  _glowTexCache.needsUpdate = true;
   return _glowTexCache;
 }
 

@@ -2203,6 +2203,8 @@ MIN_DARK = ('#0a0808', '#161210')     # an opening with nothing behind it
 MIN_SLATE = ('#17161a', '#3c3a44')
 MIN_CHAR = ('#0c0907', '#2c1d14')     # burnt timber
 MIN_GLASS = ('#7a1420', '#ffc860')    # the glass that is left
+MIN_CANDLE = ('#7a3a0c', '#f0a040')   # a window with candle-light behind it: amber glass, lit by the glow the game hangs in it (client/minster-light.js)
+MIN_FLAME = ('#e0781e', '#ffe2a0')    # a flame itself
 
 
 def _strip_wall(xs, hs, thick, colors=MIN_STONE, zmax=None):
@@ -2274,6 +2276,8 @@ def minster():
     m = Model('minster')
     m.bevel = 0.035; m.bevel_segments = 1                       # the KayKit idiom: stout blocks, stepped where they are broken, chamfered on export
     ST = ('#4f5b62', '#b2bfc3')           # KayKit stone, sooted at the foot and paler where the rain still reaches
+    ST_DK = ('#333c42', '#59656b')        # the plinth course
+    ST_LT = ('#6f7c83', '#c4d0d3')        # dressed stone: strings, sills, cornices
     SL = ('#2f3742', '#566373')
     r = np.random.default_rng(1917)
     TOP = 7.6
@@ -2289,7 +2293,11 @@ def minster():
         m.add(p.xf(None, (0, N, 0)))
     # windows: five lancets a side, dark; buttresses between
     for i, x in enumerate([-2.4, -1.3, -0.2, 0.9]):
-        m.add(trim(_lancet(0.42, 1.7)).xf(None, (x, S - 0.1, 0.75)))
+        # candle-light behind what glass is left: the whole side of the nave is lit from within, low and amber
+        m.add(_lancet(0.42, 1.7, MIN_CANDLE).xf(None, (x, S - 0.1, 0.75)))
+        m.add(box(0.045, 0.07, 1.25, ST, (x, S - 0.13, 0.75)))                       # its mullion
+        m.add(box(0.5, 0.07, 0.045, ST, (x, S - 0.13, 1.55)))                        # and transom
+        m.add(box(0.6, 0.16, 0.07, ST, (x, S - 0.14, 0.68)))                         # the sill
         if x < -0.3:
             m.add(trim(_lancet(0.42, 1.7)).xf(rz(math.pi), (x, N + 0.1, 0.75)))
     for x in [-2.95, -1.85, -0.75, 0.35, 1.45]:
@@ -2298,6 +2306,12 @@ def minster():
                 continue                   # shot away with the wall
             m.add(box(0.26, 0.5, 2.1, ST, (x, y + sgn * 0.32, 0)))
             m.add(box(0.26, 0.3, 0.5, ST, (x, y + sgn * 0.22, 2.1)))
+    # masonry: a dark plinth at the foot, a string course under the windows and a cornice under the eave, each
+    # standing a little proud, so the walls read as built in courses and not as slabs
+    for (cx, L, y) in ((0.0, 6.0, S), (-1.6, 2.8, N)):
+        m.add(box(L, 0.38, 0.3, ST_DK, (cx, y, 0)))
+        m.add(box(L, 0.32, 0.07, ST_LT, (cx, y, 0.62)))
+        m.add(box(L, 0.36, 0.11, ST_LT, (cx, y, WH - 0.11)))
     # the floor inside, so the breach looks into something
     m.add(box(9.6, 2.8, 0.06, ('#141110', '#221c18'), (0.8, 0, 0)))
     # roof: slates over the western bays; east of that, bare burnt rafters, some down
@@ -2332,15 +2346,34 @@ def minster():
     for y in (-0.21, 0.21):
         m.add(box(0.06, 0.05, 1.3, ST, (4.86, y, 0.7)))
     for x in (3.4, 4.2):
-        m.add(trim(_lancet(0.3, 1.2)).xf(None, (x, -CW / 2 - 0.1, 0.6)))
-        m.add(trim(_lancet(0.3, 1.2)).xf(rz(math.pi), (x, CW / 2 + 0.1, 0.6)))
+        m.add(_lancet(0.3, 1.2, MIN_CANDLE).xf(None, (x, -CW / 2 - 0.1, 0.6)))
+        m.add(_lancet(0.3, 1.2, MIN_CANDLE).xf(rz(math.pi), (x, CW / 2 + 0.1, 0.6)))
+    for y in (-CW / 2, CW / 2):                                                      # the chancel's plinth and cornice
+        m.add(box(1.7, 0.36, 0.28, ST_DK, (3.85, y, 0)))
+        m.add(box(1.7, 0.34, 0.1, ST_LT, (3.85, y, CH - 0.1)))
+    # an altar at the nave's east end, against the crossing wall and under the open sky, with two candles alight on
+    # it: somebody still keeps this place (the chancel behind the wall is shut)
+    m.add(box(0.42, 1.1, 0.4, ST_LT, (2.62, 0, 0)))
+    m.add(box(0.5, 1.2, 0.05, ST, (2.62, 0, 0.4)))
+    for y in (-0.36, 0.36):
+        m.add(box(0.05, 0.05, 0.2, ('#b8b0a0', '#efe8d8'), (2.62, y, 0.45)))
+        m.add(glowing(box(0.04, 0.04, 0.07, MIN_FLAME, (2.62, y, 0.65))))
+    # candle-stands down the nave, two and two, an iron stem and a flame
+    for x in (-2.3, -1.2, -0.1, 1.0, 2.1):
+        for y in (-1.12, 1.12):
+            if y > 0 and 0.2 < x < 2.0:
+                continue                   # none where the wall is down
+            m.add(tube([(x, y, 0), (x, y, 0.72)], 0.022, sides=5, colors=IRON))
+            m.add(box(0.13, 0.13, 0.03, IRON, (x, y, 0.72)))
+            m.add(box(0.045, 0.045, 0.12, ('#b8b0a0', '#efe8d8'), (x, y, 0.75)))
+            m.add(glowing(box(0.04, 0.04, 0.07, MIN_FLAME, (x, y, 0.87))))
     # ── transepts: south whole, north down
     TW, TL, TH, TR = 1.4, 1.2, 2.4, 3.5
     for x in (1.9, 1.9 + TW):
         m.add(box(0.22, TL, TH, ST, (x, S - TL / 2, 0)))
     g = _gable(TW + 0.22, TH, TR, 0.24, ST, zmax=TOP).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL, 0)); m.add(g)
     m.add(_roof(TL + 0.3, TW + 0.22, TH, TR, SL).xf(rz(math.pi / 2), (1.9 + TW / 2, S - TL / 2 + 0.1, 0)))
-    m.add(trim(_lancet(0.36, 1.5)).xf(None, (1.9 + TW / 2, S - TL - 0.14, 0.7)))
+    m.add(_lancet(0.36, 1.5, MIN_CANDLE).xf(None, (1.9 + TW / 2, S - TL - 0.14, 0.7)))
     for (x, hs) in ((1.9, [2.2, 1.5, 0.8, 0.5]), (1.9 + TW, [2.0, 1.6, 1.1, 0.35])):
         for p in _kk_strip([0, 0.4, 0.8, TL], hs, 0.22, ST, zmax=TOP):
             m.add(p.xf(rz(math.pi / 2), (x, N, 0)))
@@ -2360,6 +2393,10 @@ def minster():
         m.add(box(TWd + 0.5, TWd + 0.5, 0.12, ST, (tx, 0, z)))
     for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):                            # corner buttresses
         m.add(box(0.5, 0.5, 4.5, ST, (tx + dx * (TWd / 2 + 0.05), dy * (TWd / 2 + 0.05), 0)))
+    # a lantern kept alight in the belfry: the one light to be seen from out on the field
+    m.add(tube([(tx, 0, 5.0), (tx, 0, 5.2)], 0.03, sides=5, colors=IRON))
+    m.add(glowing(box(0.34, 0.34, 0.42, MIN_FLAME, (tx, 0, 5.2))))
+    m.add(box(0.44, 0.44, 0.05, IRON, (tx, 0, 5.62)))
     # belfry lights, two a face on the south and west, where the wall still reaches
     for dx in (-0.45, 0.45):
         m.add(trim(_lancet(0.34, 1.2)).xf(None, (tx + dx, -TWd / 2 - 0.17, 4.8)))
@@ -2395,6 +2432,12 @@ def minster():
     m.add(glowing(box(0.16, 0.06, 0.3, ('#c8641e', '#ffd27a'), (0.9, S + 0.13, 0.62))))            # the squint, from inside the nave
     m.add(box(0.3, 0.05, 0.05, ST, (0.9, S + 0.15, 0.55)))                                     # its sill
     m.add(glowing(box(0.1, 0.05, 0.22, ('#c8641e', '#ffd27a'), (0.9, S - 0.99, 0.7))))             # and the slit to the world outside
+    # a lamp on an iron bracket either side of the west door
+    for y in (-0.78, 0.78):
+        lx = tx - TWd / 2 - 0.42
+        m.add(tube([(tx - TWd / 2 - 0.15, y, 1.55), (lx, y, 1.55), (lx, y, 1.42)], 0.02, sides=5, colors=IRON))
+        m.add(glowing(box(0.1, 0.1, 0.15, MIN_FLAME, (lx, y, 1.27))))
+        m.add(box(0.14, 0.14, 0.03, IRON, (lx, y, 1.42)))
     # ── the sanctuary knocker on the west door
     kx = tx - TWd / 2 - 0.3
     m.add(tube([(kx, 0.25 + 0.11 * math.cos(a), 0.85 + 0.11 * math.sin(a)) for a in np.linspace(0, TAU, 11)], 0.02, sides=5, colors=('#3a2a14', '#b08a3c')))

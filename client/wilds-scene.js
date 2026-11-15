@@ -12,6 +12,7 @@ import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
 import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
+import { hangGateVeil } from './gate-veil.js';
 import { wildsWaters, refineGround, buildWildsWater } from './wilds-water.js';
 import { buildWildsRim } from './wilds-rim.js';
 
@@ -556,6 +557,8 @@ function buildWildsScene(w2) {
       const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0xff5a20, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
       glow.scale.set(420, 260, 1); glow.position.set(G.x + 120, H(G.x, G.y) + 90, G.y); scene.add(glow);
     }
+    // …and the way through itself: a veil of ember-light between the posts, sparks in it, firelight on the road (client/gate-veil.js)
+    scene.userData.gateTick = hangGateVeil(THREE, scene, { x: G.x, y: H(G.x, G.y), z: G.y }, { tone: 'ember', quality: GFX && GFX.st ? GFX.st.quality : 'high', glowTex: typeof makeGlowTexture === 'function' ? makeGlowTexture() : null });
     const gl = makeSignSprite('🚧 The March gate: the Ember Wastes');
     gl.position.set(G.x, H(G.x, G.y) + 290, G.y); scene.add(gl);
     WILDS_KIOSKS.push({ x: G.x - 40, z: G.y, npc: 'march', hint: 'go through the March gate into the Ember Wastes (open while the temple torches burn)', radius: 140 });
