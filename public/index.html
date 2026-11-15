@@ -1821,6 +1821,15 @@
     pointer-events:none; will-change:transform,opacity;
     animation:dmgRise 0.85s ease-out forwards;
   }
+  /* My own blow on a foe: starts on its body and floats away from me, so what I did is easy to see. */
+  .dmgNum.mine { font-size:22px; color:#fff6dc; text-shadow:0 0 3px #7a4a10, 0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9); animation:dmgAway 1.05s ease-out forwards; }
+  .dmgNum.mine.kill { color:#ffd24a; font-size:28px; }
+  @keyframes dmgAway {
+    0% { opacity:0; transform:translate(-50%,-50%) scale(0.6); }
+    12% { opacity:1; transform:translate(calc(-50% + var(--dx,0px) * 0.25), calc(-50% + var(--dy,-40px) * 0.25)) scale(1.25); }
+    70% { opacity:1; }
+    100% { opacity:0; transform:translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,-40px))) scale(0.9); }
+  }
   .dmgNum.kill { color:#ffd24a; font-size:26px; }
   .dmgNum.selfHit { color:#ff5a4a; font-size:24px; }
   @keyframes dmgRise {
