@@ -5,18 +5,32 @@
 // wall-GEOMETRY builders (buildWalls/getDoorSide/getDoorWorldPos) stay in main
 // for now since interior code shares them.
 // ---------------------------------------------------------------------------
+import { PERCH_STEP } from './perch.js';
+
 export default function createCollision({ getWorld, getWalls, getDungeonLore, getDelveState }) {
 function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
 const PLAYER_R = 14;
-function collides(x, y) {
-  const hw = PLAYER_R, hh = PLAYER_R;
+// feet: how high the body's feet are above the ground. A collider with a `top` no higher than that is not in the way
+// (client/perch.js): it is something to stand on.
+function collides(x, y, feet) {
+  const hw = PLAYER_R, hh = PLAYER_R, f = feet || 0;
   for (const wall of getWalls()) {
+    if (wall.top && f >= wall.top - PERCH_STEP) continue;
     if (rectOverlap(x - hw, y - hh, hw * 2, hh * 2, wall.x, wall.y, wall.w, wall.h)) return true;
   }
   return false;
+}
+// The top of whatever a body at (x, y) is standing over: the highest topped collider it overlaps, or 0.
+function perchAt(x, y) {
+  const hw = PLAYER_R;
+  let top = 0;
+  for (const wall of getWalls()) {
+    if (wall.top && wall.top > top && rectOverlap(x - hw, y - hw, hw * 2, hw * 2, wall.x, wall.y, wall.w, wall.h)) top = wall.top;
+  }
+  return top;
 }
 
 function collidesIndoor(x, y, wallsLocal) {
@@ -33,13 +47,14 @@ function collidesIndoor(x, y, wallsLocal) {
 // clipped in on an older client before a collider shipped) is pushed out along
 // the minimal-penetration axis rather than trapped. A few passes settle corners
 // where two rects overlap. `wallsList` defaults to the active outdoor walls.
-function resolveStuck(x, y, wallsList) {
+function resolveStuck(x, y, wallsList, feet) {
   const list = wallsList || getWalls();
-  const hw = PLAYER_R;
+  const hw = PLAYER_R, f = feet || 0;
   let moved = false;
   for (let iter = 0; iter < 4; iter++) {
     let any = false;
     for (const wall of list) {
+      if (wall.top && f >= wall.top - PERCH_STEP) continue; // stood on, not stuck in
       const px0 = x - hw, px1 = x + hw, py0 = y - hw, py1 = y + hw;
       const wx0 = wall.x, wx1 = wall.x + wall.w, wy0 = wall.y, wy1 = wall.y + wall.h;
       if (px0 < wx1 && px1 > wx0 && py0 < wy1 && py1 > wy0) {
@@ -104,5 +119,5 @@ function roomLabel(roomId) {
   return b ? b.name : roomId;
 }
 
-  return { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel };
+  return { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel, perchAt };
 }
