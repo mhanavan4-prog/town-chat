@@ -21404,6 +21404,7 @@ if (location.search.includes('testdrive=1')) {
     },
     foes() { const myRp = getRenderPos(me), out = []; for (const o of getRaycastCandidates()) { if (!ATTACKABLE_KINDS.has(o.userData.kind)) continue; const p = new THREE.Vector3(); o.getWorldPosition(p); out.push([o.userData.kind, Math.round(p.x), Math.round(p.z), Math.round(Math.hypot(p.x - myRp.x, p.z - myRp.z))]); } return out.sort((a, b) => a[3] - b[3]).slice(0, 5); },
     airSwings() { return _airSwings; },
+    bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
     teleport(x, y) { if (me) { me.x = x; me.y = y; } },

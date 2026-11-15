@@ -3835,6 +3835,12 @@ function endDuelPair(a, b) {
 // Where a dungeon lets you out again: the Wilds if you went down from them, the town from anywhere else. It used to
 // remember whatever room you were in, so going down from the Ember Wastes brought you "back" to the Wastes at the
 // town's coordinates, with the town on your screen and no body (reported). Going down from the Wastes leaves them.
+// Places you only ever enter and leave through their own handlers (a portal, a door, a token, a death): the dungeon
+// tiers and delve instances, the Ember Wastes, the crypt, the Wildlands Village's rooms. A move message never carries
+// you into or out of one, however late it straggles in.
+function handlerOnlyRoom(room) {
+  return typeof room === 'string' && (room.startsWith('dungeon_') || room === 'ember_wastes' || room === 'crypt' || room.startsWith('vh_'));
+}
 function dungeonHome(p) {
   if (p.room === 'ember_wastes') { p.emberReturnX = null; p.emberReturnY = null; emberStorm.leave(p); }
   return p.room === 'wilds' ? 'wilds' : 'outside';
@@ -12366,11 +12372,11 @@ wss.on('connection', (ws, req) => {
       // ever ENTERED and LEFT through their handlers — so while you're in
       // one, a move claiming any other room can only be a stale packet, no
       // matter how late it straggles in. Drop it whole.
-      if (player.room && player.room.startsWith('dungeon_') && msg.room !== player.room) return;
-      // The Ember Wastes likewise: you go in by the portal and come out by it, or by dying. A move that disagrees
-      // about being there is a straggler from before the change, however late (a slow phone's can come seconds
-      // after), and must not carry you in or out.
-      if ((player.room === 'ember_wastes') !== (msg.room === 'ember_wastes')) return;
+      if (msg.room !== player.room && (handlerOnlyRoom(player.room) || handlerOnlyRoom(msg.room))) return;
+      // (That covers both directions and every such place. It used to cover only LEAVING a dungeon and, since, the
+      //  Ember Wastes: a late move from the dungeon you had just died in and respawned out of still carried you back
+      //  INTO it on the server, alive and unseen among its mobs, while your screen showed the town. Found by dying
+      //  in a dungeon on a slow client.)
       // Any real move means you stood up off a bench — drop the seated pose so
       // you don't slide around still sitting. (The client blocks movement while
       // seated, so a move packet here is a genuine stand-up.)
@@ -15597,6 +15603,7 @@ wss.on('connection', (ws, req) => {
         if (returnRoom === 'wilds' && bed) woke();
         player.x = returnPos.x; player.y = returnPos.y;
         player.room = returnRoom;
+        player.roomLockUntil = Date.now() + 1500; // stale in-flight moves must not undo this
         player.dungeonReturnRoom = null;
         send(ws, { type: 'you_respawned', room: returnRoom, x: returnPos.x, y: returnPos.y });
       } else if (player.room === 'wilds') {

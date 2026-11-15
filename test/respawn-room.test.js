@@ -21,12 +21,19 @@ test('the Wilds and the dungeons keep their own way home', () => {
   assert.match(handler, /\} else if \(player\.room === 'wilds'\) \{/);
 });
 
-test('a straggling move cannot carry you into or out of the Ember Wastes', () => {
-  assert.match(server, /if \(\(player\.room === 'ember_wastes'\) !== \(msg\.room === 'ember_wastes'\)\) return;/);
-  const mv = server.indexOf("if ((player.room === 'ember_wastes') !== (msg.room === 'ember_wastes')) return;");
-  assert.ok(mv > server.indexOf('if (Date.now() < (player.roomLockUntil || 0) && msg.room !== player.room) return;') && mv < server.indexOf('const bounds = roomBounds(msg.room);', mv - 2000) + 4000);
+test('a straggling move cannot carry you into or out of any place that has its own way in', () => {
+  const fn = new Function(server.slice(server.indexOf('function handlerOnlyRoom(room) {'), server.indexOf('function dungeonHome(p) {')) + '\nreturn handlerOnlyRoom;')();
+  for (const r of ['dungeon_t1', 'dungeon_delve_7', 'ember_wastes', 'crypt', 'vh_hall', 'vh_barn']) assert.ok(fn(r), r);
+  for (const r of ['outside', 'wilds', 'cafe', 'library', undefined, null, 5]) assert.ok(!fn(r), String(r));
+  assert.match(server, /if \(msg\.room !== player\.room && \(handlerOnlyRoom\(player\.room\) \|\| handlerOnlyRoom\(msg\.room\)\)\) return;/);
+  const mv = server.indexOf('if (msg.room !== player.room && (handlerOnlyRoom(player.room) || handlerOnlyRoom(msg.room))) return;');
+  assert.ok(mv > server.indexOf('if (Date.now() < (player.roomLockUntil || 0) && msg.room !== player.room) return;') && mv < server.indexOf('const bounds = roomBounds(msg.room);'), 'before the move is applied');
   // the ways in and out set the room themselves
   assert.match(server, /if \(msg\.type === 'exit_ember_wastes'\) \{[\s\S]{0,900}player\.room = 'outside';/);
+});
+
+test('respawning out of a dungeon locks the room too', () => {
+  assert.match(handler, /player\.room = returnRoom;\s*player\.roomLockUntil = Date\.now\(\) \+ 1500;/);
 });
 
 test('the client says where it is the moment it is back', () => {
