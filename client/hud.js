@@ -4,7 +4,7 @@
 // party roster. Pure DOM writes that read a little live state (me, gameStarted,
 // restedUntil, myId, myParty, storyState) through injected read-only getters.
 // ---------------------------------------------------------------------------
-export default function createHud({ getMe, getGameStarted, getRestedUntil, getMyId, getMyParty, getStoryState }) {
+export default function createHud({ getMe, getGameStarted, getRestedUntil, getMyId, getMyParty, getStoryState, getNextStep = () => null }) {
 function updateHealthHud() {
   const path = document.getElementById('healthHeartPath');
   const text = document.getElementById('healthPercentText');
@@ -88,8 +88,22 @@ function updateStoryTracker() {
   const el = document.getElementById('storyTracker');
   if (!el) return;
   const s = getStoryState();
-  if (!s || s.complete || !s.active || !s.chapter) { el.classList.add('hidden'); return; }
-  el.classList.remove('hidden');
+  const bar = document.getElementById('storyTrackerBar');
+  if (!s || s.complete || !s.active || !s.chapter) {
+    // No chapter under way. A newcomer still gets one line here: the next thing worth doing (client/newcomer.js).
+    const step = getNextStep();
+    el.classList.toggle('hidden', !step);
+    el.classList.toggle('nextStep', !!step);
+    el.dataset.action = (step && step.action) || '';
+    if (!step) return;
+    document.getElementById('storyTrackerName').textContent = step.title;
+    document.getElementById('storyTrackerCount').textContent = step.text;
+    if (bar) bar.style.display = 'none';
+    const w = document.getElementById('storyTrackerWhere'); if (w) w.style.display = 'none';
+    return;
+  }
+  el.classList.remove('hidden', 'nextStep'); el.dataset.action = '';
+  if (bar) bar.style.display = '';
   document.getElementById('storyTrackerName').textContent = `${s.icon} ${s.chapter.title}`;
   const pct = Math.min(100, Math.round(100 * s.progress / Math.max(1, s.chapter.target)));
   const fill = document.getElementById('storyTrackerFill');
