@@ -2176,6 +2176,12 @@
   /* banners that still come (system lines, pictures) go under the window, not over it */
   body.touchMode.chatPinned #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 236px); }
   @media (orientation:landscape) { body.touchMode.chatPinned #chatNotifStack { top:calc(max(6px, env(safe-area-inset-top)) + 150px); } }
+  /* With the finds line up (Balefires in the Wilds, the count in a dungeon) it has the place under the vitals, so the
+     kept-open chat steps down a line below it instead of lying on top of it. Sideways the chat is top-centre, clear of it. */
+  @media (orientation:portrait) {
+    body.touchMode.chatPinned.findsHudUp #chatPanel.pinned { top:calc(max(8px, env(safe-area-inset-top)) + 124px); }
+    body.touchMode.chatPinned.findsHudUp #chatNotifStack { top:calc(max(8px, env(safe-area-inset-top)) + 268px); }
+  }
   /* any full panel or the menu over it: the window steps aside like the rest of the HUD */
   body.touchMode.panelOpen #chatPanel.pinned { display:none !important; }
 

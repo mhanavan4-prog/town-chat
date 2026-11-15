@@ -44,5 +44,6 @@ check('the three buttons take a tap (the panel itself lets touches through, so e
 check('these are a phone\'s: on a desktop none of the three buttons shows', /\.chatCtl, \.chatCtlGap \{ display:none; \}/.test(html));
 check('a line already in the window is not also bannered; system lines and pictures still are, below it', /if \(document\.body\.classList\.contains\('chatPinned'\) && n\.kind !== 'system' && !n\.image\) return;/.test(hud) && /body\.touchMode\.chatPinned #chatNotifStack \{ top:/.test(html));
 check('a full panel or the menu over it: the window steps aside like the rest of the HUD', /body\.touchMode\.panelOpen #chatPanel\.pinned \{ display:none !important; \}/.test(html));
+check('with the finds line up (Balefires), the upright window steps down below it instead of lying over it', /@media \(orientation:portrait\) \{\s*body\.touchMode\.chatPinned\.findsHudUp #chatPanel\.pinned \{ top:calc\(max\(8px, env\(safe-area-inset-top\)\) \+ 124px\); \}/.test(html) && /body\.touchMode #dungeonFindsHud, body\.touchMode\.inDelveRun #dungeonFindsHud \{[^}]*top:calc\(max\(8px, env\(safe-area-inset-top\)\) \+ 86px\);/.test(html));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
