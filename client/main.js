@@ -11334,6 +11334,7 @@ const _emberStorm = createEmberStorm({ getScene: () => emberScene, getCamera: ()
   isNight: () => { try { return !!getDayNightState().isNight; } catch (e) { return false; } } });
 function updateEmberAmbient(dt) {
   if (emberScene && activeScene === emberScene && emberScene.userData.minsterTick) emberScene.userData.minsterTick(performance.now() / 1000);   // the minster's lights (client/minster-light.js)
+  if (emberScene && activeScene === emberScene && emberScene.userData.dressTicks) { const t = performance.now() / 1000; for (const f of emberScene.userData.dressTicks) f(t); }   // the town's lamps, the ring's elder
   if (!emberAmbient || activeScene !== emberScene) return;
   const cam = emberCamera;
   const cx = cam ? cam.position.x : EMBER_WORLD.spawn.x;
