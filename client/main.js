@@ -1331,6 +1331,10 @@ const NECROMANCER_ATTACK_CATALOG = {
 // charId -> attack catalog the player can use. Drives both which characters
 // get the Attacks button at all and which catalog the panel renders from.
 // Every non-Witch class has a full kit now (the Witch's is SPELL_CATALOG).
+// Pickpocket, for every class (server.js PICKPOCKET_ALL): the Wanderer has Sleight of Hand already.
+const PICKPOCKET_ALL = { name: 'Pickpocket', icon: '🤏', kind: 'targeted', effect: 'pickpocket', stealChance: 0.25, unlockLevel: 4,
+  description: "Peek into a target's pockets and try to lift an item. They won't know if you're successful — only a failed attempt gives you away. Any class can learn it at Level 4; it starts at a 25% chance and grows the more you practice." };
+for (const _cat of [WEREWOLF_ATTACK_CATALOG, MYSTIC_ATTACK_CATALOG, KNIGHT_ATTACK_CATALOG, NECROMANCER_ATTACK_CATALOG, SPELL_CATALOG]) _cat.pickpocket = PICKPOCKET_ALL;
 const ATTACK_CATALOGS = {
   1: WEREWOLF_ATTACK_CATALOG,
   2: MYSTIC_ATTACK_CATALOG,
@@ -1654,6 +1658,7 @@ function onWsMessage(ev) {
         myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
       }
       loadLoadout(); // per-class slot order, chosen by the player
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'ability_unlocks' }));   // which of them you have yet
       buildHotbar();
       // Sound effects load lazily; warm this character's own ability sounds now
       // so their first cast isn't silent (everyone else's load on first hearing).
@@ -2040,6 +2045,12 @@ function onWsMessage(ev) {
     return;
   }
 
+  if (msg.type === 'ability_unlocks') {
+    myAbilityUnlocks = msg.levels || null;
+    if (me && msg.level) me.level = msg.level;
+    buildHotbar();   // the bar, or on a phone the wheel, shows what you have now
+    return;
+  }
   if (msg.type === 'level_up') {
     if (me) { me.level = msg.level; me.skillPoints = msg.skillPoints; }
     { const fresh = applyMenuGates(msg.level);   // the menu opens up as you rise (client/menu-gates.js)
@@ -18479,6 +18490,7 @@ setInterval(() => { if (Modals.isOpen('auctionModalOpen')) renderAuctionModal();
 // just the menu and the request.
 // ---------------------------------------------------------------------------
 const _spellbook = createSpellbook({
+  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`),
   send: (data) => ws.send(data),
   cancelTargeting, setDefaultFloatPos, SPELL_CATALOG, armTargeting,
   buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, visuals,
@@ -18660,14 +18672,25 @@ function defaultAbilityOrder(cat) {
   }
   return rest.concat(consent);
 }
+// Which abilities you have yet (data/abilityUnlocks.js; the server sends the levels and enforces them). Three to begin
+// with, the rest as you level. Until the server has said, nothing is held back.
+let myAbilityUnlocks = null;
+function abilityOpen(id) { return !myAbilityUnlocks || ((me && me.level) || 1) >= (myAbilityUnlocks[id] || 1); }
+// The next one to come, for the bar's "what is coming" slot: { id, level } or null.
+function nextAbilityUnlock() {
+  if (!myAbilityUnlocks || !myActionCatalog) return null;
+  let best = null;
+  for (const id of Object.keys(myActionCatalog)) if (!abilityOpen(id) && (!best || myAbilityUnlocks[id] < best.level)) best = { id, level: myAbilityUnlocks[id] };
+  return best;
+}
 function orderedAbilityIds() {
   if (!myActionCatalog) return [];
-  const all = defaultAbilityOrder(myActionCatalog);
+  const all = defaultAbilityOrder(myActionCatalog).filter(abilityOpen);
   if (!myLoadout) return all;
   const seen = new Set();
   const out = [];
   for (const id of myLoadout) {
-    if (myActionCatalog[id] && !seen.has(id)) { out.push(id); seen.add(id); }
+    if (myActionCatalog[id] && abilityOpen(id) && !seen.has(id)) { out.push(id); seen.add(id); }
   }
   for (const id of all) if (!seen.has(id)) out.push(id); // newly added abilities land at the end
   return out;
@@ -18720,6 +18743,15 @@ function buildHotbar() {
     bar.appendChild(slot);
     hotbarSlotEls.push({ id, slot, cooldown, cooldownText });
   });
+  // what is coming next, so the bar tells you there is more to earn
+  { const nx = nextAbilityUnlock();
+    if (nx && ids.length < HOTBAR_KEYS.length) {
+      const lock = document.createElement('div'); lock.className = 'hotbarSlot hotbarLocked'; lock.textContent = '🔒';
+      const lv = document.createElement('span'); lv.className = 'hotbarLockLv'; lv.textContent = 'Lv ' + nx.level; lock.appendChild(lv);
+      lock.title = `${myActionCatalog[nx.id].name} opens at Level ${nx.level}`;
+      lock.addEventListener('click', () => setUnlockToast(`🔒 ${myActionCatalog[nx.id].name} opens at Level ${nx.level}.`));
+      bar.appendChild(lock);
+    } }
   bar.classList.remove('hidden');
 }
 
@@ -18992,6 +19024,7 @@ function attachCastOnRelease(btn) {
 // ---------------------------------------------------------------------------
 let myAttackCatalog = null;
 const _attacks = createAttacks({
+  abilityLockLevel: (id) => (abilityOpen(id) ? 0 : (myAbilityUnlocks[id] || 0)), sayLocked: (name, lv) => setUnlockToast(`🔒 ${name} opens at Level ${lv}.`),
   send: (data) => ws.send(data),
   getMe: () => me,
   getWorld: () => world,

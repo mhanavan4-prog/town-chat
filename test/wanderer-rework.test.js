@@ -29,6 +29,7 @@ setTimeout(() => {
     const p = hooks.players.get(s.lastOfType('init').id);
     p.accountKey = tag.toLowerCase(); s._isGuest = false;
     p.x = 1000; p.y = 1000; p.room = 'outside';
+    hooks.getProgress(p).level = 20;   // every ability open: this test is about the abilities, not when they unlock (data/abilityUnlocks.js)
     return { s, p };
   }
   const cast = (who, attackId, targetId) => who.s.emit('message', JSON.stringify({ type: 'cast_attack', attackId, targetId }));

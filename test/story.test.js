@@ -110,7 +110,10 @@ setTimeout(() => {
 
   // Chapter 4: cast 8 knightly arts via real cast_attack messages.
   knight.emit('message', JSON.stringify({ type: 'story_begin' }));
-  const arts = ['oath_of_iron', 'field_dressing', 'steadfast_march', 'rallying_wrath', 'heralds_muster', 'banner_of_dread'];
+  // (the arts a knight of this level has: abilities open as you level, data/abilityUnlocks.js)
+  const arts = ['oath_of_iron', 'field_dressing', 'rallying_wrath'];
+  for (const a of arts) knight.emit('message', JSON.stringify({ type: 'cast_attack', attackId: a }));
+  player.attackCooldowns = {};
   for (const a of arts) knight.emit('message', JSON.stringify({ type: 'cast_attack', attackId: a }));
   // two more casts — reuse after their cooldowns would block; use distinct self casts by
   // resetting cooldowns the way a waiting player would experience anyway.

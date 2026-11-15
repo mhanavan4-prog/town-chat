@@ -52,6 +52,7 @@ setTimeout(() => {
   // PvP outside the Ember Wastes is now consent-based, so put every pair in a
   // mutual duel — these checks exercise the abilities, not the consent gate.
   const pObjs = ids.map(id => hooks.players.get(id));
+  for (const po of pObjs) hooks.getProgress(po).level = 20;   // every ability open: this test is about the kits, not when they unlock (data/abilityUnlocks.js)
   for (let i = 0; i < pObjs.length; i++) for (let j = i + 1; j < pObjs.length; j++) hooks.startDuel(pObjs[i], pObjs[j]);
 
   check('every class joins with its charId', sockets.every((s, i) => {

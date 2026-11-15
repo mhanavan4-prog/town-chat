@@ -1619,7 +1619,7 @@ export const UI_ICONS = {
   life_siphon: A_LIFE_SIPHON, bone_ward: A_BONE_WARD, grave_chill: A_GRAVE_CHILL,
   // abilities — Wanderer (traveler)
   knife_throw: A_KNIFE_THROW, packmule_guard: A_PACKMULE_GUARD, spy_glass: A_SPY_GLASS,
-  sleight_of_hand: A_SLEIGHT_OF_HAND, echo_canyon: A_ECHO_CANYON, deep_meditation: A_DEEP_MEDITATION,
+  sleight_of_hand: A_SLEIGHT_OF_HAND, pickpocket: A_SLEIGHT_OF_HAND, echo_canyon: A_ECHO_CANYON, deep_meditation: A_DEEP_MEDITATION,
   heavy_pack: A_HEAVY_PACK, endless_road: A_ENDLESS_ROAD, featherlight_pack: A_FEATHERLIGHT_PACK,
   shadow_owls: A_SHADOW_OWLS, wanderlust: A_WANDERLUST, campfire_tale: A_CAMPFIRE_TALE,
   nightwatch_cloak: A_NIGHTWATCH_CLOAK, compass_trick: A_COMPASS_TRICK,

@@ -7,7 +7,7 @@
 import { Modals } from './modals.js';
 import { glyphHTML, escHtml } from './ui-icons.js';
 
-export default function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown }) {
+export default function createAttacks({ send, getMe, getWorld, getAttackCatalog, MOBILE_UI, setDefaultFloatPos, cancelTargeting, armTargeting, buildEmojiCursor, SWORD_CURSOR, actionOnCooldown, startActionCooldown, abilityLockLevel = () => 0, sayLocked = () => {} }) {
 let selectedAttackId = null;
 
 // charId → { carved class sigil, legacy emoji fallback, panel name }. Witch
@@ -59,19 +59,21 @@ function renderAttackList() {
   const list = document.getElementById('attackList');
   if (!list || !getAttackCatalog()) return;
   list.innerHTML = '';
-  for (const id in getAttackCatalog()) {
-    const atk = getAttackCatalog()[id];
+  // Also where you see what is to come: what you have first, then the locked ones in the order they open.
+  const ids = Object.keys(getAttackCatalog()).map((id, i) => [id, abilityLockLevel(id), i]).sort((a, b) => (a[1] - b[1]) || (a[2] - b[2])).map((x) => x[0]);
+  for (const id of ids) {
+    const atk = getAttackCatalog()[id], lockLv = abilityLockLevel(id);
     const row = document.createElement('div');
-    row.className = 'attackRow' + (selectedAttackId === id ? ' selected' : '');
+    row.className = 'attackRow' + (selectedAttackId === id ? ' selected' : '') + (lockLv ? ' abilityLocked' : '');
     const name = document.createElement('div');
     name.className = 'attackName';
-    name.innerHTML = glyphHTML(id, 'listGi', atk.icon) + ' ' + escHtml(atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : atk.kind === 'building' ? ' (pick building)' : ''));
+    name.innerHTML = glyphHTML(id, 'listGi', atk.icon) + ' ' + escHtml(atk.name + (atk.kind === 'aoe' ? ' (AoE)' : atk.kind === 'self' ? ' (self)' : atk.kind === 'building' ? ' (pick building)' : '')) + (lockLv ? ` <span class="abilityLockTag">🔒 Level ${lockLv}</span>` : '');
     const desc = document.createElement('div');
     desc.className = 'attackDesc';
     desc.textContent = atk.description;
     row.appendChild(name);
     row.appendChild(desc);
-    row.addEventListener('click', () => selectAttack(id));
+    row.addEventListener('click', () => { if (lockLv) sayLocked(atk.name, lockLv); else selectAttack(id); });
     list.appendChild(row);
   }
 }

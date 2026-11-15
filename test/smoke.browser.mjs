@@ -98,8 +98,9 @@ try {
       await page.$eval('#spellbookBtn', el => el.classList.contains('hidden')) !== c.spellbook);
     check(`[char ${c.charId}] Attacks button ${c.attacks ? 'shown' : 'hidden'}`,
       await page.$eval('#attackBtn', el => el.classList.contains('hidden')) !== c.attacks);
-    check(`[char ${c.charId}] hotbar has 12 slots`,
-      await page.$$eval('#hotbar .hotbarSlot', els => els.length) === 12);
+    // A new character has three abilities and a slot that says when the next comes (data/abilityUnlocks.js).
+    check(`[char ${c.charId}] hotbar has three abilities and the next one's lock`,
+      await page.$$eval('#hotbar .hotbarSlot', els => els.length === 4 && els.filter(e => e.classList.contains('hotbarLocked')).length === 1 && /Lv 2/.test(els[3].textContent)));
 
     // Journal: opens, shows the right storyline, chapter 1 can begin.
     await page.evaluate(() => document.getElementById('journalBtn').click());
@@ -142,12 +143,13 @@ try {
       }
     }
 
-    // Witch: spellbook still renders all 12 spells.
+    // Witch: the spellbook shows every spell, the locked ones marked with their level.
     if (c.spellbook) {
       await page.evaluate(() => document.getElementById('spellbookBtn').click());
       await page.waitForSelector('#spellbookModal:not(.hidden)', { timeout: 3000 });
       const rows = await page.$$eval('#spellList .spellRow', els => els.length);
-      check(`[char 0] spellbook lists 12 spells`, rows === 12);
+      const locked = await page.$$eval('#spellList .spellRow.abilityLocked', els => els.length);
+      check(`[char 0] spellbook lists 13 spells (the twelve and Pickpocket), three of them open at level 1`, rows === 13 && locked === 10);
     }
 
     // The back gesture closes the open menu, not the game (client/back-closes.js).
