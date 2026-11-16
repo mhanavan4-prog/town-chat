@@ -122,6 +122,15 @@ test('Space climbs and Shift sinks, a phone has its own pair, and the sky goes u
   assert.match(main, /if \(e\.key === 'Shift' && besomRide\.on\) besomRide\.down = true;/);
   assert.match(html, /id="besomPads" class="hidden"><button id="besomUp"/);
   assert.match(main, /st\.skyGroup\.position\.y = Math\.max\(0, activeCamera\.position\.y - 250\);/);
-  assert.match(main, /st\.clouds\[i\]\.sp\.position\.y = st\.clouds\[i\]\.y - st\.skyGroup\.position\.y;/);
+  assert.match(main, /c\.y - st\.skyGroup\.position\.y/);
   assert.match(dn, /const ay = anchor \? Math\.max\(0, anchor\.y - 250\) : 0;/);
+});
+
+test('the clouds have their own place over the land, and do not follow her about', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  assert.match(main, /wx: sp\.position\.x, wz: sp\.position\.z \}/);
+  assert.match(main, /c\.sp\.position\.set\(cloudWrap\(c\.wx - st\.skyGroup\.position\.x\), c\.y - st\.skyGroup\.position\.y, cloudWrap\(c\.wz - st\.skyGroup\.position\.z\)\);/);
+  const m = main.match(/const cloudWrap = (\(d\) => [^;]+);/);
+  const wrap = new Function('CLOUD_SPAN', 'return ' + m[1])(4800);
+  assert.strictEqual(wrap(0), 0); assert.strictEqual(wrap(2500), -2300); assert.strictEqual(wrap(-2500), 2300); assert.strictEqual(wrap(4800 * 3 + 10), 10);
 });

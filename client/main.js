@@ -10066,6 +10066,9 @@ const GFX = (() => {
     return { group: grp, mat };
   }
 
+  const CLOUD_SPAN = 4800;
+  const cloudWrap = (d) => ((((d + CLOUD_SPAN / 2) % CLOUD_SPAN) + CLOUD_SPAN) % CLOUD_SPAN) - CLOUD_SPAN / 2;
+
   function initSky(scene) {
     if (st.skyGroup) return;
     const grp = new THREE.Group();
@@ -10108,7 +10111,7 @@ const GFX = (() => {
       sp.scale.set(sc * (1 + Math.random() * 0.25), sc, sc);
       sp.position.set((Math.random() - 0.5) * 3200, 620 + Math.random() * 360, (Math.random() - 0.5) * 3200);
       grp.add(sp);
-      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, y: sp.position.y });
+      st.clouds.push({ sp, m, speed: 6 + Math.random() * 9, y: sp.position.y, wx: sp.position.x, wz: sp.position.z });   // wx, wz: where it is in the world
     }
     scene.add(grp);
     st.skyGroup = grp;
@@ -10189,8 +10192,7 @@ const GFX = (() => {
       s2.mat.opacity = night * Math.max(0, 0.6 + Math.sin(t * (s2.speed || 1.3) + s2.phase) * 0.4);
     }
     for (const c of st.clouds) {
-      c.sp.position.x += c.speed * (1 / 60);
-      if (c.sp.position.x > 2400) c.sp.position.x = -2400;
+      c.wx += c.speed * (1 / 60);   // drifting over the land (placed against the camera below)
       // Opaque geometry, so tint instead of fade: bright white by day, dusky
       // blue-grey at night so the clouds recede into the dark sky.
       c.m.color.setHSL(0.62, 0.12 * (1 - lightAmount), 0.34 + lightAmount * 0.6);
@@ -10231,7 +10233,13 @@ const GFX = (() => {
       st.skyGroup.position.z = activeCamera.position.z;
       st.skyGroup.position.y = Math.max(0, activeCamera.position.y - 250);   // and up, when you fly up into it
       // but the clouds stay where clouds are: on the besom you come up through them and out above, under the stars
-      for (let i = 0; i < st.clouds.length; i++) st.clouds[i].sp.position.y = st.clouds[i].y - st.skyGroup.position.y;
+      // Nor do they follow her about: each cloud has its place over the land and she flies past it. (They hung on
+      // the dome, which rides the camera, so up there the same clouds stayed round her wherever she went.) The
+      // field repeats every CLOUD_SPAN, so there are always clouds somewhere ahead.
+      for (let i = 0; i < st.clouds.length; i++) {
+        const c = st.clouds[i];
+        c.sp.position.set(cloudWrap(c.wx - st.skyGroup.position.x), c.y - st.skyGroup.position.y, cloudWrap(c.wz - st.skyGroup.position.z));
+      }
     }
     // fireflies: only animate the active scene's cluster, at dusk/night
     if (q !== 'low') {
