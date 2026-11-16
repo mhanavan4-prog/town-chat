@@ -11357,9 +11357,25 @@ let besomRoost = null;
 function besomRoostHolds(nx, ny) { return !!besomRoost && !!me && nx === me.x && ny === me.y; }
 // What stops her, walking or riding. On foot it is the walls as ever. Riding, a place is barred only if something
 // stands there AND she is not over it.
+// A building in the town is a room and not a wall, so its inside counts too: off the ground she may not pass into
+// one, only over it. (She flew into the side of the Café's barrel below its top, was taken to have gone indoors,
+// and was set down inside it.) Right down at the hover she can still ride in at a door, and gets off there.
 function barredAt(x, y, ft) {
   if (!besomRide.on) return collides(x, y, ft);
-  return collides(x, y, 0) && !besomOver(x, y);
+  if (besomOver(x, y)) return false;
+  return besomRide.alt > besomRide.hover + 10 ? besomFootprint(x, y) : collides(x, y, 0);
+}
+// the nearest place to (x, y) with nothing standing on it and no building's inside: where she comes down to earth
+function besomOpenNear(x, y) {
+  if (!besomFootprint(x, y)) return { x, y };
+  for (let r = 20; r <= 900; r += 20) {
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+      if (px < PLAYER_R || py < PLAYER_R || px > world.width - PLAYER_R || py > world.height - PLAYER_R) continue;
+      if (!besomFootprint(px, py)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
 }
 let _besomLastT = 0, _besomDt = 0.016;
 function stepBesomAltitude(now) {
@@ -11409,12 +11425,25 @@ function stepRiddenBesoms() {
       if (!flying) v._fallY = v.flightY || 0;
       v._rideY = null;
       if (!flying) v.flightY = 0;
-      // off it on top of something: she stays there
-      if (id === myId && me && !flying && besomFootprint(me.x, me.y)) { const top = besomTopAt(me.x, me.y); if (top > 0 && v._fallY <= top + BESOM_SEAT + 30) { besomRoost = { x: me.x, y: me.y, top }; v._fallY = 0; } }
+      // Off it over something, from any height: she comes down ON it, never through it. Over a building with
+      // nothing to be seen standing there, she is set down on the open ground nearest.
+      if (id === myId && me && !flying && besomFootprint(me.x, me.y)) {
+        const top = besomTopAt(me.x, me.y);
+        if (top > 0) besomRoost = { x: me.x, y: me.y, top, from: Math.max(top, v._fallY) };
+        else { const o = besomOpenNear(me.x, me.y); me.x = o.x; me.y = o.y; }
+      }
     }
     if (id === myId && besomRoost) {
-      if (riding || !me || me.x !== besomRoost.x || me.y !== besomRoost.y || !BESOM_OPEN_ROOMS.has(me.room)) { if (!riding) v._fallY = besomRoost.top; besomRoost = null; }
-      else v.flightY = besomRoost.top;
+      if (riding) besomRoost = null;
+      else if (!me || !BESOM_OPEN_ROOMS.has(me.room)) besomRoost = null;
+      else if (me.x !== besomRoost.x || me.y !== besomRoost.y) {
+        // she moves: off the edge and down to the open ground beside it, not into the building
+        const o = besomOpenNear(me.x, me.y); me.x = o.x; me.y = o.y;
+        v._fallY = besomRoost.top; besomRoost = null;
+      } else {
+        besomRoost.from = Math.max(besomRoost.top, besomRoost.from - (520 + (besomRoost.from - besomRoost.top) * 1.6) * _besomDt);
+        v.flightY = besomRoost.from; v._fallY = 0;
+      }
     }
     // down out of the sky, not all at once
     if (!riding && !flying && v._fallY > 1) { v._fallY = Math.max(0, v._fallY - (520 + v._fallY * 1.6) * _besomDt); v.flightY = v._fallY; if (v._fallY <= 1) { v._fallY = 0; v.flightY = 0; } }
@@ -21111,7 +21140,7 @@ function updateOutdoor(stepX, stepY) {
     // If you're already overlapping a collider (e.g. you placed furniture right
     // where you stand), don't lock up — let the move through so you can walk out.
     const ft = myClearance();
-    const stuck = barredAt(me.x, me.y, ft);
+    const stuck = !besomRide.on && barredAt(me.x, me.y, ft);   // the walk-out-of-a-collider allowance is for walkers only
     if (stuck || !barredAt(nx, me.y, ft)) me.x = nx;
     if (stuck || !barredAt(me.x, ny, ft)) me.y = ny;
     // Auto-unstick: if still overlapping a collider (stood where a new collider
@@ -21896,6 +21925,23 @@ if (location.search.includes('testdrive=1')) {
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
+    // every town building, at a height: how many sampled places inside it would let her in (must be none), and how many she may pass over
+    besomSweep(alt) {
+      const keep = besomRide.alt, on = besomRide.on; besomRide.on = true; besomRide.alt = alt;
+      const out = [];
+      for (const b of world.buildings || []) {
+        let leaks = 0, over = 0, n = 0, top = 0;
+        for (let x = b.x + 10; x < b.x + b.w; x += 24) for (let y = b.y + 10; y < b.y + b.h; y += 24) {
+          n++; top = Math.max(top, besomTopAt(x, y));
+          const barred = barredAt(x, y, alt), isOver = besomOver(x, y);
+          if (isOver) over++;
+          if (!barred && !isOver && roomAt(x, y) !== 'outside') leaks++;
+        }
+        out.push([b.id, n, leaks, over, Math.round(top)]);
+      }
+      besomRide.alt = keep; besomRide.on = on;
+      return out;
+    },
     besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), floor: Math.round(besomFloor()), roost: besomRoost ? Math.round(besomRoost.top) : 0, top: me ? Math.round(besomTopAt(me.x, me.y)) : 0, on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
