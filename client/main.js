@@ -3841,6 +3841,7 @@ const _collision = createCollision({
   getWalls: () => walls,
   getDungeonLore: () => dungeonLoreCatalog,
   getDelveState: () => delveState,
+  getVillageHouses: () => villageHouseCatalog,
 });
 const { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel, perchAt } = _collision;
 

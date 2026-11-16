@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 import { PERCH_STEP } from './perch.js';
 
-export default function createCollision({ getWorld, getWalls, getDungeonLore, getDelveState }) {
+export default function createCollision({ getWorld, getWalls, getDungeonLore, getDelveState, getVillageHouses = () => null }) {
 function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
@@ -97,6 +97,12 @@ function pokeRoomTag() {
   roomTagFadeTimer = setTimeout(() => tag.classList.add('tagFaded'), 5000);
 }
 
+// A room with no name of its own is never shown by its id ('vh_forge', 'witch_cave'): the id is made readable.
+function plainRoomName(roomId) {
+  const words = String(roomId || '').replace(/^vh_/, '').split('_').filter(Boolean);
+  return words.length ? words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Room';
+}
+
 function roomLabel(roomId) {
   if (roomId === 'outside') return '📍 Town Square';
   if (roomId === 'wilds') return '🌲 The Wilds';
@@ -116,8 +122,12 @@ function roomLabel(roomId) {
     const _ds = getDelveState(); return _ds && _ds.inRun ? `🕳️ The Delve — Floor ${_ds.floor}` : '🕳️ The Delve';
   }
   const _w = getWorld(); const b = _w && _w.buildings.find(x => x.id === roomId);
-  return b ? b.name : roomId;
+  if (b) return b.name;
+  // a house in the Wilds' village (data/villageHouses.js) goes by its own name
+  const _vh = getVillageHouses(); const h = _vh && Object.values(_vh).find((x) => x && x.room === roomId);
+  if (h && h.name) return (h.icon ? h.icon + ' ' : '') + h.name;
+  return plainRoomName(roomId);
 }
 
-  return { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel, perchAt };
+  return { PLAYER_R, collides, collidesIndoor, resolveStuck, roomAt, pokeRoomTag, roomLabel, plainRoomName, perchAt };
 }
