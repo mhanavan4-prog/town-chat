@@ -142,7 +142,10 @@ test('she can come down on top of a thing: its real top is found by looking down
   assert.match(main, /o\.isMesh && !o\.isSkinnedMesh && o\.material && o\.material\.depthWrite !== false && !o\.material\.transparent/, 'characters, glows and the sky are not roofs');
   assert.match(main, /return top > 0 \? Math\.min\(besomRide\.top, top \+ BESOM_SEAT\) : besomRide\.clear;/, 'nothing seen there: the old rule');
   assert.match(main, /return besomFootprint\(me\.x, me\.y\) \? besomNeedAt\(me\.x, me\.y\) : besomRide\.hover;/);
-  assert.match(main, /return collides\(x, y, 0\) && !besomOver\(x, y\);/, 'riding, a place is barred only if she is not over what stands there');
-  assert.match(main, /besomRoost = \{ x: me\.x, y: me\.y, top \};/);
+  assert.match(main, /if \(besomOver\(x, y\)\) return false;\n  return besomRide\.alt > besomRide\.hover \+ 10 \? besomFootprint\(x, y\) : collides\(x, y, 0\);/, 'off the ground a building\'s inside bars her as a wall does; at the hover she may ride in at a door');
+  assert.match(main, /const stuck = !besomRide\.on && barredAt\(me\.x, me\.y, ft\);/, 'no walking out of colliders while riding');
+  assert.match(main, /if \(top > 0\) besomRoost = \{ x: me\.x, y: me\.y, top, from: Math\.max\(top, v\._fallY\) \};/, 'off it over a roof from any height: onto the roof');
+  assert.match(main, /else \{ const o = besomOpenNear\(me\.x, me\.y\); me\.x = o\.x; me\.y = o\.y; \}/, 'over a building with no roof to be seen: the open ground nearest');
+  assert.match(main, /const o = besomOpenNear\(me\.x, me\.y\); me\.x = o\.x; me\.y = o\.y;\n        v\._fallY = besomRoost\.top; besomRoost = null;/, 'walking off a roof: down beside it');
   assert.match(main, /if \(!me \|\| broomRide \|\| besomAloft\(\)\) return;/, 'no reaching the ground from up there');
 });
