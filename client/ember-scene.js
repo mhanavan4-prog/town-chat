@@ -39,9 +39,13 @@ function scorch(group, amt) {
 // flat ember ground. The per-instance scorch jitter the per-mesh version had was
 // a subtle lightness-only wobble, so a fixed mid-scorch reads the same across
 // the haze-dimmed flat.
+// The Wastes' own pieces (em_*, tools/models/build_home.py) have their ground at the model's y = 0, with footings,
+// barrows and trenches built below it: seat them there, not on their lowest point (main.js staticInstance).
+function groundSeat(key) { return /^em_/.test(key || '') ? 'ground' : undefined; }
+
 function addScorchedInstances(scene, key, mode, items) {
   if (!items.length || !(KK && KK.has && KK.has(key) && KK.staticInstance)) return;
-  const unit = KK.staticInstance(key, 1, mode); // size-1 reference, base at y=0
+  const unit = KK.staticInstance(key, 1, mode, groundSeat(key)); // size-1 reference, base at y=0
   if (!unit) return;
   scorch(unit, 0.16);
   unit.updateMatrixWorld(true);
@@ -322,7 +326,7 @@ function buildEmberScene() {
       const tombs = [['prop_crypt', 110, 'fit'], ['prop_grave_a', 30, 'height'], ['prop_grave_b', 30, 'height'], ['prop_arch', 150, 'fit']];
       for (let i = 0; i < 8; i++) {
         const [key, size, mode] = tombs[i % tombs.length];
-        const g = KK.staticInstance(key, size * (0.85 + rnd() * 0.4), mode);
+        const g = KK.staticInstance(key, size * (0.85 + rnd() * 0.4), mode, groundSeat(key));
         if (!g) continue;
         g.rotation.y = rnd() * Math.PI * 2;
         g.position.set(lm.x + (rnd() - 0.5) * 900, 0, lm.y + (rnd() - 0.5) * 900);
@@ -348,7 +352,7 @@ function buildEmberScene() {
   // their own (emissive = no per-light shader cost, unlike a PointLight each).
   function rubyGem(x, z, size) {
     const key = rnd() < 0.5 ? 'gem_large' : 'gem_medium';
-    const g = KK.staticInstance(key, size, 'height');
+    const g = KK.staticInstance(key, size, 'height', groundSeat(key));
     if (!g) return null;
     const shade = 0.9 + rnd() * 0.3;
     g.traverse(c => {
@@ -562,7 +566,7 @@ function buildEmberScene() {
     if (!(KK && KK.has && KK.staticInstance)) return;
     ASH_PIECES.forEach(([key, x, y, turn, size, mode], i) => {
       if (placed.has(i) || !KK.has(key)) return;
-      const g = KK.staticInstance(key, size, mode);
+      const g = KK.staticInstance(key, size, mode, groundSeat(key));
       if (!g) return;
       placed.add(i);
       if (key === 'prop_well') scorch(g, 0.2);
@@ -618,23 +622,23 @@ function buildEmberScene() {
     layRoadStones(scene, KK, FIELD_TRACK, 105, H, (g) => scorch(g, 0.14), 11);   // the track's kerbs and worn flags
     markerSpots.forEach(([x, y], i) => {
       const k = 'm' + i; if (fieldPlaced.has(k) || !KK.has('wl_waymarker')) return;
-      const g = KK.staticInstance('wl_waymarker', 110, 'height'); if (!g) return;
+      const g = KK.staticInstance('wl_waymarker', 110, 'height', 'ground'); if (!g) return;
       fieldPlaced.add(k); scorch(g, 0.12); g.rotation.y = i * 1.7; g.position.set(x, 0, y); scene.add(g);
     });
     FIELD_POSTS.forEach((p, i) => {
       const k = 'p' + i; if (fieldPlaced.has(k) || !KK.has('em_fingerpost')) return;
-      const g = KK.staticInstance('em_fingerpost', 175, 'height'); if (!g) return;
+      const g = KK.staticInstance('em_fingerpost', 175, 'height', 'ground'); if (!g) return;
       fieldPlaced.add(k); g.rotation.y = i * 0.9; g.position.set(p.x, 0, p.y); scene.add(g);
     });
     EMBER_LORE.forEach((f) => {
       if (fieldPlaced.has('lore_' + f.id) || !KK.has(f.model)) return;
-      const g = KK.staticInstance(f.model, f.size, 'fit'); if (!g) return;
+      const g = KK.staticInstance(f.model, f.size, 'fit', groundSeat(f.model)); if (!g) return;
       fieldPlaced.add('lore_' + f.id); scorch(g, 0.08);
       g.rotation.y = f.turn; g.position.set(f.x, H(f.x, f.y), f.y); scene.add(g);
     });
     FIELD_FINDS.forEach((f) => {
       if (fieldPlaced.has(f.id) || !KK.has(f.model)) return;
-      const g = KK.staticInstance(f.model, f.size, 'fit'); if (!g) return;
+      const g = KK.staticInstance(f.model, f.size, 'fit', groundSeat(f.model)); if (!g) return;
       fieldPlaced.add(f.id);
       if (f.model === 'em_barricade' || f.model === 'em_chapel') scorch(g, 0.1);
       g.rotation.y = f.turn; g.position.set(f.x, 0, f.y); scene.add(g);
@@ -689,7 +693,7 @@ function buildEmberScene() {
     for (let i = 0; i < WITCH_RING.stones; i++) {
       if (ringPlaced.has(i) || !KK.has('em_ring_stone')) continue;
       const a = (i / WITCH_RING.stones) * Math.PI * 2;
-      const g = KK.staticInstance('em_ring_stone', 170 + ((i * 37) % 60), 'height'); if (!g) continue;
+      const g = KK.staticInstance('em_ring_stone', 170 + ((i * 37) % 60), 'height', 'ground'); if (!g) continue;
       ringPlaced.add(i);
       g.userData.camFade = true;   // the chase camera ghosts a stone it ends up inside
       g.rotation.y = -a + Math.PI / 2; g.position.set(WITCH_RING.x + Math.sin(a) * WITCH_RING.stoneR, 0, WITCH_RING.y - Math.cos(a) * WITCH_RING.stoneR);
