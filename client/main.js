@@ -881,15 +881,19 @@ const KK = (() => {
 
   // Static (non-skinned) instance scaled so its LARGEST footprint side
   // equals targetSize ('fit') or its height equals targetSize ('height').
-  function staticInstance(key, targetSize, mode) {
+  // seat 'ground': the model's own y = 0 is the ground (tools/models/build_home.py builds that way), so anything
+  // below it is meant to be buried: a barrow's mound, a trench's cut, a house's footings. By default a model stands
+  // on its lowest point, which lifted every such piece clear of the ground with its buried part showing.
+  function staticInstance(key, targetSize, mode, seat) {
     const t = models[key];
     if (!t) return null;
     const inst = t.scene.clone(true);
-    const native = mode === 'height' ? t.size.y : Math.max(t.size.x, t.size.z);
+    const sunk = seat === 'ground' ? Math.max(0, -t.minY) : 0;
+    const native = mode === 'height' ? t.size.y - sunk : Math.max(t.size.x, t.size.z);
     const s = targetSize / Math.max(0.001, native);
     const g = new THREE.Group();
     inst.scale.setScalar(s);
-    inst.position.y = -t.minY * s;
+    inst.position.y = (sunk ? 0 : -t.minY) * s;
     // Disable frustum culling on every mesh (same reason createKayKitByKey does
     // it): a scaled clone's cached bounding sphere can be wrong, so THREE culls
     // the whole prop when the camera turns — the large throne in the Coven Court
@@ -897,7 +901,7 @@ const KK = (() => {
     // of always drawing them is negligible.
     inst.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
     g.add(inst);
-    g.userData.kkHeight = t.size.y * s;
+    g.userData.kkHeight = (t.size.y - sunk) * s;
     return g;
   }
 
