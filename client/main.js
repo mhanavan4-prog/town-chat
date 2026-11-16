@@ -1,3 +1,4 @@
+import { createPressOnce } from './key-once.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
 import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
@@ -20435,6 +20436,13 @@ const _backCloses = installBackCloses({
   spyGlassPanel: () => closeSpyGlassPanel(),
 });
 void _backCloses;
+
+// Escape toggles the menu, so one press must be one press whatever the browser says about repeats
+// (client/key-once.js). Heard first, before every other key handler; made-up Escapes (the back button's) pass.
+const _escOnce = createPressOnce();
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.isTrusted && _escOnce.repeat('Escape', e.repeat)) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+window.addEventListener('keyup', (e) => { if (e.key === 'Escape') _escOnce.up('Escape'); }, true);
+window.addEventListener('blur', () => _escOnce.clear());
 
 function backToMenu() {
   const p = document.getElementById('pcMenuBtn');
