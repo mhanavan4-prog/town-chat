@@ -64,7 +64,7 @@ test('it is wired: movement asks where my feet are, everyone is drawn by the sam
   assert.match(m, /const stuck = !besomRide\.on && barredAt\(me\.x, me\.y, ft\);/);
   assert.match(m, /else if \(!barredAt\(nx, me\.y, ft\)\) \{ me\.x = nx; \}/);
   assert.match(m, /if \(!besomRide\.on\) return collides\(x, y, ft\);/, 'on foot, barredAt is the walls as ever');
-  assert.match(m, /if \(myPerch\.step\(dt, jumpActive, jumpT, under, myFeatherMult\(\)\)\) \{ jumpActive = false; jumpT = 0; \}/);
+  assert.match(m, /if \(myPerch\.step\(dt, jumpActive, jumpT, under, myFeatherMult\(\)\)\) \{ jumpActive = false; jumpT = 0; playSfx\('jump_land', 0\.5\); \}/);
   assert.match(m, /const top = c\.top != null \? c\.top : standTop\(group\);/, 'crates, barrels, benches');
   assert.match(m, /wildsCollide\(x, z, 6, standTop\(gs\)\)/, 'gravestones in the Wilds');
   assert.match(read('client/player-visuals.js'), /const jumpYOffset = id === getMyId\(\) \? getMyFeet\(\) : getPerchAt\(p\.x, p\.y\);/);
