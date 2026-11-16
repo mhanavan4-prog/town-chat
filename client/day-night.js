@@ -127,18 +127,20 @@ function updateDayNightCycle() {
   // horizon at rise/set up to high in the sky at their peak.
   const anchor = getSkyAnchor && getSkyAnchor();
   const ax = anchor ? anchor.x : 0, az = anchor ? anchor.z : 0;
+  // up on the besom the sky goes up with you, so the moon stays above the horizon and not under your feet
+  const ay = anchor ? Math.max(0, anchor.y - 250) : 0;
   const SKY_DIST = 1500;
   const skyAlt = (a) => (0.24 + Math.max(0, Math.sin(a)) * 0.92) * SKY_DIST;
 
   const sunMesh = getSunMesh && getSunMesh();
   if (sunMesh) {
-    sunMesh.position.set(ax + Math.cos(sunAngle) * SKY_DIST, skyAlt(sunAngle), az - 0.34 * SKY_DIST);
+    sunMesh.position.set(ax + Math.cos(sunAngle) * SKY_DIST, ay + skyAlt(sunAngle), az - 0.34 * SKY_DIST);
     sunMesh.material.opacity = effLight;
     sunMesh.visible = effLight > 0.02;
     if (sunMesh.userData.glow) sunMesh.userData.glow.material.opacity = effLight * 0.7;
   }
 
-  getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, skyAlt(moonAngle), az - 0.34 * SKY_DIST);
+  getMoonMesh().position.set(ax + Math.cos(moonAngle) * -SKY_DIST, ay + skyAlt(moonAngle), az - 0.34 * SKY_DIST);
   getOutdoorMoonLight().position.set(Math.cos(moonAngle) * -1150, Math.max(60, Math.sin(moonAngle) * 900), -460);
   getOutdoorMoonLight().intensity = moonStrength * 0.30; // softer, so it no longer glares off the ground
   // The moon blushes red on blood nights, glows violet in the Hagstone world.

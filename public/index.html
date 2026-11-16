@@ -1883,6 +1883,10 @@
     .dmgNum { animation-duration:0.5s; }
   }
 
+  #besomPads { position:fixed; z-index:9; right:max(14px, env(safe-area-inset-right)); bottom:max(236px, calc(env(safe-area-inset-bottom) + 228px)); display:flex; flex-direction:column; gap:10px; }
+  #besomPads.hidden { display:none; }
+  #besomPads button { width:52px; height:52px; border-radius:50%; border:1px solid rgba(255,214,140,0.5); background:rgba(28,18,40,0.78); color:#ffd88a; font-size:20px; touch-action:none; -webkit-user-select:none; user-select:none; }
+  #besomPads button:active { background:rgba(70,44,96,0.9); }
   body.touchMode #actionCluster { display:block; position:fixed; z-index:8; right:max(14px, env(safe-area-inset-right)); bottom:max(16px, env(safe-area-inset-bottom)); width:196px; height:196px; pointer-events:none; }
   body.touchMode #actionCluster.hidden { display:none; }
   .acBtn {
@@ -3141,6 +3145,8 @@
 <div id="fxLayer"></div>
 <div id="chatNotifStack"></div>
 
+<!-- up and down on the besom, on a phone (Space and Shift on a keyboard) -->
+<div id="besomPads" class="hidden"><button id="besomUp" type="button" aria-label="Climb">▲</button><button id="besomDown" type="button" aria-label="Sink">▼</button></div>
 <div id="actionCluster" class="hidden">
   <button id="btnStrike" class="acBtn acPrimary" title="Attack nearest">⚔️</button>
   <button id="btnJump" class="acBtn" title="Jump">🦘</button>

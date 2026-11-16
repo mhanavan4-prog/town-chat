@@ -7318,7 +7318,7 @@ function publicPlayer(p) {
     // Coming in on the besom (lib/oldWays.js): how many ms of the ride are left, so others see her come down.
     flying: p.flyingUntil > Date.now() ? p.flyingUntil - Date.now() : undefined,
     // Riding the besom (lib/besomMount.js), so others see her on it.
-    mounted: besomMount.riding(p) || undefined,
+    mounted: besomMount.seenAt(p) || undefined,   // false, or how high she rides
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
     // state broadcast — the mask image itself is heavy (a data URL) and
@@ -14306,6 +14306,7 @@ wss.on('connection', (ws, req) => {
     }
 
     if (msg.type === 'besom_mount') { besomMount.mount(player, !!msg.on); return; }
+    if (msg.type === 'besom_alt') { besomMount.altitude(player, msg.alt); return; }
     if (msg.type === 'cast_spell') {
     if (player.mounted) besomMount.dismount(player, 'fight');   // you get off it to fight
       if (player.charId !== 0) {
