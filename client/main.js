@@ -7059,7 +7059,7 @@ function myFeatherMult() { return me && me.activeStatus && me.activeStatus.type 
 function myFeet() { return myPerch.feet(jumpActive, jumpT, myFeatherMult()); }
 // How high she is for the purpose of what stops her: on the besom, her riding height, and over everything once she
 // is above the roofs. (Kept apart from myFeet, which is where her body stands: Infinity there made her vanish.)
-function myClearance() { if (besomRide.on) return besomOverAll() ? Infinity : besomRide.alt; return myFeet(); }
+function myClearance() { return besomRide.on ? besomRide.alt : myFeet(); }
 let _camPerch = 0; // the camera's share of it, smoothed
 // The top to give a collider for this object: its own height, if a jump gets onto it (0 = a wall).
 function standTop(group) {
@@ -11296,11 +11296,70 @@ function syncBesomMenu() {
 }
 // Up and down on it: Space climbs, Shift sinks (▲ ▼ on a phone). High enough, she is over the roofs and the trees
 // and nothing on the ground stops her; she cannot come down onto a roof, or into a building, only beside it.
-function besomOverAll() { return besomRide.on && besomRide.alt >= besomRide.clear; }
+// What is under her, and how high it stands: found by looking straight down from above the clouds' floor at what is
+// really there (a roof, a tree's crown, a tower's cap), so she can come down ON a thing and not only beside it. The
+// look is taken on a coarse grid and kept a couple of seconds; characters, the sky and anything not solid are passed over.
+const BESOM_SEAT = 14;            // how far above a roof she sits when she has come down on it
+const BESOM_GRID = 8, BESOM_TOP_KEEP_MS = 2500, BESOM_LOOK_FROM = 600;
+const _roofRay = new THREE.Raycaster(), _roofFrom = new THREE.Vector3(), _roofDown = new THREE.Vector3(0, -1, 0);
+let _roofSolids = null, _roofSolidsFor = null, _roofSolidsAt = 0;
+const _roofTops = new Map();
+function besomSolids(now) {
+  if (_roofSolids && _roofSolidsFor === activeScene && now - _roofSolidsAt < 4000) return _roofSolids;
+  const out = [], skip = new Set();
+  for (const id in visuals) if (visuals[id] && visuals[id].group) skip.add(visuals[id].group);
+  const walk = (o) => {
+    if (!o.visible || skip.has(o) || o.name === 'gfxSky') return;
+    if (o.isMesh && !o.isSkinnedMesh && o.material && o.material.depthWrite !== false && !o.material.transparent) out.push(o);
+    for (let i = 0; i < o.children.length; i++) walk(o.children[i]);
+  };
+  if (activeScene) walk(activeScene);
+  _roofSolids = out; _roofSolidsFor = activeScene; _roofSolidsAt = now; _roofTops.clear();
+  return out;
+}
+// how high the highest solid thing stands over the ground at (x, y), in world units; 0 for bare ground
+function besomTopAt(x, y) {
+  if (!me || !activeScene) return 0;
+  const now = performance.now(), key = Math.round(x / BESOM_GRID) + ':' + Math.round(y / BESOM_GRID);
+  const kept = _roofTops.get(key);
+  if (kept && now - kept.at < BESOM_TOP_KEEP_MS && _roofSolidsFor === activeScene) return kept.top;
+  const solids = besomSolids(now);
+  const ground = groundY + (getFloorHeight(me.room, x, y) || 0);
+  _roofFrom.set(x, ground + BESOM_LOOK_FROM, y);
+  _roofRay.set(_roofFrom, _roofDown); _roofRay.far = BESOM_LOOK_FROM + 40;
+  let top = 0;
+  try { const hit = _roofRay.intersectObjects(solids, false)[0]; if (hit) top = Math.max(0, hit.point.y - ground); } catch (_) {}
+  if (top < 6) top = 0;   // the ground itself, a path, a rug of moss
+  if (_roofTops.size > 4000) _roofTops.clear();
+  _roofTops.set(key, { top, at: now });
+  return top;
+}
+// how high she must be to be over what stands at (x, y): its top and a seat's clearance, or, where something
+// stops a walker but nothing can be seen to stand there, the old rule (well up over everything)
+function besomNeedAt(x, y) {
+  const top = besomTopAt(x, y);
+  return top > 0 ? Math.min(besomRide.top, top + BESOM_SEAT) : besomRide.clear;
+}
+// is this place taken up by something a walker could not pass: a wall's footprint, or (in the town) a building's room
+function besomFootprint(x, y) { return collides(x, y, 0) || (world === TOWN_WORLD && roomAt(x, y) !== 'outside'); }
+// riding, and high enough to be over whatever is at (x, y)
+function besomOver(x, y) { return besomRide.on && besomRide.alt >= besomNeedAt(x, y) - 2; }
+function besomOverAll() { return !!me && besomOver(me.x, me.y) && besomFootprint(me.x, me.y); }
 function besomFloor() {
   if (!me) return besomRide.hover;
-  const blocked = collides(me.x, me.y, 0) || (world === TOWN_WORLD && roomAt(me.x, me.y) !== 'outside');
-  return blocked ? besomRide.clear : besomRide.hover;
+  return besomFootprint(me.x, me.y) ? besomNeedAt(me.x, me.y) : besomRide.hover;
+}
+// well off the ground on it: too far up to reach anything down there
+function besomAloft() { return besomRide.on && besomRide.alt > besomRide.hover + 40; }
+// Got off (or knocked off) on top of something, she stays up there, sitting on it, until she moves; then she drops
+// off the nearest edge. { x, y, top }
+let besomRoost = null;
+function besomRoostHolds(nx, ny) { return !!besomRoost && !!me && nx === me.x && ny === me.y; }
+// What stops her, walking or riding. On foot it is the walls as ever. Riding, a place is barred only if something
+// stands there AND she is not over it.
+function barredAt(x, y, ft) {
+  if (!besomRide.on) return collides(x, y, ft);
+  return collides(x, y, 0) && !besomOver(x, y);
 }
 let _besomLastT = 0, _besomDt = 0.016;
 function stepBesomAltitude(now) {
@@ -11350,6 +11409,12 @@ function stepRiddenBesoms() {
       if (!flying) v._fallY = v.flightY || 0;
       v._rideY = null;
       if (!flying) v.flightY = 0;
+      // off it on top of something: she stays there
+      if (id === myId && me && !flying && besomFootprint(me.x, me.y)) { const top = besomTopAt(me.x, me.y); if (top > 0 && v._fallY <= top + BESOM_SEAT + 30) { besomRoost = { x: me.x, y: me.y, top }; v._fallY = 0; } }
+    }
+    if (id === myId && besomRoost) {
+      if (riding || !me || me.x !== besomRoost.x || me.y !== besomRoost.y || !BESOM_OPEN_ROOMS.has(me.room)) { if (!riding) v._fallY = besomRoost.top; besomRoost = null; }
+      else v.flightY = besomRoost.top;
     }
     // down out of the sky, not all at once
     if (!riding && !flying && v._fallY > 1) { v._fallY = Math.max(0, v._fallY - (520 + v._fallY * 1.6) * _besomDt); v.flightY = v._fallY; if (v._fallY <= 1) { v._fallY = 0; v.flightY = 0; } }
@@ -20025,7 +20090,7 @@ function nearestLoot(reach = LOOT_REACH) {
   return best;
 }
 function tryInteract() {
-  if (!me || broomRide) return;
+  if (!me || broomRide || besomAloft()) return;   // nothing on the ground is in reach from up there
   // Loot first: F by a body opens its bag, and F again with the bag open takes all of it.
   if (lootBag.isOpen()) { lootBag.takeAll(); return; }
   { const loot = !seatedAt && nearestLoot(); if (loot) { ws.send(JSON.stringify({ type: 'loot_peek', targetType: loot.lootType, targetId: loot.targetId })); return; } }
@@ -20167,7 +20232,7 @@ function interactVerb() {
 function updateInteractHint() {
   const hint = document.getElementById('interactHint');
   if (!hint) return;
-  if (!me || broomRide || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
+  if (!me || broomRide || besomAloft() || Modals.isOpen('passModalOpen') || Modals.isOpen('msModalOpen') || Modals.isOpen('legendModalOpen') || Modals.isOpen('arcadeModalOpen') || Modals.isOpen('bankModalOpen') || Modals.isOpen('auctionModalOpen') || Modals.isOpen('sendMoneyModalOpen') || Modals.isOpen('spellConsentOpen') || Modals.isOpen('howlConsentOpen') || Modals.isOpen('npcShopOpen') || Modals.isOpen('witchShopOpen') || Modals.isOpen('witchConsentOpen') || Modals.isOpen('werewolfShopOpen') || Modals.isOpen('werewolfConsentOpen') || Modals.isOpen('boardModalOpen') || Modals.isOpen('delveModalOpen') || Modals.isOpen('covenModalOpen') || Modals.isOpen('bedChestModalOpen') || Modals.isOpen('notifModalOpen') || Modals.isOpen('settingsModalOpen') || Modals.isOpen('locksmithModalOpen') || Modals.isOpen('seanceModalOpen')) { hint.classList.add('hidden'); return; }
   if (seatedAt) {
     hint.classList.remove('hidden');
     document.getElementById('interactHintText').textContent = `${interactVerb()} stand`;
@@ -21046,12 +21111,12 @@ function updateOutdoor(stepX, stepY) {
     // If you're already overlapping a collider (e.g. you placed furniture right
     // where you stand), don't lock up — let the move through so you can walk out.
     const ft = myClearance();
-    const stuck = collides(me.x, me.y, ft);
-    if (stuck || !collides(nx, me.y, ft)) me.x = nx;
-    if (stuck || !collides(me.x, ny, ft)) me.y = ny;
+    const stuck = barredAt(me.x, me.y, ft);
+    if (stuck || !barredAt(nx, me.y, ft)) me.x = nx;
+    if (stuck || !barredAt(me.x, ny, ft)) me.y = ny;
     // Auto-unstick: if still overlapping a collider (stood where a new collider
     // appeared, or clipped in on an older client), eject to the nearest clear edge.
-    if (stuck) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
+    if (stuck && !besomRide.on && !besomRoostHolds(nx, ny)) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
     const inCave = world === CAVE_WORLD || me.room === 'witch_cave';
     const inVault = world === VAULT_WORLD || me.room === 'bank_vault';
     const inEmber = world === EMBER_WORLD || me.room === 'ember_wastes';
@@ -21083,19 +21148,19 @@ function updateOutdoor(stepX, stepY) {
     return;
   }
 
-  const blockedX = !besomOverAll() && isLockedRoom(roomAt(nx, me.y));
-  const blockedY = !besomOverAll() && isLockedRoom(roomAt(me.x, ny));
+  const blockedX = !besomOver(nx, me.y) && isLockedRoom(roomAt(nx, me.y));
+  const blockedY = !besomOver(me.x, ny) && isLockedRoom(roomAt(me.x, ny));
   const ft = myClearance();
-  if (blockedX) { showLockMessage(); } else if (!collides(nx, me.y, ft)) { me.x = nx; }
-  if (blockedY) { showLockMessage(); } else if (!collides(me.x, ny, ft)) { me.y = ny; }
+  if (blockedX) { showLockMessage(); } else if (!barredAt(nx, me.y, ft)) { me.x = nx; }
+  if (blockedY) { showLockMessage(); } else if (!barredAt(me.x, ny, ft)) { me.y = ny; }
   // Auto-unstick in town too — eject from any collider footprint you're inside
   // (door gaps/interiors aren't colliders, so standing in a room never triggers).
-  if (collides(me.x, me.y, ft)) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
+  if (!besomRide.on && !besomRoostHolds(nx, ny) && collides(me.x, me.y, ft)) { const freed = resolveStuck(me.x, me.y, null, ft); if (freed) { me.x = freed.x; me.y = freed.y; } }
 
   me.x = Math.max(PLAYER_R, Math.min(world.width - PLAYER_R, me.x));
   me.y = Math.max(PLAYER_R, Math.min(world.height - PLAYER_R, me.y));
 
-  let room = besomOverAll() ? 'outside' : roomAt(me.x, me.y);   // over the roofs on the besom, you are out of doors
+  let room = ((besomRide.on && besomOver(me.x, me.y)) || besomRoost) ? 'outside' : roomAt(me.x, me.y);   // over the roofs on the besom, you are out of doors
   // Standing in a door's approach corridor (on the stairs, at the door you can
   // see) counts as walking in — see doorApproach().
   let viaDoor = false;
@@ -21831,7 +21896,7 @@ if (location.search.includes('testdrive=1')) {
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
-    besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
+    besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), floor: Math.round(besomFloor()), roost: besomRoost ? Math.round(besomRoost.top) : 0, top: me ? Math.round(besomTopAt(me.x, me.y)) : 0, on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },
