@@ -20,12 +20,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet">
 <style>
-  /* A true-gold coin chip used for the gold currency (the 🪙 emoji renders
-     pale/silver on some platforms, so we draw the coin ourselves). */
-  .coin { display:inline-block; width:0.92em; height:0.92em; border-radius:50%;
-    background:radial-gradient(circle at 36% 30%, #fff3b0, #ffd85a 34%, #eab12a 66%, #b07d12);
-    box-shadow: inset 0 0 0 1.4px rgba(120,86,12,0.9), inset 1px 1px 2px rgba(255,248,210,0.6);
-    vertical-align:-0.11em; }
+  /* The gold coin emblem (client/gold-coin.js swaps every 🪙 on the page for one: the emoji is silver on Apple). */
+  .coin { display:inline-block; width:0.95em; height:0.95em; vertical-align:-0.13em;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3CradialGradient id='f' cx='0.36' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23fff7c8'/%3E%3Cstop offset='0.32' stop-color='%23ffd84f'/%3E%3Cstop offset='0.72' stop-color='%23df9f1c'/%3E%3Cstop offset='1' stop-color='%2394620a'/%3E%3C/radialGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff0b0'/%3E%3Cstop offset='0.45' stop-color='%23d79a1c'/%3E%3Cstop offset='1' stop-color='%235e3e05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='15.4' fill='url(%23r)'/%3E%3Ccircle cx='16' cy='16' r='15.4' fill='none' stroke='%234a3004' stroke-width='0.9'/%3E%3Cg fill='%23fff1b6' opacity='0.7'%3E%3Ccircle cx='29.85' cy='16.00' r='0.78'/%3E%3Ccircle cx='29.38' cy='19.58' r='0.78'/%3E%3Ccircle cx='27.99' cy='22.92' r='0.78'/%3E%3Ccircle cx='25.79' cy='25.79' r='0.78'/%3E%3Ccircle cx='22.93' cy='27.99' r='0.78'/%3E%3Ccircle cx='19.58' cy='29.38' r='0.78'/%3E%3Ccircle cx='16.00' cy='29.85' r='0.78'/%3E%3Ccircle cx='12.42' cy='29.38' r='0.78'/%3E%3Ccircle cx='9.08' cy='27.99' r='0.78'/%3E%3Ccircle cx='6.21' cy='25.79' r='0.78'/%3E%3Ccircle cx='4.01' cy='22.92' r='0.78'/%3E%3Ccircle cx='2.62' cy='19.58' r='0.78'/%3E%3Ccircle cx='2.15' cy='16.00' r='0.78'/%3E%3Ccircle cx='2.62' cy='12.42' r='0.78'/%3E%3Ccircle cx='4.01' cy='9.08' r='0.78'/%3E%3Ccircle cx='6.21' cy='6.21' r='0.78'/%3E%3Ccircle cx='9.07' cy='4.01' r='0.78'/%3E%3Ccircle cx='12.42' cy='2.62' r='0.78'/%3E%3Ccircle cx='16.00' cy='2.15' r='0.78'/%3E%3Ccircle cx='19.58' cy='2.62' r='0.78'/%3E%3Ccircle cx='22.93' cy='4.01' r='0.78'/%3E%3Ccircle cx='25.79' cy='6.21' r='0.78'/%3E%3Ccircle cx='27.99' cy='9.07' r='0.78'/%3E%3Ccircle cx='29.38' cy='12.42' r='0.78'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='12.3' fill='url(%23f)' stroke='%237a5108' stroke-width='1'/%3E%3Cpath d='M18.4 9.3A7.2 7.2 0 1 0 18.4 22.7A5.7 5.7 0 1 1 18.4 9.3Z' fill='%23fff3c4' transform='translate(0.55 0.6)' opacity='0.75'/%3E%3Cpath d='M18.4 9.3A7.2 7.2 0 1 0 18.4 22.7A5.7 5.7 0 1 1 18.4 9.3Z' fill='%23a8700d'/%3E%3Cellipse cx='11.6' cy='9.6' rx='5.2' ry='2.6' fill='%23fff' opacity='0.28' transform='rotate(-32 11.6 9.6)'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .coin > .coinT { display:none; }
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body {
     width:100%; height:100%; overflow:hidden;
@@ -4608,7 +4606,7 @@
         <input type="number" id="auctionQty" min="1" value="1">
         <label>Sell for</label>
         <select id="auctionCurrency">
-          <option value="gold">🪙 Gold (bank)</option>
+          <option value="gold">Gold (bank)</option>
           <option value="ms">💎 Moonstones</option>
         </select>
         <div id="auctionMsFeeNote" style="font-size:11px;color:#c9a878;margin:2px 0 6px;">The house keeps 10% of every sale (gold or 💎) at settlement.</div>
