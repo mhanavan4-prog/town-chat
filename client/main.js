@@ -1,3 +1,4 @@
+import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
 import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
@@ -20444,6 +20445,8 @@ void _backCloses;
 // Escape toggles the menu, so one press must be one press whatever the browser says about repeats
 // (client/key-once.js). Heard first, before every other key handler; made-up Escapes (the back button's) pass.
 const _escOnce = createPressOnce();
+// gold is shown as the gold coin emblem everywhere, whatever wrote it (client/gold-coin.js)
+try { watchCoins(document); } catch (_) {}
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.isTrusted && _escOnce.repeat('Escape', e.repeat)) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 window.addEventListener('keyup', (e) => { if (e.key === 'Escape') _escOnce.up('Escape'); }, true);
 window.addEventListener('blur', () => _escOnce.clear());
