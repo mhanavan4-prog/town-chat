@@ -93,7 +93,7 @@ check('…and down again she is fair game', ow.isCalmed(ann) === false);
 check('the server times the ride and tells her client how long it is', /player\.flyingUntil = Date\.now\(\) \+ oldWays\.D\.BESOM_RIDE_MS/.test(server) && /rideMs: oldWays\.D\.BESOM_RIDE_MS/.test(server) && D.BESOM_RIDE_MS >= 4000 && D.BESOM_RIDE_MS <= 10000);
 check('her client flies the last stretch: aloft, astride, nothing sent till she is down, and no walking or reaching for things in the air',
   /function startBroomRide\(tx, ty, ms\)/.test(main) && /v\.flightY = Math\.max\(0\.01, BROOM_RIDE_ALT/.test(main) && /else if \(v\.flightY\) want = 'Sit_Chair_Idle'/.test(main)
-  && /ws\.readyState === WebSocket\.OPEN && !broomRide\)/.test(main) && /const riding = stepBroomRide\(\)/.test(main) && /if \(!me \|\| broomRide\) return;/.test(main)
+  && /ws\.readyState === WebSocket\.OPEN && !broomRide\)/.test(main) && /const riding = stepBroomRide\(\)/.test(main) && /if \(!me \|\| broomRide \|\| besomAloft\(\)\) return;/.test(main)
   && /\(v\.flightY \|\| 0\), rp\.z\); \/\/ flightY/.test(read('client/player-visuals.js')));
 
 // the wanderers

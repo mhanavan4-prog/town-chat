@@ -109,9 +109,9 @@ test('over the roofs nothing on the ground stops her, and her body is not put at
   assert.strictEqual(c.collides(50, 50, Infinity), false);
   const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
   assert.match(main, /function myFeet\(\) \{ return myPerch\.feet\(jumpActive, jumpT, myFeatherMult\(\)\); \}/);
-  assert.match(main, /function myClearance\(\) \{ if \(besomRide\.on\) return besomOverAll\(\) \? Infinity : besomRide\.alt; return myFeet\(\); \}/);
-  assert.match(main, /let room = besomOverAll\(\) \? 'outside' : roomAt\(me\.x, me\.y\);/);
-  assert.match(main, /const blockedX = !besomOverAll\(\) && isLockedRoom/);
+  assert.match(main, /function myClearance\(\) \{ return besomRide\.on \? besomRide\.alt : myFeet\(\); \}/);
+  assert.match(main, /let room = \(\(besomRide\.on && besomOver\(me\.x, me\.y\)\) \|\| besomRoost\) \? 'outside' : roomAt\(me\.x, me\.y\);/);
+  assert.match(main, /const blockedX = !besomOver\(nx, me\.y\) && isLockedRoom/);
 });
 
 test('Space climbs and Shift sinks, a phone has its own pair, and the sky goes up with her but the clouds stay', () => {
@@ -133,4 +133,16 @@ test('the clouds have their own place over the land, and do not follow her about
   const m = main.match(/const cloudWrap = (\(d\) => [^;]+);/);
   const wrap = new Function('CLOUD_SPAN', 'return ' + m[1])(4800);
   assert.strictEqual(wrap(0), 0); assert.strictEqual(wrap(2500), -2300); assert.strictEqual(wrap(-2500), 2300); assert.strictEqual(wrap(4800 * 3 + 10), 10);
+});
+
+test('she can come down on top of a thing: its real top is found by looking down, and she may sit there', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  assert.match(main, /function besomTopAt\(x, y\) \{/);
+  assert.match(main, /_roofRay\.intersectObjects\(solids, false\)\[0\]/);
+  assert.match(main, /o\.isMesh && !o\.isSkinnedMesh && o\.material && o\.material\.depthWrite !== false && !o\.material\.transparent/, 'characters, glows and the sky are not roofs');
+  assert.match(main, /return top > 0 \? Math\.min\(besomRide\.top, top \+ BESOM_SEAT\) : besomRide\.clear;/, 'nothing seen there: the old rule');
+  assert.match(main, /return besomFootprint\(me\.x, me\.y\) \? besomNeedAt\(me\.x, me\.y\) : besomRide\.hover;/);
+  assert.match(main, /return collides\(x, y, 0\) && !besomOver\(x, y\);/, 'riding, a place is barred only if she is not over what stands there');
+  assert.match(main, /besomRoost = \{ x: me\.x, y: me\.y, top \};/);
+  assert.match(main, /if \(!me \|\| broomRide \|\| besomAloft\(\)\) return;/, 'no reaching the ground from up there');
 });
