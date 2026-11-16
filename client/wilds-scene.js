@@ -13,6 +13,7 @@ import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
 import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
 import { hangGateVeil } from './gate-veil.js';
+import { glyphFire, glyphShow, raiseGlyphMotes } from './ground-glyphs.js';
 import { wildsWaters, refineGround, buildWildsWater } from './wilds-water.js';
 import { buildWildsRim } from './wilds-rim.js';
 
@@ -210,6 +211,7 @@ function buildWildsScene(w2) {
     return [x, z];
   };
   const glyphSpots = [];
+  const glyphMoteList = [];
   for (let i = 0; i < 220; i++) {
     let gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     [gx, gz] = nudgeOffLandmarks(gx, gz);
@@ -235,9 +237,20 @@ function buildWildsScene(w2) {
     const phase = grand() * Math.PI * 2;           // where in the breath it starts
     const speed = 0.0009 + grand() * 0.0013;        // rad/ms — each glyph drifts
     const baseOp = 0.5 + grand() * 0.22, amp = 0.2 + grand() * 0.08;
-    glow.onBeforeRender = () => { glowMat.opacity = baseOp + amp * Math.sin(performance.now() * speed + phase); };
+    // the line burns (client/ground-glyphs.js): unevenly, the hot place creeping along the cut, and fainter by day
+    const fire = glyphFire(glowMat, phase * 7.3);
+    glow.onBeforeRender = () => {
+      const now = performance.now();
+      glowMat.opacity = baseOp + amp * Math.sin(now * speed + phase);
+      fire.value.y = (now / 1000) % 4000; fire.value.z = glyphShow(GFX && GFX.st ? GFX.st.lightAmount : 1);
+    };
     scene.add(glow);
+    glyphMoteList.push({ x: gx, y: sampleH(gx, gz), z: gz, r: size * 0.4, col });
   }
+  // a mote lifts off a glyph now and then and goes out: all of them in one draw
+  { const mu = raiseGlyphMotes(THREE, scene, glyphMoteList, GFX && GFX.st ? GFX.st.quality : 'high');
+    if (mu) scene.userData.glyphMotes = () => { mu.uT.value = (performance.now() / 1000) % 4000; mu.uShow.value = glyphShow(GFX && GFX.st ? GFX.st.lightAmount : 1); }; }
+  scene.userData.glyphSpots = glyphSpots;
 
   // The ground as country (client/wilds-ground.js): grass, heather, earth and rock mixed by the lie of the land,
   // trodden ways, and grass standing round you. On 'low' the old painted floor is left as it was.

@@ -521,6 +521,11 @@ function buildEmberScene() {
     const g = KK.staticInstance('em_minster', EMBER_TOWN.height * EMBER_TOWN.unit, 'height');
     if (!g) return;
     minsterBuilt = true;
+    // Seated by the model's own ground, not by its lowest point. staticInstance stands a model on the bottom of its
+    // bounding box and fits its whole height; the minster has work sunk below its ground line, so that lifted the
+    // whole building some forty units and the yard hung over the field with daylight under it. One model unit is
+    // EMBER_TOWN.unit, and the model's z = 0 is the ground: which is also what the lights and the walls assume.
+    { const inst = g.children[0]; if (inst) { inst.scale.setScalar(EMBER_TOWN.unit); inst.position.y = 0; } }
     g.rotation.y = EMBER_TOWN.turn;
     g.position.set(EMBER_TOWN.x, 0, EMBER_TOWN.y);
     scene.add(g);

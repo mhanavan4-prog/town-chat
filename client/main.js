@@ -21222,6 +21222,7 @@ function update(dt) {
   updateCryptMobVisuals(dt);
   updateEmberMobVisuals(dt);
   updateEmberAmbient(dt);
+  if (activeScene && activeScene.userData && activeScene.userData.glyphMotes) activeScene.userData.glyphMotes();   // the motes off the Wilds' glyphs (client/ground-glyphs.js)
   if (activeScene && activeScene.userData && activeScene.userData.gateTick) activeScene.userData.gateTick(performance.now() / 1000);   // the March gate's veil (client/gate-veil.js)
   _emberStorm.update(dt);
   if (me && me.room === 'ember_wastes') { updateEmberNodeVisuals(dt); checkEmberLandmarkDiscovery(); }
@@ -21670,6 +21671,7 @@ if (location.search.includes('testdrive=1')) {
     airSwings() { return _airSwings; },
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
+    glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },

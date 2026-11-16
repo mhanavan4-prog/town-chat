@@ -408,42 +408,61 @@ export function makeGroundSigilTextures() {
     // ── scorch layer ──────────────────────────────────────────────────────
     const sc = document.createElement('canvas'); sc.width = S; sc.height = S;
     const s = sc.getContext('2d');
-    // soft burnt halo of dead ground around the mark
-    const halo = s.createRadialGradient(mid, mid, R * 0.25, mid, mid, R * 1.4);
-    halo.addColorStop(0, 'rgba(9,6,5,0.6)');
-    halo.addColorStop(0.55, 'rgba(11,7,6,0.34)');
-    halo.addColorStop(1, 'rgba(11,7,6,0)');
+    const Rs = R / 1.3;   // the scorch plane is laid 1.3x the glow's: drawn this much smaller, the cut lies exactly under the fire
+    // a faint patch of dead ground under the whole mark
+    const halo = s.createRadialGradient(mid, mid, R * 0.2, mid, mid, R * 1.4);
+    halo.addColorStop(0, 'rgba(12,8,6,0.3)');
+    halo.addColorStop(0.6, 'rgba(12,8,6,0.16)');
+    halo.addColorStop(1, 'rgba(12,8,6,0)');
     s.fillStyle = halo; s.fillRect(0, 0, S, S);
-    // irregular charring flecks so the stain isn't a clean disc
-    for (let i = 0; i < 46; i++) {
-      const a = Math.random() * Math.PI * 2, rr = Math.random() * R * 1.25;
-      const x = mid + Math.cos(a) * rr, y = mid + Math.sin(a) * rr;
-      s.fillStyle = Math.random() < 0.6 ? 'rgba(6,4,3,0.4)' : 'rgba(26,18,14,0.3)';
-      s.beginPath(); s.arc(x, y, 1 + Math.random() * 5, 0, Math.PI * 2); s.fill();
-    }
-    // the glyph bitten into the earth — a dark recessed groove with a faint
-    // sun-baked ash rim just outside it for edge definition
     s.save(); s.translate(mid, mid);
     s.lineJoin = 'round'; s.lineCap = 'round';
-    s.strokeStyle = 'rgba(40,28,22,0.45)'; s.lineWidth = R * 0.2; fn(s, R); // ash rim
-    s.strokeStyle = 'rgba(0,0,0,0.9)';     s.lineWidth = R * 0.12; fn(s, R); // groove
+    // the burn follows the cut: char thickest beside the line and gone a hand away, with no edge to it
+    s.shadowColor = 'rgba(8,5,4,0.85)'; s.shadowBlur = 22;
+    s.strokeStyle = 'rgba(10,7,5,0.5)'; s.lineWidth = Rs * 0.16; fn(s, Rs);
+    s.shadowBlur = 9;
+    s.strokeStyle = 'rgba(8,5,4,0.55)'; s.lineWidth = Rs * 0.1; fn(s, Rs);
+    s.shadowBlur = 0; s.shadowColor = 'rgba(0,0,0,0)';
+    s.restore();
+    // cinders and pale ash lying about it
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, rr = Math.random() * R * 1.2;
+      const x = mid + Math.cos(a) * rr, y = mid + Math.sin(a) * rr;
+      s.fillStyle = Math.random() < 0.55 ? 'rgba(6,4,3,0.34)' : 'rgba(128,120,108,0.2)';
+      s.beginPath(); s.arc(x, y, 0.6 + Math.random() * 2.6, 0, Math.PI * 2); s.fill();
+    }
+    // the baked ground has cracked
+    s.strokeStyle = 'rgba(0,0,0,0.5)'; s.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      let a = Math.random() * Math.PI * 2; const rr = (0.15 + Math.random() * 0.95) * R;
+      let x = mid + Math.cos(a) * rr, y = mid + Math.sin(a) * rr;
+      s.lineWidth = 0.7 + Math.random() * 0.9; s.beginPath(); s.moveTo(x, y);
+      for (let k = 0, n = 2 + ((Math.random() * 4) | 0); k < n; k++) { a += (Math.random() - 0.5) * 1.5; const L = 4 + Math.random() * 9; x += Math.cos(a) * L; y += Math.sin(a) * L; s.lineTo(x, y); }
+      s.stroke();
+    }
+    // the cut itself: ash banked along it, a pale lip on the side the light catches, and the dark of the cut
+    s.save(); s.translate(mid, mid);
+    s.lineJoin = 'round'; s.lineCap = 'round';
+    s.strokeStyle = 'rgba(96,88,78,0.1)'; s.lineWidth = Rs * 0.12; fn(s, Rs);
+    s.save(); s.translate(0.9, 1.2); s.strokeStyle = 'rgba(150,136,116,0.14)'; s.lineWidth = Rs * 0.05; fn(s, Rs); s.restore();
+    s.strokeStyle = 'rgba(0,0,0,0.92)'; s.lineWidth = Rs * 0.075; fn(s, Rs);
     s.restore();
     const scorch = new THREE.CanvasTexture(sc);
 
     // ── glow layer ────────────────────────────────────────────────────────
+    // alpha is how near the middle of the cut: 1 in it, falling away through the light it throws on the ground
+    // (client/ground-glyphs.js reads it that way and makes the line burn)
     const gc = document.createElement('canvas'); gc.width = S; gc.height = S;
     const g = gc.getContext('2d');
     g.translate(mid, mid);
     g.lineJoin = 'round'; g.lineCap = 'round';
-    // outer bloom
-    g.shadowColor = '#ffffff'; g.shadowBlur = 30;
-    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = R * 0.22; fn(g, R);
-    // body
-    g.shadowBlur = 15;
-    g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = R * 0.1; fn(g, R);
-    // white-hot molten core
-    g.shadowBlur = 6;
-    g.strokeStyle = 'rgba(255,255,255,1)'; g.lineWidth = R * 0.045; fn(g, R);
+    g.shadowColor = '#ffffff'; g.shadowBlur = 26;
+    g.shadowBlur = 32;
+    g.strokeStyle = 'rgba(255,255,255,0.2)'; g.lineWidth = R * 0.2; fn(g, R);   // light on the ground beside it
+    g.shadowBlur = 7;
+    g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = R * 0.06; fn(g, R);    // the glow at the lip
+    g.shadowBlur = 2;
+    g.strokeStyle = 'rgba(255,255,255,1)'; g.lineWidth = R * 0.034; fn(g, R);     // the fire in the cut
     const glow = new THREE.CanvasTexture(gc);
 
     return { scorch, glow };
