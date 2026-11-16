@@ -3919,7 +3919,7 @@ const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop, setSfxLoopVol } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
-const SFX_STAND_IN = { wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
+const SFX_STAND_IN = { seal_strike: 'thud', seal_break: 'arcade_break', brazier_light: 'balefire_light', chest_open: 'loot', chest_locked: 'error', cache_search: 'harvest', ore_mine: 'thud', crystal_scrape: 'reveal', mushroom_pick: 'harvest', key_drop: 'loot', wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
 function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate

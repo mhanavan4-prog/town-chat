@@ -73,8 +73,10 @@ const st = finds.payloadFor(a);
 check('…and the room shows them all burning, the goal complete', st.lit.length === l1.braziers.length && st.goals.braziers.complete === true);
 const xa = a.xp; at(a, l1.seals[0]);
 finds.use(a, l1.seals[0].id); finds.use(a, l1.seals[0].id);
+check('a blow that does not break the seal is heard by the room, with no words', sent.some((m) => m.to === a.ws && m.type === 'toast' && m.sfx === 'seal_strike' && !m.message));
 check('a seal takes three blows, and not all at once', finds.payloadFor(a).blows[l1.seals[0].id] === 1 && finds.SEAL_BLOWS === 3);
 for (const sl of l1.seals) { at(a, sl); for (let i = 0; i < 4; i++) { clock += 800; finds.use(a, sl.id); } }
+check('a seal breaking, and the last of them, are heard', sent.some((m) => m.to === a.ws && m.sfx === 'seal_break' && /A seal breaks/.test(m.message || '')) && sent.some((m) => m.to === a.ws && m.sfx === 'seal_break' && /last seal breaks/.test(m.message || '')));
 check('breaking every seal pays too', finds.payloadFor(a).goals.seals.complete === true && a.xp === xa + 30 && said(a, /last seal breaks/));
 clock += 10 * 60 * 1000 + 1;
 check('ten minutes on, the braziers have guttered and the seals knit, for whoever comes next', finds.payloadFor(a).lit.length === 0 && finds.payloadFor(a).broken.length === 0);
@@ -129,5 +131,20 @@ check('a standing line underground shows your bone keys and how the two goals st
 const mid = (t) => { const g = LOOT_TABLES['dungeon_t' + t].find((d) => d.gold); return ((g.min + g.max) / 2) * g.chance * 33; };
 const haul = (t) => { const c = finds.TIER_COIN[t], P = finds.PURSES, m = (k) => ((P[k][0] + P[k][1]) / 2) * c; return m('chest') + m('bossChest') + 2 * m('cache') + m('braziers') + m('seals'); };
 check('what can be found in half an hour is worth between one and two clearings of the dungeon\'s creatures, in every tier', [1, 2, 3, 4].every((t) => haul(t) / mid(t) > 0.9 && haul(t) / mid(t) < 2.1), [1, 2, 3, 4].map((t) => +(haul(t) / mid(t)).toFixed(2)));
+
+// Every find makes a sound (tools/audio/sfx.manifest.json), with a stand-in until the recording exists.
+{
+  const src = fs.readFileSync(path.join(root, 'lib', 'dungeonFinds.js'), 'utf8');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'audio', 'sfx.manifest.json'), 'utf8'));
+  const main = fs.readFileSync(path.join(root, 'client', 'main.js'), 'utf8');
+  const ids = ['seal_strike', 'seal_break', 'brazier_light', 'chest_open', 'chest_locked', 'cache_search', 'ore_mine', 'crystal_scrape', 'mushroom_pick', 'key_drop'];
+  for (const id of ids) {
+    check(`'${id}' is played by a find`, src.includes(`'${id}'`));
+    const e = manifest.sfx.find((x) => x.id === id);
+    check(`'${id}' has a prompt to record it`, !!(e && e.prompt && /No music/.test(e.prompt) && e.duration_seconds > 0 && e.duration_seconds <= 2));
+    check(`'${id}' has a stand-in`, new RegExp(`SFX_STAND_IN = \\{[^}]*\\b${id}: '`).test(main));
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

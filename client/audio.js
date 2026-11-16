@@ -502,6 +502,8 @@ function sfxEcho(freq, t, dur, vol, type, freqEnd) {
 // The spooky songbook of one-shots — minor intervals, tritones, bells and
 // airy noise. Every game moment maps to one call: playSfx('summon'), etc.
 function playSfx(name, vol) {
+  // the last few sounds asked for, for the test harness to read back (cheap: a short ring of names)
+  try { const l = (window.__sfxHeard = window.__sfxHeard || []); l.push(name); if (l.length > 20) l.shift(); } catch (_) {}
   if (sfxMuted) return;
   ensureAudio();
   if (!audioCtx || !sfxGain) return;
