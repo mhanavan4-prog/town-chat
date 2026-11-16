@@ -107,6 +107,12 @@
       "v": "0840ff2d"
     }
   ],
+  "brazier_light": [
+    {
+      "f": "brazier_light.mp3",
+      "v": "b3a33088"
+    }
+  ],
   "brew": [
     {
       "f": "brew.mp3",
@@ -141,6 +147,12 @@
     {
       "f": "byway_stone.mp3",
       "v": "dbb409cd"
+    }
+  ],
+  "cache_search": [
+    {
+      "f": "cache_search.mp3",
+      "v": "2066d111"
     }
   ],
   "cairn_open": [
@@ -191,6 +203,18 @@
       "v": "b62dc352"
     }
   ],
+  "chest_locked": [
+    {
+      "f": "chest_locked.mp3",
+      "v": "b9ba6567"
+    }
+  ],
+  "chest_open": [
+    {
+      "f": "chest_open.mp3",
+      "v": "faa19557"
+    }
+  ],
   "cloot_tie": [
     {
       "f": "cloot_tie.mp3",
@@ -229,6 +253,12 @@
     {
       "f": "crick_done.mp3",
       "v": "f1df4064"
+    }
+  ],
+  "crystal_scrape": [
+    {
+      "f": "crystal_scrape.mp3",
+      "v": "ddf55dbb"
     }
   ],
   "curse": [
@@ -527,6 +557,12 @@
       "v": "7a263aa6"
     }
   ],
+  "key_drop": [
+    {
+      "f": "key_drop.mp3",
+      "v": "ac991a04"
+    }
+  ],
   "kill": [
     {
       "f": "kill.mp3",
@@ -627,6 +663,12 @@
       "v": "6d54d1bd"
     }
   ],
+  "mushroom_pick": [
+    {
+      "f": "mushroom_pick.mp3",
+      "v": "5acba8f2"
+    }
+  ],
   "needfire_kindle": [
     {
       "f": "needfire_kindle.mp3",
@@ -655,6 +697,12 @@
     {
       "f": "open_third_eye.mp3",
       "v": "ea3bc517"
+    }
+  ],
+  "ore_mine": [
+    {
+      "f": "ore_mine.mp3",
+      "v": "16064132"
     }
   ],
   "packmule_guard": [
@@ -803,6 +851,18 @@
     {
       "f": "scrying_orb.mp3",
       "v": "1057fdc8"
+    }
+  ],
+  "seal_break": [
+    {
+      "f": "seal_break.mp3",
+      "v": "2030b951"
+    }
+  ],
+  "seal_strike": [
+    {
+      "f": "seal_strike.mp3",
+      "v": "7473370f"
     }
   ],
   "seance": [

@@ -180,5 +180,15 @@
   "watch_field.mp3": "277d148fd56da65e",
   "epilogue.mp3": "a5e4bbc27dd04f11",
   "wade.mp3": "f570a6a6553e2e6a",
-  "beck_run.mp3": "01229005178e3305"
+  "beck_run.mp3": "01229005178e3305",
+  "seal_strike.mp3": "3f5c143711394b71",
+  "seal_break.mp3": "596179eadcbef820",
+  "brazier_light.mp3": "a2cacba89c14ba8c",
+  "chest_open.mp3": "687d3972b47ca65e",
+  "chest_locked.mp3": "ecef33cf3b690b51",
+  "cache_search.mp3": "37e58137597aeb60",
+  "ore_mine.mp3": "5bf3824b53a36307",
+  "crystal_scrape.mp3": "11a45a7b14549ec5",
+  "mushroom_pick.mp3": "0133e1ed04ec54e3",
+  "key_drop.mp3": "498c51b35d9dd852"
 }
