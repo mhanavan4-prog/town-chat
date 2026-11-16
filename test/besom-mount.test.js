@@ -68,7 +68,8 @@ test('the server and client are wired', () => {
   const gates = fs.readFileSync(path.join(__dirname, '..', 'client', 'menu-gates.js'), 'utf8');
   assert.match(server, /if \(msg\.type === 'besom_mount'\) \{ besomMount\.mount\(player, !!msg\.on\); return; \}/);
   assert.match(server, /if \(p\.mounted\) besomMount\.dismount\(p, 'hit'\);/);
-  assert.match(server, /mounted: besomMount\.riding\(p\) \|\| undefined,/);
+  assert.match(server, /mounted: besomMount\.seenAt\(p\) \|\| undefined,/);
+  assert.match(server, /if \(msg\.type === 'besom_alt'\) \{ besomMount\.altitude\(player, msg\.alt\); return; \}/);
   assert.match(server, /besomMount\.onLevel\(player, prog\.level - 1, prog\.level\)/);
   assert.match(main, /if \(besomRide\.on\) speed \*= besomRide\.speed;/);
   assert.match(main, /\(e\.key === 'g' \|\| e\.key === 'G'\) && !e\.repeat\) \{ toggleBesomRide\(\);/);
@@ -83,4 +84,44 @@ test('the broom is seated under the rider\'s hips on every broom, ridden or flow
   assert.match(main, /if \(v\.mountBesom\) \{ seatBroom\(v, v\.mountBesom\);/);
   assert.match(main, /if \(v\.otherBesom\) seatBroom\(v, v\.otherBesom\);/);
   assert.match(main, /if \(r\.broom\) \{ seatBroom\(v, r\.broom\);/);
+});
+
+test('she can take it up, as high as the top and no lower than the hover, and others are told how high', () => {
+  const { m } = make();
+  const w = witch();
+  assert.strictEqual(m.altitude(w, 500), false, 'not while on foot');
+  m.mount(w, true);
+  assert.strictEqual(m.seenAt(w), m.MOUNT.hover);
+  assert.ok(m.altitude(w, 640)); assert.strictEqual(m.seenAt(w), 640);
+  m.altitude(w, 99999); assert.strictEqual(w.besomAlt, m.MOUNT.top);
+  m.altitude(w, -50); assert.strictEqual(w.besomAlt, m.MOUNT.hover);
+  assert.strictEqual(m.altitude(w, 'up'), false);
+  m.dismount(w, 'hit'); assert.strictEqual(w.besomAlt, 0); assert.strictEqual(m.seenAt(w), false);
+  assert.ok(m.MOUNT.top > 980 + 200, 'the top is clear above the cloud layer (620 to 980)');
+  assert.ok(m.MOUNT.clear > 200 && m.MOUNT.clear < m.MOUNT.top);
+});
+
+test('over the roofs nothing on the ground stops her, and her body is not put at infinity', async () => {
+  const { default: createCollision } = await import('../client/collision.js');
+  const c = createCollision({ getWorld: () => ({ buildings: [] }), getWalls: () => [{ x: 0, y: 0, w: 100, h: 100 }, { x: 200, y: 0, w: 50, h: 50, top: 40 }], getDungeonLore: () => null, getDelveState: () => null });
+  assert.strictEqual(c.collides(50, 50, 0), true);
+  assert.strictEqual(c.collides(50, 50, 200), true, 'a wall with no top stops her at any ordinary height');
+  assert.strictEqual(c.collides(50, 50, Infinity), false);
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  assert.match(main, /function myFeet\(\) \{ return myPerch\.feet\(jumpActive, jumpT, myFeatherMult\(\)\); \}/);
+  assert.match(main, /function myClearance\(\) \{ if \(besomRide\.on\) return besomOverAll\(\) \? Infinity : besomRide\.alt; return myFeet\(\); \}/);
+  assert.match(main, /let room = besomOverAll\(\) \? 'outside' : roomAt\(me\.x, me\.y\);/);
+  assert.match(main, /const blockedX = !besomOverAll\(\) && isLockedRoom/);
+});
+
+test('Space climbs and Shift sinks, a phone has its own pair, and the sky goes up with her but the clouds stay', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const dn = fs.readFileSync(path.join(__dirname, '..', 'client', 'day-night.js'), 'utf8');
+  assert.match(main, /if \(e\.key === ' ' && besomRide\.on\) \{ besomRide\.up = true;/);
+  assert.match(main, /if \(e\.key === 'Shift' && besomRide\.on\) besomRide\.down = true;/);
+  assert.match(html, /id="besomPads" class="hidden"><button id="besomUp"/);
+  assert.match(main, /st\.skyGroup\.position\.y = Math\.max\(0, activeCamera\.position\.y - 250\);/);
+  assert.match(main, /st\.clouds\[i\]\.sp\.position\.y = st\.clouds\[i\]\.y - st\.skyGroup\.position\.y;/);
+  assert.match(dn, /const ay = anchor \? Math\.max\(0, anchor\.y - 250\) : 0;/);
 });

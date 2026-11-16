@@ -17,6 +17,7 @@ const PLAYER_R = 14;
 // (client/perch.js): it is something to stand on.
 function collides(x, y, feet) {
   const hw = PLAYER_R, hh = PLAYER_R, f = feet || 0;
+  if (f === Infinity) return false;   // high on the besom, over everything
   for (const wall of getWalls()) {
     if (wall.top && f >= wall.top - PERCH_STEP) continue;
     if (rectOverlap(x - hw, y - hh, hw * 2, hh * 2, wall.x, wall.y, wall.w, wall.h)) return true;
