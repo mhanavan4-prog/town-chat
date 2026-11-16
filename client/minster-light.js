@@ -92,8 +92,81 @@ export function dressStone(g, quality = 'high') {
 
 // Dress the minster `g` (already placed in `scene`). at(mx, my, mz) turns a place in the model into one in the world.
 // Returns tick(seconds), to be called every frame while the Wastes are on screen.
+// The paved yard (tools/models/build_home.py: 11.6 by 7.0 units about x = -0.35, 0.026 proud of the ground), in model units.
+export const MINSTER_YARD = { cx: -0.35, cy: 0, hx: 5.8, hy: 3.5, top: 0.026 };
+// how far the banked ash runs out from the yard's edge, and how far the cooled crust runs beyond that (model units)
+export const YARD_BANK = 0.42, YARD_CRUST = 1.7;
+
+// The yard's edge, walked round: [x, y, nx, ny] in model units, the corners turned in a few steps.
+export function yardEdge(step = 0.3) {
+  const { cx, cy, hx, hy } = MINSTER_YARD, out = [];
+  const side = (x0, y0, x1, y1, nx, ny) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.round(L / step)); for (let i = 0; i < n; i++) { const t = i / n; out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, nx, ny]); } };
+  const corner = (x, y, a0) => { for (let i = 0; i <= 4; i++) { const a = a0 + (i / 4) * Math.PI / 2; out.push([x, y, Math.cos(a), Math.sin(a)]); } };
+  side(cx - hx, cy - hy, cx + hx, cy - hy, 0, -1); corner(cx + hx, cy - hy, -Math.PI / 2);
+  side(cx + hx, cy - hy, cx + hx, cy + hy, 1, 0);  corner(cx + hx, cy + hy, 0);
+  side(cx + hx, cy + hy, cx - hx, cy + hy, 0, 1);  corner(cx - hx, cy + hy, Math.PI / 2);
+  side(cx - hx, cy + hy, cx - hx, cy - hy, -1, 0); corner(cx - hx, cy - hy, Math.PI);
+  return out;
+}
+
+// The yard was a flat plate with a straight dark edge standing over bright lava, and read as a board in the air.
+// Now ash and cinder are banked up against it all round, and the fire in the ground has gone cold for a way out
+// from it: the pavement comes up out of dead ground, and the dead ground out of the burning.
+export function bankYard(THREE, scene, at, unit = 250) {
+  const edge = yardEdge(), n = edge.length;
+  let sd = 0x7a11 >>> 0; const rnd = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+  const topY = MINSTER_YARD.top * unit;
+  // the bank: three courses of points, the pavement's lip, the shoulder, the toe
+  const pos = [], col = [], idx = [];
+  const C = [[0.33, 0.35, 0.36], [0.24, 0.2, 0.17], [0.12, 0.085, 0.07]];
+  const toe = [];
+  for (let i = 0; i < n; i++) {
+    const [x, y, nx, ny] = edge[i];
+    const reach = YARD_BANK * (0.55 + rnd() * 0.9), lump = 0.5 + rnd() * 0.5;
+    const rows = [[-0.03, topY + 0.4], [reach * 0.45, topY * (0.55 + 0.6 * lump)], [reach, 0.6]];
+    rows.forEach(([d, h], r) => {
+      const w = at(x + nx * d, y + ny * d, 0);
+      pos.push(w.x, h, w.z);
+      const k = 0.85 + rnd() * 0.3; col.push(C[r][0] * k, C[r][1] * k, C[r][2] * k);
+    });
+    toe.push(reach);
+    const a = i * 3, b = ((i + 1) % n) * 3;
+    for (let r = 0; r < 2; r++) idx.push(a + r, a + r + 1, b + r, b + r, a + r + 1, b + r + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const bank = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide }));
+  scene.add(bank);
+  // the cold crust beyond it: dark at the bank's toe, thinning to nothing, ragged along its length
+  const W = 64, H = 16, px = new Uint8Array(W * H * 4);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const v = j / (H - 1), rag = 0.72 + 0.28 * Math.sin(i * 0.61) * Math.sin(i * 0.23 + 1.3) + (rnd() - 0.5) * 0.12;
+    const a = Math.max(0, Math.min(1, Math.pow(1 - v, 1.4) * 1.05 * rag + (v < 0.25 ? 0.25 : 0)));
+    const o = (j * W + i) * 4; px[o] = 20; px[o + 1] = 13; px[o + 2] = 10; px[o + 3] = Math.round(a * 235);
+  }
+  const tex = new THREE.DataTexture(px, W, H, THREE.RGBAFormat);
+  tex.wrapS = THREE.RepeatWrapping; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+  const cp = [], cu = [], ci = [];
+  for (let i = 0; i <= n; i++) {
+    const [x, y, nx, ny] = edge[i % n], t = toe[i % n];
+    const a0 = at(x + nx * (t - 0.06), y + ny * (t - 0.06), 0), a1 = at(x + nx * (t + YARD_CRUST), y + ny * (t + YARD_CRUST), 0);
+    cp.push(a0.x, 1.1, a0.z, a1.x, 1.1, a1.z); cu.push(i / 9, 0, i / 9, 1);
+    if (i < n) { const a = i * 2; ci.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+  }
+  const cg = new THREE.BufferGeometry();
+  cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
+  cg.setAttribute('uv', new THREE.Float32BufferAttribute(cu, 2));
+  cg.setIndex(ci);
+  const crust = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  crust.renderOrder = 1; scene.add(crust);
+  return { bank, crust };
+}
+
 export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, unit = 250 } = {}) {
   dressStone(g, quality);
+  bankYard(THREE, scene, at, unit);
   const F = MINSTER_FLAMES, flick = [];
   const glow = (p, size, color, opacity, far) => {
     if (!glowTex) return null;
@@ -121,10 +194,14 @@ export function dressMinster(THREE, scene, g, at, { quality = 'high', glowTex, u
   if (glowTex) {
     const mid = at(0.2, 0, 0);
     // (not fogged: from out on the field the lit ground is what shows the minster standing on something)
-    for (const [r, op, y] of [[9.5, 0.3, 14], [5.2, 0.34, 15]]) {
-      const pool = new THREE.Mesh(new THREE.CircleGeometry(unit * r, 40), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff9440, transparent: true, opacity: op, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-      pool.rotation.x = -Math.PI / 2; pool.position.set(mid.x, y, mid.z); pool.renderOrder = 2; scene.add(pool);
-    }
+    const poolMat = (op) => new THREE.MeshBasicMaterial({ map: glowTex, color: 0xff9440, transparent: true, opacity: op, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    // on the field, lying on the ground itself (a sheet of light hung above it cut every foot and stone at the ankle)
+    const field = new THREE.Mesh(new THREE.CircleGeometry(unit * 9.5, 40), poolMat(0.3));
+    field.rotation.x = -Math.PI / 2; field.position.set(mid.x, 2.6, mid.z); field.renderOrder = 2; scene.add(field);
+    // and on the pavement, just over it and a little wider, so the light runs out over the banked edge
+    const yc = at(MINSTER_YARD.cx, MINSTER_YARD.cy, 0);
+    const paved = new THREE.Mesh(new THREE.PlaneGeometry(unit * MINSTER_YARD.hx * 2 * 1.3, unit * MINSTER_YARD.hy * 2 * 1.45), poolMat(0.36));
+    paved.rotation.x = -Math.PI / 2; paved.position.set(yc.x, MINSTER_YARD.top * unit + 0.9, yc.z); paved.renderOrder = 2; scene.add(paved);
   }
   // real lights, as many as the quality allows: the nave first, then the door, the altar end, the belfry, the west bays
   const want = [
