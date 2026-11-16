@@ -1789,6 +1789,7 @@ function onWsMessage(ev) {
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
         if (p.flying && p.id !== myId) existing.flyDownAt = performance.now() + p.flying; // coming in on the besom
+        existing.mounted = !!p.mounted;   // riding the besom about (lib/besomMount.js)
         // 🎃 Samhain guise + 🐈‍⬛ bonded familiar ride the 70ms state stream;
         // updateGuises()/updateFamiliars() read them off the player each frame
         // and (re)build the overlay/companion when they change.
@@ -3252,6 +3253,8 @@ function onWsMessage(ev) {
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
+  if (msg.type === 'besom_mount') { onBesomMount(msg); return; }
+  if (msg.type === 'besom_mount_seen') { if (players[msg.id] && msg.id !== myId) players[msg.id].mounted = !!msg.on; return; }
   if (msg.type === 'toast') {
     if (msg.sfx && typeof playSfx === 'function') playSfx(sfxOrStandIn(msg.sfx)); // a message may bring its own sound (tools/audio/sfx.manifest.json)
     if (msg.message) setUnlockToast(msg.message, (msg.level || msg.always) ? { level: msg.level, always: !!msg.always } : undefined);
@@ -8115,6 +8118,8 @@ function hydrateMenuRows() {
     if (row && row.id !== 'menuCloseBtn') window.__fromMenu = true;
   }, true);
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
+  on('menuBesom', closeSheetAnd(() => toggleBesomRide()));
+  on('menuBtn', () => syncBesomMenu()); on('pcMenuBtn', () => syncBesomMenu());
   // Guest → account nudge: "Create a free account" reloads to the join screen
   // with a flag so it opens straight into the register form.
   on('guestNudgeYes', () => { openGuestRegister(); });
@@ -11221,6 +11226,58 @@ function stepReel() {
 // already, so what the rest of us see is the end of it, a witch on a broom
 // coming down out of the sky to where she will stand.
 const BROOM_SEEN_MS = 4500;
+// ── The besom you ride (lib/besomMount.js), from Level 20 ─────────────────────────────────────────────────────
+// G (or Ride the besom in the menu) gets on it out of doors; again gets off. The server says yes or no, and puts
+// you on your feet when you fight, are hit, or go under a roof.
+const besomRide = { on: false, level: 20, speed: 1.6, hover: 26 };
+const BESOM_OPEN_ROOMS = new Set(['outside', 'wilds', 'ember_wastes']);
+function myLevelNow() { const p = players[myId]; return (p && p.level) || 1; }
+function toggleBesomRide() {
+  if (!me || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (besomRide.on) { ws.send(JSON.stringify({ type: 'besom_mount', on: false })); return; }
+  if (broomRide) return;
+  if (myLevelNow() < besomRide.level) { setUnlockToast(`🧹 The besom is yours to ride at Level ${besomRide.level}.`, { always: true }); return; }
+  if (!BESOM_OPEN_ROOMS.has(me.room)) { setUnlockToast('🧹 There is no room for it in here. Ride it outside.', { always: true }); return; }
+  ws.send(JSON.stringify({ type: 'besom_mount', on: true }));
+}
+function onBesomMount(msg) {
+  const was = besomRide.on;
+  besomRide.on = !!msg.on;
+  if (msg.level) besomRide.level = msg.level;
+  if (msg.speed) besomRide.speed = msg.speed;
+  if (msg.hover) besomRide.hover = msg.hover;
+  if (besomRide.on && !was && typeof playSfx === 'function') playSfx('besom_ride');
+  if (players[myId]) players[myId].mounted = besomRide.on;
+  syncBesomMenu();
+}
+function syncBesomMenu() {
+  const row = document.getElementById('menuBesom');
+  if (!row) return;
+  row.textContent = besomRide.on ? '🧹 Get off the besom' : '🧹 Ride the besom';
+}
+// Everyone riding sits a hand off the ground on the broom, bobbing a little; a flight in or out takes over.
+function stepRiddenBesoms() {
+  const now = performance.now();
+  if (besomRide.on && me && !BESOM_OPEN_ROOMS.has(me.room)) { besomRide.on = false; if (players[myId]) players[myId].mounted = false; if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'besom_mount', on: false })); }
+  for (const id in players) {
+    const v = visuals[id], p = players[id];
+    if (!v || !v.group) continue;
+    const flying = id === myId ? !!broomRide : ((p.flyDownAt || 0) > now);
+    const riding = !flying && !p.isDead && (id === myId ? besomRide.on : !!p.mounted) && (id !== myId || !!me);
+    if (riding) {
+      if (!v.mountBesom && KK.staticInstance) {
+        const broom = KK.staticInstance('wd_besom', 96, 'height');
+        if (broom) { broom.name = 'mountBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); v.mountBesom = broom; }
+      }
+      v.flightY = besomRide.hover + Math.sin(now * 0.0035 + (id.length * 1.7)) * 3;
+      if (v.mountBesom) v.mountBesom.rotation.z = Math.sin(now * 0.003) * 0.05;
+    } else if (v.mountBesom) {
+      if (v.mountBesom.parent) v.mountBesom.parent.remove(v.mountBesom);
+      v.mountBesom = null;
+      if (!flying) v.flightY = 0;
+    }
+  }
+}
 function stepOthersOnBesoms() {
   const now = performance.now();
   for (const id in players) {
@@ -20705,6 +20762,7 @@ window.addEventListener('keydown', (e) => {
   // T = emote wheel
   if ((e.key === 'v' || e.key === 'V') && !e.repeat) { fireVoiceCountermeasure(); return; }
   if ((e.key === 'p' || e.key === 'P') && !e.repeat) { snapNearestPlayer(); return; }
+  if ((e.key === 'g' || e.key === 'G') && !e.repeat) { toggleBesomRide(); return; } // ride the besom (Level 20)
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) { blessNearest(); return; } // bestow your active blessing on the nearest player
   if ((e.key === 't' || e.key === 'T') && !e.repeat) { toggleEmoteWheel(); return; }
   if (myActionCatalog && !e.repeat) {
@@ -21184,6 +21242,8 @@ function update(dt) {
   // Predator's Pace / Trailblazer (the 'swift' skill) — a permanent, stacking
   // walk-speed bonus, self-enforced client-side exactly like the statuses above.
   if (mySkillSpeedMult && mySkillSpeedMult !== 1) speed *= mySkillSpeedMult;
+  // Riding the besom (lib/besomMount.js)
+  if (besomRide.on) speed *= besomRide.speed;
   // Cat Step and its delve kin — swift boons apply only inside the run's
   // own floors (the multiplier arrives with each delve_state).
   if (delveSpeedMult !== 1 && me && typeof me.room === 'string' && me.room.startsWith('dungeon_delve_')) speed *= delveSpeedMult;
@@ -21196,7 +21256,7 @@ function update(dt) {
   // to FOOT_STRIDE while idle so the first step on moving off lands promptly.
   // Teleports set me.x directly without going through stepX/stepY, so they can't
   // trigger a burst.
-  if (me && !me.isDead) {
+  if (me && !me.isDead && !besomRide.on) {   // no footsteps on the broom
     const stepped = Math.hypot(stepX, stepY);
     if (stepped > 0.0001) {
       _footAccum += stepped;
@@ -21253,6 +21313,7 @@ function update(dt) {
 
   const riding = stepBroomRide(); // on the besom the path is flown for her
   stepOthersOnBesoms();
+  stepRiddenBesoms();
   stepCorpseCandle();
   stepDroveHerd();
   updateQuietSigns();
@@ -21688,6 +21749,7 @@ if (location.search.includes('testdrive=1')) {
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
+    besom() { const v = visuals[myId]; return { on: besomRide.on, flightY: v ? Math.round(v.flightY || 0) : null, broom: !!(v && v.mountBesom), level: myLevelNow() }; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },

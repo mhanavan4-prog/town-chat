@@ -4502,6 +4502,7 @@ function grantXP(player, amount) {
       for (const _id of abilitiesOpenedBetween(_lv, prog.level - 1, prog.level)) send(player.ws, { type: 'toast', level: 'important', always: true, message: `✨ New ability: ${_cat[_id] ? _cat[_id].name : _id}. It is on your bar.` });
       sendAbilityUnlocks(player);
     } catch (e) {}
+    try { besomMount.onLevel(player, prog.level - 1, prog.level); } catch (e) {}
     send(player.ws, {
       type: 'level_up',
       level: prog.level,
@@ -7316,6 +7317,8 @@ function publicPlayer(p) {
     invisible: !!(p.invisibleUntil && p.invisibleUntil > Date.now()), // Nightwatch Cloak — hidden from other clients
     // Coming in on the besom (lib/oldWays.js): how many ms of the ride are left, so others see her come down.
     flying: p.flyingUntil > Date.now() ? p.flyingUntil - Date.now() : undefined,
+    // Riding the besom (lib/besomMount.js), so others see her on it.
+    mounted: besomMount.riding(p) || undefined,
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
     // state broadcast — the mask image itself is heavy (a data URL) and
@@ -7946,6 +7949,7 @@ function isImmune(p) {
 }
 function noteAttacked(p) {
   p.lastAttackedAt = Date.now();
+  if (p.mounted) besomMount.dismount(p, 'hit');   // knocked off the besom
 }
 
 // Animals only react to (and mobs are only ever relevant to) players who
@@ -9246,6 +9250,9 @@ function tonightLines(player, t) {
   return lines;
 }
 const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, gearWorn: (p) => repairCostFor(p), honeGear: (p) => honeAllGear(p), bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
+
+// The besom you ride, from Level 20 (lib/besomMount.js).
+const besomMount = require('./lib/besomMount')({ send, levelOf: (p) => getProgress(p).level, openRooms: OPEN_WORLD_ROOMS, broadcastRoom: (room, m) => broadcastRoom(room, m) });
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
@@ -12523,6 +12530,7 @@ wss.on('connection', (ws, req) => {
         // below, open the one they're entering. A no-op when neither is a room.
         if (changedRoom) exitBuildingIfAny(player);
         player.room = msg.room;
+        if (player.mounted && !OPEN_WORLD_ROOMS.has(player.room)) besomMount.dismount(player, 'room');
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
         // Funnel: did this player ever leave town for the Wilds? Once per account / guest session.
         if (changedRoom && msg.room === 'wilds' && !player._synthetic) { try { noteMilestone(player, 'wilds'); } catch (e) {} }
@@ -14297,7 +14305,9 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    if (msg.type === 'besom_mount') { besomMount.mount(player, !!msg.on); return; }
     if (msg.type === 'cast_spell') {
+    if (player.mounted) besomMount.dismount(player, 'fight');   // you get off it to fight
       if (player.charId !== 0) {
         send(ws, { type: 'spell_error', message: 'Only the Witch can cast spells.' });
         return;
@@ -14968,6 +14978,7 @@ wss.on('connection', (ws, req) => {
     }
 
     if (msg.type === 'cast_attack') {
+    if (player.mounted) besomMount.dismount(player, 'fight');
       const catalog = ATTACK_CATALOGS[player.charId] || (player.charId === 0 ? WITCH_ATTACKS : null);
       if (!catalog) {
         send(ws, { type: 'attack_error', message: 'This character has no attacks.' });
