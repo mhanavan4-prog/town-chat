@@ -125,11 +125,11 @@ const LYKE_WAKE = {
 const WAYLAND = {
   tier: 'record',
   lore: [
-    'On the Berkshire downs, beside the Ridgeway, there is a long barrow of great stones that has been called Wayland\'s Smithy for a thousand years. Weland is the smith of the old northern stories.',
+    'On the Berkshire downs, beside the Ridgeway, there is a long barrow of great stones that has carried the smith\'s name for more than a thousand years: a Saxon charter of 955 already calls it Welandes smiththan. Weland is the master smith of the old English and Norse stories.',
     'Francis Wise wrote down in 1738 what the country people said of it. An invisible smith lived there. A traveller whose horse had lost a shoe on the road had only to bring the horse to the place with a piece of money, leave both there for a while, and come back: he would find the money gone and the horse new shod.',
     'Wise did not believe it. He thought the stones a Danish monument, and left the story for somebody with more leisure.',
   ],
-  source: 'F. Wise, A Letter to Dr Mead concerning some Antiquities in Berkshire (Oxford, 1738).',
+  source: 'Boundary charter for Compton Beauchamp, 955; F. Wise, A Letter to Dr Mead concerning some Antiquities in Berkshire (Oxford, 1738).',
   note: 'The smith on the downs shod horses, for a coin, unseen. That he hones a witch\'s gear, and that he works in the Artificer\'s tower in the Wildlands, is the game\'s.',
 };
 // The water iron is cooled in: a cure, in folk memory.
