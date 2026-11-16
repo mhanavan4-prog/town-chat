@@ -7319,6 +7319,7 @@ function publicPlayer(p) {
     flying: p.flyingUntil > Date.now() ? p.flyingUntil - Date.now() : undefined,
     // Riding the besom (lib/besomMount.js), so others see her on it.
     mounted: besomMount.seenAt(p) || undefined,   // false, or how high she rides
+    roost: besomMount.roostSeen(p) || undefined,   // sitting on a roof she got off onto: how high
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
     // state broadcast — the mask image itself is heavy (a data URL) and
@@ -12485,6 +12486,7 @@ wss.on('connection', (ws, req) => {
       const bounds = roomBounds(msg.room);
       const _prevX = player.x, _prevY = player.y, _prevMoveAt = player._lastMoveAt || 0;
       if (Number.isFinite(x) && Number.isFinite(y)) {
+        if (player.roostY && player.roostAt && (Math.abs(x - player.roostAt.x) > 1 || Math.abs(y - player.roostAt.y) > 1)) besomMount.unroost(player);   // she has moved off the roof
         player.x = Math.max(0, Math.min(bounds.width, x));
         player.y = Math.max(0, Math.min(bounds.height, y));
         // Teleport / speed-hack signal: an extreme same-room jump between two
@@ -14307,6 +14309,7 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'besom_mount') { besomMount.mount(player, !!msg.on); return; }
     if (msg.type === 'besom_alt') { besomMount.altitude(player, msg.alt); return; }
+    if (msg.type === 'besom_roost') { besomMount.roost(player, msg.top); return; }
     if (msg.type === 'cast_spell') {
     if (player.mounted) besomMount.dismount(player, 'fight');   // you get off it to fight
       if (player.charId !== 0) {

@@ -1789,7 +1789,8 @@ function onWsMessage(ev) {
         applyStatusVisual(p.id, existing.activeStatus);
         existing.invisible = !!p.invisible; // Nightwatch Cloak — hidden by syncLabels
         if (p.flying && p.id !== myId) existing.flyDownAt = performance.now() + p.flying; // coming in on the besom
-        existing.mounted = !!p.mounted;   // riding the besom about (lib/besomMount.js)
+        existing.mounted = p.mounted || false;   // riding the besom about (lib/besomMount.js): false, or how high
+        existing.roost = p.roost || 0;           // sitting on a roof she got off onto
         // 🎃 Samhain guise + 🐈‍⬛ bonded familiar ride the 70ms state stream;
         // updateGuises()/updateFamiliars() read them off the player each frame
         // and (re)build the overlay/companion when they change.
@@ -3922,7 +3923,7 @@ const _audio = createAudio({ getMe: () => me, setUnlockToast });
 const { ensureAudio, startMusic, stopMusic, cycleMusic, musicMenuLabel, playSfx, sfxAvailable, preloadSfx, playNarration, stopNarration, startSfxLoop, stopSfxLoop, setSfxLoopVol } = _audio;
 // A new sound waiting to be recorded plays an older one meanwhile (the synth voices are retired, so a
 // missing file would otherwise be silence). Once the recording is in, it plays instead of the stand-in.
-const SFX_STAND_IN = { seal_strike: 'thud', seal_break: 'arcade_break', brazier_light: 'balefire_light', chest_open: 'loot', chest_locked: 'error', cache_search: 'harvest', ore_mine: 'thud', crystal_scrape: 'reveal', mushroom_pick: 'harvest', key_drop: 'loot', wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
+const SFX_STAND_IN = { jump_land: 'footstep', besom_off: 'footstep', seal_strike: 'thud', seal_break: 'arcade_break', brazier_light: 'balefire_light', chest_open: 'loot', chest_locked: 'error', cache_search: 'harvest', ore_mine: 'thud', crystal_scrape: 'reveal', mushroom_pick: 'harvest', key_drop: 'loot', wade: 'footstep', passing_bell: 'death', well_drink: 'drink', needfire_kindle: 'balefire_light', march_gate: 'portal', wind_knot: 'besom_ride', stance_rest: 'heal', drove_herd: 'candle_rise', dead_rise: 'raise_wight', ring_dim: 'candle_out', folk_return: 'daybook', byway_shoe: 'reveal', byway_stone: 'thud', byway_hob: 'heal', sin_stone: 'daybook', watch_field: 'reveal', epilogue: 'daybook' };
 function sfxOrStandIn(id) { return (SFX_STAND_IN[id] && typeof sfxAvailable === 'function' && !sfxAvailable(id)) ? SFX_STAND_IN[id] : id; }
 
 // Per-class melee flavour: a landed basic attack picks a weapon-appropriate
@@ -11286,6 +11287,7 @@ function onBesomMount(msg) {
   if (besomRide.on && !was) besomRide.alt = besomRide.hover;
   showBesomPads(besomRide.on);
   if (besomRide.on && !was && typeof playSfx === 'function') playSfx('besom_ride');
+  if (!besomRide.on && was && typeof playSfx === 'function') playSfx('besom_off', 0.7);   // off it: feet and bristles
   if (players[myId]) players[myId].mounted = besomRide.on;
   syncBesomMenu();
 }
@@ -11300,7 +11302,9 @@ function syncBesomMenu() {
 // really there (a roof, a tree's crown, a tower's cap), so she can come down ON a thing and not only beside it. The
 // look is taken on a coarse grid and kept a couple of seconds; characters, the sky and anything not solid are passed over.
 const BESOM_SEAT = 14;            // how far above a roof she sits when she has come down on it
-const BESOM_GRID = 8, BESOM_TOP_KEEP_MS = 2500, BESOM_LOOK_FROM = 600;
+const BESOM_GRID = 8, BESOM_TOP_KEEP_MS = 2500;
+// looked for from above her ceiling, so the tallest thing standing (the minster's spire) is seen from over its top
+const besomLookFrom = () => 3200;   // over the minster's spire (1875), which stands higher than she can fly
 const _roofRay = new THREE.Raycaster(), _roofFrom = new THREE.Vector3(), _roofDown = new THREE.Vector3(0, -1, 0);
 let _roofSolids = null, _roofSolidsFor = null, _roofSolidsAt = 0;
 const _roofTops = new Map();
@@ -11325,8 +11329,8 @@ function besomTopAt(x, y) {
   if (kept && now - kept.at < BESOM_TOP_KEEP_MS && _roofSolidsFor === activeScene) return kept.top;
   const solids = besomSolids(now);
   const ground = groundY + (getFloorHeight(me.room, x, y) || 0);
-  _roofFrom.set(x, ground + BESOM_LOOK_FROM, y);
-  _roofRay.set(_roofFrom, _roofDown); _roofRay.far = BESOM_LOOK_FROM + 40;
+  _roofFrom.set(x, ground + besomLookFrom(), y);
+  _roofRay.set(_roofFrom, _roofDown); _roofRay.far = besomLookFrom() + 40;
   let top = 0;
   try { const hit = _roofRay.intersectObjects(solids, false)[0]; if (hit) top = Math.max(0, hit.point.y - ground); } catch (_) {}
   if (top < 6) top = 0;   // the ground itself, a path, a rug of moss
@@ -11338,7 +11342,7 @@ function besomTopAt(x, y) {
 // stops a walker but nothing can be seen to stand there, the old rule (well up over everything)
 function besomNeedAt(x, y) {
   const top = besomTopAt(x, y);
-  return top > 0 ? Math.min(besomRide.top, top + BESOM_SEAT) : besomRide.clear;
+  return top > 0 ? top + BESOM_SEAT : besomRide.clear;   // taller than her ceiling: she cannot get over it at all, and it stops her like a wall
 }
 // is this place taken up by something a walker could not pass: a wall's footprint, or (in the town) a building's room
 function besomFootprint(x, y) { return collides(x, y, 0) || (world === TOWN_WORLD && roomAt(x, y) !== 'outside'); }
@@ -11347,7 +11351,7 @@ function besomOver(x, y) { return besomRide.on && besomRide.alt >= besomNeedAt(x
 function besomOverAll() { return !!me && besomOver(me.x, me.y) && besomFootprint(me.x, me.y); }
 function besomFloor() {
   if (!me) return besomRide.hover;
-  return besomFootprint(me.x, me.y) ? besomNeedAt(me.x, me.y) : besomRide.hover;
+  return besomFootprint(me.x, me.y) ? Math.min(besomRide.top, besomNeedAt(me.x, me.y)) : besomRide.hover;
 }
 // well off the ground on it: too far up to reach anything down there
 function besomAloft() { return besomRide.on && besomRide.alt > besomRide.hover + 40; }
@@ -11389,6 +11393,18 @@ function stepBesomAltitude(now) {
     ws.send(JSON.stringify({ type: 'besom_alt', alt: Math.round(besomRide.alt) }));
   }
 }
+// The wind up there: nothing at the hover, rising with her height (a loop, tools/audio: besom_wind).
+let _besomWindOn = false, _besomWindAt = 0;
+function tickBesomWind(now) {
+  if (now < _besomWindAt) return;
+  _besomWindAt = now + 300;
+  const high = besomRide.on ? Math.max(0, Math.min(1, (besomRide.alt - 60) / 700)) : 0;
+  const vol = high * 0.55;
+  if (vol > 0.02) {
+    if (!_besomWindOn) { _besomWindOn = true; startSfxLoop('besom_wind', vol, 1.5); }
+    else setSfxLoopVol('besom_wind', vol, 0.5);
+  } else if (_besomWindOn) { _besomWindOn = false; stopSfxLoop('besom_wind', 1.2); }
+}
 function showBesomPads(on) { const el = document.getElementById('besomPads'); if (el) el.classList.toggle('hidden', !on || !isTouchUI()); }
 function isTouchUI() { return typeof MOBILE_UI !== 'undefined' && !!MOBILE_UI; }
 // the phone's ▲ ▼: held, not tapped
@@ -11404,6 +11420,7 @@ for (const [id, k] of [['besomUp', 'up'], ['besomDown', 'down']]) {
 function stepRiddenBesoms() {
   const now = performance.now();
   stepBesomAltitude(now);
+  tickBesomWind(now);
   if (besomRide.on && me && !BESOM_OPEN_ROOMS.has(me.room)) { besomRide.on = false; if (players[myId]) players[myId].mounted = false; if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'besom_mount', on: false })); }
   for (const id in players) {
     const v = visuals[id], p = players[id];
@@ -11429,7 +11446,7 @@ function stepRiddenBesoms() {
       // nothing to be seen standing there, she is set down on the open ground nearest.
       if (id === myId && me && !flying && besomFootprint(me.x, me.y)) {
         const top = besomTopAt(me.x, me.y);
-        if (top > 0) besomRoost = { x: me.x, y: me.y, top, from: Math.max(top, v._fallY) };
+        if (top > 0) { besomRoost = { x: me.x, y: me.y, top, from: Math.max(top, v._fallY) }; if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'besom_roost', top: Math.round(top) })); }
         else { const o = besomOpenNear(me.x, me.y); me.x = o.x; me.y = o.y; }
       }
     }
@@ -11445,6 +11462,8 @@ function stepRiddenBesoms() {
         v.flightY = besomRoost.from; v._fallY = 0;
       }
     }
+    // someone else sitting on a roof: up there, eased
+    if (id !== myId && !riding && !flying) { if (p.roost > 0) { if (!v._seatY) v._seatY = v._fallY || 0; v._seatY += (p.roost - v._seatY) * 0.15; v.flightY = v._seatY; v._fallY = 0; } else if (v._seatY) { v._fallY = v._seatY; v._seatY = 0; } }
     // down out of the sky, not all at once
     if (!riding && !flying && v._fallY > 1) { v._fallY = Math.max(0, v._fallY - (520 + v._fallY * 1.6) * _besomDt); v.flightY = v._fallY; if (v._fallY <= 1) { v._fallY = 0; v.flightY = 0; } }
   }
@@ -21444,12 +21463,12 @@ function update(dt) {
 
   if (jumpActive) {
     jumpT += dt;
-    if (jumpT >= JUMP_DURATION) { jumpActive = false; jumpT = 0; }
+    if (jumpT >= JUMP_DURATION) { jumpActive = false; jumpT = 0; playSfx('jump_land', 0.5); }   // feet back on the ground
   }
   // What I am standing on: a jump ends early when I come down onto something; off an edge, I fall.
   if (me) {
     const under = mode === 'outdoor' && !me.isDead ? perchAt(me.x, me.y) : 0;
-    if (myPerch.step(dt, jumpActive, jumpT, under, myFeatherMult())) { jumpActive = false; jumpT = 0; }
+    if (myPerch.step(dt, jumpActive, jumpT, under, myFeatherMult())) { jumpActive = false; jumpT = 0; playSfx('jump_land', 0.5); }
   }
 
   // Runs regardless of indoor/outdoor so the lighting is already correct
@@ -21925,6 +21944,18 @@ if (location.search.includes('testdrive=1')) {
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
+    // round (cx, cy): how much of what stops a walker has a top that can be seen, and the tallest of it
+    besomScan(cx, cy, r, step) {
+      let foot = 0, seen = 0, maxTop = 0, at = null; const unseen = [];
+      for (let x = cx - r; x <= cx + r; x += step) for (let y = cy - r; y <= cy + r; y += step) {
+        if (!besomFootprint(x, y)) continue;
+        foot++; const t = besomTopAt(x, y);
+        if (t > 0) { seen++; if (t > maxTop) { maxTop = t; at = [Math.round(x), Math.round(y)]; } } else if (unseen.length < 4) unseen.push([Math.round(x), Math.round(y)]);
+      }
+      let overAtCeiling = null;
+      if (at) { const keep = besomRide.alt, on = besomRide.on; besomRide.on = true; besomRide.alt = besomRide.top; overAtCeiling = besomOver(at[0], at[1]); besomRide.alt = keep; besomRide.on = on; }
+      return { foot, seen, maxTop: Math.round(maxTop), at, unseen, overAtCeiling };
+    },
     // every town building, at a height: how many sampled places inside it would let her in (must be none), and how many she may pass over
     besomSweep(alt) {
       const keep = besomRide.alt, on = besomRide.on; besomRide.on = true; besomRide.alt = alt;

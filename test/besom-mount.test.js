@@ -140,12 +140,40 @@ test('she can come down on top of a thing: its real top is found by looking down
   assert.match(main, /function besomTopAt\(x, y\) \{/);
   assert.match(main, /_roofRay\.intersectObjects\(solids, false\)\[0\]/);
   assert.match(main, /o\.isMesh && !o\.isSkinnedMesh && o\.material && o\.material\.depthWrite !== false && !o\.material\.transparent/, 'characters, glows and the sky are not roofs');
-  assert.match(main, /return top > 0 \? Math\.min\(besomRide\.top, top \+ BESOM_SEAT\) : besomRide\.clear;/, 'nothing seen there: the old rule');
-  assert.match(main, /return besomFootprint\(me\.x, me\.y\) \? besomNeedAt\(me\.x, me\.y\) : besomRide\.hover;/);
+  assert.match(main, /return top > 0 \? top \+ BESOM_SEAT : besomRide\.clear;/, 'nothing seen there: the old rule; taller than her ceiling: a wall');
+  assert.match(main, /return besomFootprint\(me\.x, me\.y\) \? Math\.min\(besomRide\.top, besomNeedAt\(me\.x, me\.y\)\) : besomRide\.hover;/);
+  assert.match(main, /const besomLookFrom = \(\) => 3200;/, 'looked for from above the tallest spire');
   assert.match(main, /if \(besomOver\(x, y\)\) return false;\n  return besomRide\.alt > besomRide\.hover \+ 10 \? besomFootprint\(x, y\) : collides\(x, y, 0\);/, 'off the ground a building\'s inside bars her as a wall does; at the hover she may ride in at a door');
   assert.match(main, /const stuck = !besomRide\.on && barredAt\(me\.x, me\.y, ft\);/, 'no walking out of colliders while riding');
-  assert.match(main, /if \(top > 0\) besomRoost = \{ x: me\.x, y: me\.y, top, from: Math\.max\(top, v\._fallY\) \};/, 'off it over a roof from any height: onto the roof');
+  assert.match(main, /if \(top > 0\) \{ besomRoost = \{ x: me\.x, y: me\.y, top, from: Math\.max\(top, v\._fallY\) \}; if \(ws && ws\.readyState === WebSocket\.OPEN\) ws\.send\(JSON\.stringify\(\{ type: 'besom_roost', top: Math\.round\(top\) \}\)\); \}/, 'off it over a roof from any height: onto the roof, and others are told');
   assert.match(main, /else \{ const o = besomOpenNear\(me\.x, me\.y\); me\.x = o\.x; me\.y = o\.y; \}/, 'over a building with no roof to be seen: the open ground nearest');
   assert.match(main, /const o = besomOpenNear\(me\.x, me\.y\); me\.x = o\.x; me\.y = o\.y;\n        v\._fallY = besomRoost\.top; besomRoost = null;/, 'walking off a roof: down beside it');
   assert.match(main, /if \(!me \|\| broomRide \|\| besomAloft\(\)\) return;/, 'no reaching the ground from up there');
+});
+
+test('sitting on a roof she got off onto, others are told how high, until she moves or mounts', () => {
+  const { m } = make();
+  const w = witch({ x: 100, y: 100 });
+  assert.ok(m.roost(w, 453.4)); assert.strictEqual(m.roostSeen(w), 453);
+  m.roost(w, 99999); assert.strictEqual(w.roostY, m.MOUNT.top);
+  m.unroost(w); assert.strictEqual(m.roostSeen(w), false);
+  m.roost(w, 300); m.mount(w, true); assert.strictEqual(m.roostSeen(w), false, 'mounting ends it');
+  m.mount(w, false);
+  assert.ok(!m.roost(witch({ level: 5 }), 300), 'not for those who cannot ride');
+  assert.ok(!m.roost(witch({ room: 'cafe' }), 300), 'not indoors');
+  assert.ok(!m.roost(w, 0)); assert.ok(!m.roost(w, 'high'));
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(server, /roost: besomMount\.roostSeen\(p\) \|\| undefined,/);
+  assert.match(server, /if \(player\.roostY && player\.roostAt && \(Math\.abs\(x - player\.roostAt\.x\) > 1 \|\| Math\.abs\(y - player\.roostAt\.y\) > 1\)\) besomMount\.unroost\(player\);/);
+});
+
+test('the besom and a jump are heard: getting off, the wind up high, and feet coming down', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools', 'audio', 'sfx.manifest.json'), 'utf8'));
+  for (const id of ['jump_land', 'besom_off', 'besom_wind']) { const e = manifest.sfx.find((x) => x.id === id); assert.ok(e && /No music|no music/.test(e.prompt), id); }
+  assert.strictEqual(manifest.sfx.find((x) => x.id === 'besom_wind').loop, true);
+  assert.match(main, /playSfx\('jump_land', 0\.5\)/);
+  assert.match(main, /playSfx\('besom_off', 0\.7\)/);
+  assert.match(main, /startSfxLoop\('besom_wind', vol, 1\.5\)/);
+  assert.match(main, /SFX_STAND_IN = \{ jump_land: 'footstep', besom_off: 'footstep',/);
 });
