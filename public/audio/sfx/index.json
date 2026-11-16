@@ -77,10 +77,22 @@
       "v": "72cc0c96"
     }
   ],
+  "besom_off": [
+    {
+      "f": "besom_off.mp3",
+      "v": "ad53d80d"
+    }
+  ],
   "besom_ride": [
     {
       "f": "besom_ride.mp3",
       "v": "62351bdd"
+    }
+  ],
+  "besom_wind": [
+    {
+      "f": "besom_wind.mp3",
+      "v": "5a64170a"
     }
   ],
   "blood_frenzy": [
@@ -555,6 +567,12 @@
     {
       "f": "jump.mp3",
       "v": "7a263aa6"
+    }
+  ],
+  "jump_land": [
+    {
+      "f": "jump_land.mp3",
+      "v": "37695fa7"
     }
   ],
   "key_drop": [

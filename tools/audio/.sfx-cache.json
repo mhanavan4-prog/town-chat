@@ -190,5 +190,8 @@
   "ore_mine.mp3": "5bf3824b53a36307",
   "crystal_scrape.mp3": "11a45a7b14549ec5",
   "mushroom_pick.mp3": "0133e1ed04ec54e3",
-  "key_drop.mp3": "498c51b35d9dd852"
+  "key_drop.mp3": "498c51b35d9dd852",
+  "jump_land.mp3": "44318dbaafe6660b",
+  "besom_off.mp3": "d7f1784e4b814606",
+  "besom_wind.mp3": "33a22df294849361"
 }
