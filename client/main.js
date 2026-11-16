@@ -11226,6 +11226,22 @@ function stepReel() {
 // already, so what the rest of us see is the end of it, a witch on a broom
 // coming down out of the sky to where she will stand.
 const BROOM_SEEN_MS = 4500;
+// A broom sits under the rider's hips, whatever her build: the rigs differ a good deal in height, and a broom put
+// at one height for all of them went through the head of the shorter ones. The hips are read off the rig each
+// frame (they move with the seated pose); the broom lies nearly level, the bristles behind and the handle ahead.
+const BROOM_UNDER_HIPS = 5, BROOM_BEHIND = 52, BROOM_TILT = 0.05;
+const _hipsAt = new THREE.Vector3();
+function seatBroom(v, broom) {
+  if (!v || !v.group || !broom) return false;
+  if (v._hips === undefined || (v._hips && !v._hips.parent)) { v._hips = null; v.group.traverse((o) => { if (!v._hips && o.name === 'hips' && o !== broom) v._hips = o; }); }
+  broom.rotation.x = Math.PI / 2 - BROOM_TILT;
+  if (!v._hips) { broom.position.set(0, 30, -BROOM_BEHIND); return false; }
+  v._hips.getWorldPosition(_hipsAt);
+  v.group.worldToLocal(_hipsAt);
+  broom.position.set(_hipsAt.x, _hipsAt.y - BROOM_UNDER_HIPS, _hipsAt.z - BROOM_BEHIND);
+  return true;
+}
+
 // ── The besom you ride (lib/besomMount.js), from Level 20 ─────────────────────────────────────────────────────
 // G (or Ride the besom in the menu) gets on it out of doors; again gets off. The server says yes or no, and puts
 // you on your feet when you fight, are hit, or go under a roof.
@@ -11270,7 +11286,7 @@ function stepRiddenBesoms() {
         if (broom) { broom.name = 'mountBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); v.mountBesom = broom; }
       }
       v.flightY = besomRide.hover + Math.sin(now * 0.0035 + (id.length * 1.7)) * 3;
-      if (v.mountBesom) v.mountBesom.rotation.z = Math.sin(now * 0.003) * 0.05;
+      if (v.mountBesom) { seatBroom(v, v.mountBesom); v.mountBesom.rotation.z = Math.sin(now * 0.003) * 0.05; }
     } else if (v.mountBesom) {
       if (v.mountBesom.parent) v.mountBesom.parent.remove(v.mountBesom);
       v.mountBesom = null;
@@ -11288,6 +11304,7 @@ function stepOthersOnBesoms() {
     if (left > 0) {
       const u = Math.min(1, left / BROOM_SEEN_MS); // 1 high up, 0 down
       v.flightY = Math.max(0.01, BROOM_RIDE_ALT * u * u * (3 - 2 * u));
+      if (v.otherBesom) seatBroom(v, v.otherBesom);
       if (!v.otherBesom && KK.staticInstance) {
         const broom = KK.staticInstance('wd_besom', 96, 'height');
         if (broom) { broom.name = 'ridingBesom'; broom.rotation.x = Math.PI / 2 - 0.12; broom.position.set(0, 30, -50); v.group.add(broom); v.otherBesom = broom; }
@@ -11340,7 +11357,7 @@ function stepBroomRide() {
   // level flight, then the long glide down over the last third
   const down = t < 0.62 ? 0 : (t - 0.62) / 0.38;
   v.flightY = Math.max(0.01, BROOM_RIDE_ALT * (1 - down * down * (3 - 2 * down)) + Math.sin(performance.now() * 0.004) * 5 * (1 - down));
-  if (r.broom) r.broom.rotation.z = Math.sin(performance.now() * 0.003) * 0.05;
+  if (r.broom) { seatBroom(v, r.broom); r.broom.rotation.z = Math.sin(performance.now() * 0.003) * 0.05; }
   return true;
 }
 
@@ -21749,7 +21766,7 @@ if (location.search.includes('testdrive=1')) {
     loot() { return { near: nearestLoot(), open: lootBag.isOpen(), icons: Object.values(lootIconVisuals).filter((sp) => sp.visible && sp.parent === activeScene).map((sp) => [sp.userData.lootType, Math.round(sp.position.x), Math.round(sp.position.z)]) }; },
     gear() { const v = visuals[myId]; if (!v) return null; const o = { kk: !!v.kk, has: players[myId] && players[myId].equippedHead }; for (const k of ['weaponMesh', 'chestMesh', 'headMesh', 'feetMeshL', 'ringMesh']) { const m = v[k]; let top = m; while (top && top.parent) top = top.parent; o[k] = m ? v[k + 'ItemId'] + (m.userData.gear ? ':model' : ':plain') + (top === activeScene ? '' : ':adrift') + (m.visible ? '' : ':hidden') : null; } return o; },
     glyphs(n) { const l = (activeScene && activeScene.userData.glyphSpots) || [], m = players[myId]; return l.map((g) => [Math.round(g.x), Math.round(g.y), Math.round(g.r), Math.round(Math.hypot(g.x - m.x, g.y - m.y)), Math.round(typeof wildsHeightAt === 'function' ? wildsHeightAt(g.x, g.y) : 0)]).sort((a, b) => a[3] - b[3]).slice(0, n || 5); },
-    besom() { const v = visuals[myId]; return { on: besomRide.on, flightY: v ? Math.round(v.flightY || 0) : null, broom: !!(v && v.mountBesom), level: myLevelNow() }; },
+    besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { on: besomRide.on, flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },

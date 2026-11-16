@@ -74,3 +74,13 @@ test('the server and client are wired', () => {
   assert.match(main, /\(e\.key === 'g' \|\| e\.key === 'G'\) && !e\.repeat\) \{ toggleBesomRide\(\);/);
   assert.match(gates, /20: \['menuBesom'\]/);
 });
+
+test('the broom is seated under the rider\'s hips on every broom, ridden or flown', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
+  assert.match(main, /function seatBroom\(v, broom\) \{/);
+  assert.match(main, /o\.name === 'hips'/);
+  assert.match(main, /broom\.position\.set\(_hipsAt\.x, _hipsAt\.y - BROOM_UNDER_HIPS, _hipsAt\.z - BROOM_BEHIND\);/);
+  assert.match(main, /if \(v\.mountBesom\) \{ seatBroom\(v, v\.mountBesom\);/);
+  assert.match(main, /if \(v\.otherBesom\) seatBroom\(v, v\.otherBesom\);/);
+  assert.match(main, /if \(r\.broom\) \{ seatBroom\(v, r\.broom\);/);
+});
