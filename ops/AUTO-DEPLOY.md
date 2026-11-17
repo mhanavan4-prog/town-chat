@@ -4,6 +4,19 @@ Once this is configured, **every merge to `main` deploys itself** — the Action
 in `.github/workflows/deploy.yml` SSHes into the box and runs `ops/deploy.sh`
 (the same script you've been running by hand). No more manual deploy step.
 
+**A deploy is not a restart.** `ops/deploy.sh` looks at what changed since the
+server process was started:
+
+- only client, site, test, tool or doc files: the new build goes live with **no
+  restart** and nobody is disconnected;
+- server code (`server.js`, `lib/`, `data/`, package files): it restarts at once
+  if the town is empty; if players are in town it changes nothing and leaves a
+  waiter that lands the update when the town empties (checked every 30 s, with a
+  12 hour ceiling). `.deploy-wait.log` on the box records what the waiter did.
+
+To restart without waiting: Actions tab → **Deploy to production** → **Run
+workflow** → tick **now**; or on the box, `bash /opt/town-chat/ops/deploy.sh --now`.
+
 Until the two secrets below exist, the Action **skips gracefully** (passes
 green), so nothing breaks in the meantime.
 

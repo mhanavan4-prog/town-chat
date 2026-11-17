@@ -658,9 +658,17 @@ app.get('/sitemap.xml', (req, res) => {
 // without needing a separate rendered card per player/coven. The page's <head>
 // carries an "<!--OG-->" marker we replace; everything else is static.
 const _ogCache = {};
+// Keyed on the file's mtime, so a page edited by a quiet deploy (ops/deploy.sh
+// updates site files without restarting) is served fresh straight away.
 function readPage(file) {
-  if (!_ogCache[file]) _ogCache[file] = require('fs').readFileSync(path.join(__dirname, 'public', file), 'utf8');
-  return _ogCache[file];
+  const full = path.join(__dirname, 'public', file);
+  let mtime = 0;
+  try { mtime = fs.statSync(full).mtimeMs; } catch (e) {}
+  const hit = _ogCache[file];
+  if (hit && hit.mtime === mtime) return hit.html;
+  const html = fs.readFileSync(full, 'utf8');
+  _ogCache[file] = { mtime, html };
+  return html;
 }
 function ogEsc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
 function sendWithOg(req, res, file, og) {
