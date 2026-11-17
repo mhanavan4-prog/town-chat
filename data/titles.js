@@ -4,6 +4,11 @@
 // nameplate. Pure data; the server grants ids and the client renders from this
 // catalog. Keep ids stable — they're persisted on accounts.
 const TITLES = {
+  // The Wild Hunt (data/wildHunt.js): nights ridden with it.
+  hunt_rider: { id: 'hunt_rider', name: 'Rider of the Hunt', glyph: '🐎', desc: 'Rode through every horn of the Wild Hunt before dawn.', from: 'The Wild Hunt, one night' },
+  hunt_horn: { id: 'hunt_horn', name: 'Horn-Blower', glyph: '📯', desc: 'Rode with the Wild Hunt three nights.', from: 'The Wild Hunt, three nights' },
+  hunt_herla: { id: 'hunt_herla', name: "Of Herla's Company", glyph: '🌫️', desc: 'Rode with the Wild Hunt seven nights, and still came down.', from: 'The Wild Hunt, seven nights' },
+  hunt_master: { id: 'hunt_master', name: 'Master of the Night Ride', glyph: '🌑', desc: 'Rode with the Wild Hunt thirteen nights.', from: 'The Wild Hunt, thirteen nights' },
   hollow_vigil: {
     id: 'hollow_vigil', name: 'Keeper of the Hollow Vigil', glyph: '🕯️',
     desc: 'Kept the Samhain vigil and held the veil against the dead.',

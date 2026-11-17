@@ -69,11 +69,11 @@ test('the server and client are wired', () => {
   assert.match(server, /if \(msg\.type === 'besom_mount'\) \{ besomMount\.mount\(player, !!msg\.on\); return; \}/);
   assert.match(server, /if \(p\.mounted && !besomMount\.outOfReach\(p\)\) besomMount\.dismount\(p, 'hit'\);/);
   assert.match(server, /mounted: besomMount\.seenAt\(p\) \|\| undefined,/);
-  assert.match(server, /if \(msg\.type === 'besom_alt'\) \{ besomMount\.altitude\(player, msg\.alt\); return; \}/);
+  assert.match(server, /if \(msg\.type === 'besom_alt'\) \{ if \(besomMount\.altitude\(player, msg\.alt\)\) wildHunt\.at\(player\); return; \}/);
   assert.match(server, /besomMount\.onLevel\(player, prog\.level - 1, prog\.level\)/);
   assert.match(main, /if \(besomRide\.on\) speed \*= besomRide\.speed;/);
   assert.match(main, /\(e\.key === 'g' \|\| e\.key === 'G'\) && !e\.repeat\) \{ toggleBesomRide\(\);/);
-  assert.match(gates, /20: \['menuBesom'\]/);
+  assert.match(gates, /20: \['menuBesom', 'menuHunt'\]/);
 });
 
 test('the broom is seated under the rider\'s hips on every broom, ridden or flown', () => {

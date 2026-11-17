@@ -7345,6 +7345,7 @@ function publicPlayer(p) {
     flying: p.flyingUntil > Date.now() ? p.flyingUntil - Date.now() : undefined,
     // Riding the besom (lib/besomMount.js), so others see her on it.
     mounted: besomMount.seenAt(p) || undefined,   // false, or how high she rides
+    wake: (p.mounted && wildHunt.wakeOf(p)) || undefined,   // the wake she trails, earned riding with the Hunt
     roost: besomMount.roostSeen(p) || undefined,   // sitting on a roof she got off onto: how high
 
     // Disguise identity (see cm_disguise): only the NAME rides the 70ms
@@ -9289,6 +9290,13 @@ const macros = require('./lib/macros')({
 
 // The besom you ride, from Level 20 (lib/besomMount.js).
 const besomMount = require('./lib/besomMount')({ send, levelOf: (p) => getProgress(p).level, openRooms: OPEN_WORLD_ROOMS, broadcastRoom: (room, m) => broadcastRoom(room, m) });
+// The Wild Hunt (lib/wildHunt.js): by night, a course of horns in the sky over the Wilds for those with the besom.
+const wildHunt = require('./lib/wildHunt')({ players, send, isNight: () => isNightNow(), nightId: () => Math.floor(Date.now() / CYCLE_MS),
+  hasBesom: (p) => (getProgress(p).level || 1) >= besomMount.MOUNT.level,
+  accountOf: (p) => (p && p.accountKey ? accounts[p.accountKey] : null),
+  grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); },
+  save: () => saveAccounts(), width: WORLD2.width, height: WORLD2.height });
+{ const _huntTimer = setInterval(() => { try { wildHunt.tick(); } catch (e) {} }, 5000); if (_huntTimer.unref) _huntTimer.unref(); }
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.
 const daybook = require('./lib/daybook')({ accounts });
@@ -12582,6 +12590,7 @@ wss.on('connection', (ws, req) => {
         if (changedRoom) exitBuildingIfAny(player);
         player.room = msg.room;
         if (player.mounted && !OPEN_WORLD_ROOMS.has(player.room)) besomMount.dismount(player, 'room');
+        if (player.mounted && player.room === 'wilds') wildHunt.at(player);   // through a horn of the Hunt?
         if (changedRoom) storyEvent(player, 'visit_room', { room: msg.room });
         // Funnel: did this player ever leave town for the Wilds? Once per account / guest session.
         if (changedRoom && msg.room === 'wilds' && !player._synthetic) { try { noteMilestone(player, 'wilds'); } catch (e) {} }
@@ -14357,7 +14366,9 @@ wss.on('connection', (ws, req) => {
     }
 
     if (msg.type === 'besom_mount') { besomMount.mount(player, !!msg.on); return; }
-    if (msg.type === 'besom_alt') { besomMount.altitude(player, msg.alt); return; }
+    if (msg.type === 'besom_alt') { if (besomMount.altitude(player, msg.alt)) wildHunt.at(player); return; }
+    if (msg.type === 'hunt') { const hs = wildHunt.state(player); if (hs) send(ws, hs); return; }
+    if (msg.type === 'hunt_wake') { const r = wildHunt.setWake(player, msg.wake ? String(msg.wake) : null); if (r.error) send(ws, { type: 'toast', always: true, message: r.error }); return; }
     if (msg.type === 'besom_roost') { besomMount.roost(player, msg.top); return; }
     if (msg.type === 'cast_spell') {
     if (player.mounted) besomMount.dismount(player, 'fight');   // you get off it to fight
