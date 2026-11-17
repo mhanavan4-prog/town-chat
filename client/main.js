@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import { strangeWords, selfCheckReport } from './self-check.js';
 import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
 import { blockedNameSet, isFriendName, buildFriendsSection } from './friends-panel.js';
@@ -18157,6 +18158,27 @@ const { openNotifModal } = _notif;
     if (err) try { err.focus(); } catch (_e) {}
   }
   function close() { const m = document.getElementById('bugModal'); if (m) m.classList.add('hidden'); }
+  // The self-check (client/self-check.js): a short health report from this browser, written into the box.
+  async function selfCheck() {
+    const btn = document.getElementById('bugCheckBtn'), ta = document.getElementById('bugText');
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+    const f = { build: buildHash(), ua: navigator.userAgent, platform: navigator.platform, w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 };
+    try {
+      // frames drawn over two seconds
+      f.fps = await new Promise((res) => { let n = 0; const t0 = performance.now(); const step = (t) => { n++; if (t - t0 < 2000) requestAnimationFrame(step); else { const v = n / ((t - t0) / 1000); res(v < 10 ? Math.round(v * 10) / 10 : Math.round(v)); } }; requestAnimationFrame(step); });
+    } catch (_e) { /* left unknown */ }
+    try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); f.gpu = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).slice(0, 60); } catch (_e) {}
+    try { f.gfx = (document.getElementById('menuGraphicsVal') || {}).textContent || localStorage.getItem('tc_gfx') || 'auto'; } catch (_e) {}
+    try { f.room = me && me.room; f.x = me ? Math.round(me.x) : 0; f.y = me ? Math.round(me.y) : 0; } catch (_e) {}
+    try { const r = me && me.room; f.floaters = findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), top: 5 }); } catch (_e) {}
+    try { f.strange = strangeWords([...document.querySelectorAll('body > *')].filter((e) => e.tagName !== 'CANVAS' && e.tagName !== 'SCRIPT' && e.id !== 'bugModal' && e.getClientRects().length).map((e) => e.innerText || '').join('\n')); } catch (_e) {}
+    try { f.errors = (window.__recentErrors && window.__recentErrors()) || []; } catch (_e) {}
+    try { f.audio = (window.__sfxAsked || 0) + ' asked'; f.socket = ws && ws.readyState === WebSocket.OPEN ? 'open' : 'closed'; f.pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].some((p) => p && p.connected); f.keys = Object.keys(keyBinds).length ? Object.keys(keyBinds).length + ' changed' : 'default'; f.textSize = textSize; } catch (_e) {}
+    if (ta) { ta.value = selfCheckReport(f); try { ta.focus(); ta.select(); } catch (_e) {} }
+    if (btn) { btn.disabled = false; btn.textContent = 'Run a self-check'; }
+    setUnlockToast('🩺 Self-check written into the box. Send it, or copy it.', { always: true });
+  }
+  { const cb = document.getElementById('bugCheckBtn'); if (cb) cb.addEventListener('click', selfCheck); }
   function send() {
     const ta = document.getElementById('bugText');
     const text = ta ? String(ta.value || '').trim() : '';
