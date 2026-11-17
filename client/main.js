@@ -1,3 +1,4 @@
+import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-panel.js';
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
@@ -1659,13 +1660,14 @@ function onWsMessage(ev) {
       // (Witch's spells or Werewolf/Wanderer's attacks) so number/dash/equals
       // keys cast instantly without opening the Spellbook/Attacks modal.
       if (me && me.charId === 0) {
-        myActionCatalog = SPELL_CATALOG; myActionMsgType = 'cast_spell'; myActionIdField = 'spellId';
+        myActionBase = SPELL_CATALOG; myActionCatalog = withMacros(myActionBase, myMacroState); myActionMsgType = 'cast_spell'; myActionIdField = 'spellId';
       } else if (myAttackCatalog) {
-        myActionCatalog = myAttackCatalog; myActionMsgType = 'cast_attack'; myActionIdField = 'attackId';
+        myActionBase = myAttackCatalog; myActionCatalog = withMacros(myActionBase, myMacroState); myActionMsgType = 'cast_attack'; myActionIdField = 'attackId';
       } else {
-        myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
+        myActionBase = null; myActionCatalog = null; myActionMsgType = null; myActionIdField = null;
       }
       loadLoadout(); // per-class slot order, chosen by the player
+      if (myActionBase && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'macros' }));   // her macros for this class (lib/macros.js)
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'ability_unlocks' }));   // which of them you have yet
       buildHotbar();
       // Sound effects load lazily; warm this character's own ability sounds now
@@ -3254,6 +3256,7 @@ function onWsMessage(ev) {
   if (msg.type === 'candle_state') { setCorpseCandle(msg); return; }
   if (msg.type === 'wilds_finds') { wildsFindsState = msg; applyWildsFinds(msg); showWildsFindsHud(msg); return; }
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
+  if (msg.type === 'macros_state') { onMacrosState(msg); return; }
   if (msg.type === 'besom_mount') { onBesomMount(msg); return; }
   if (msg.type === 'besom_mount_seen') { if (players[msg.id] && msg.id !== myId) players[msg.id].mounted = !!msg.on; return; }
   if (msg.type === 'toast') {
@@ -8780,6 +8783,11 @@ let loadoutSelectedSlot = null;
 // ── Loadout modal ─ extracted to client/loadout.js (Phase C). Ability helpers +
 // MOBILE_UI by ref; action catalog + hotbar key tables via getters; the selected
 // slot via get/set. ──
+const macrosPanel = createMacrosPanel({
+  getState: () => myMacroState, getBase: () => myActionBase, abilityOpen: (id) => abilityOpen(id),
+  send: (m) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); },
+  glyph: (id, icon) => glyphHTML(id, 'mcGi', icon), setUnlockToast: (t, o) => setUnlockToast(t, o), haptic: (n) => { try { haptic(n); } catch (_) {} },
+});
 const { openLoadoutModal, closeLoadoutModal, renderLoadoutModal } = createLoadout({
   MOBILE_UI, attachAbilityPeek, haptic, orderedAbilityIds, saveLoadout, setUnlockToast,
   getMyActionCatalog: () => myActionCatalog, getHotbarKeys: () => HOTBAR_KEYS, getHotbarKeyLabels: () => HOTBAR_KEY_LABELS,
@@ -8802,6 +8810,10 @@ const { openLoadoutModal, closeLoadoutModal, renderLoadoutModal } = createLoadou
   on('attackLoadoutBtn', openLoadoutModal);
   on('controlsLoadoutBtn', () => { closeControlsModal(); openLoadoutModal(); });
   on('menuLoadout', () => { document.getElementById('menuSheet').classList.add('hidden'); openLoadoutModal(); });
+  on('menuMacros', () => { document.getElementById('menuSheet').classList.add('hidden'); macrosPanel.open(); });
+  on('macrosCloseBtn', () => macrosPanel.close());
+  on('loadoutMacrosBtn', () => { closeLoadoutModal(); macrosPanel.open(); });
+  { const mo = document.getElementById('macrosModal'); if (mo) mo.addEventListener('click', (e) => { if (e.target === mo) macrosPanel.close(); }); }
   const overlay = document.getElementById('loadoutModal');
   if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeLoadoutModal(); });
 })();
@@ -18921,6 +18933,40 @@ const { openSpellbook, closeSpellbook, showGlimpseBeacon } = _spellbook;
 // picking a *specific* target instead of "nearest."
 // ---------------------------------------------------------------------------
 let myActionCatalog = null;
+// Macros (data/macros.js): myActionBase is the class's own abilities; myActionCatalog is that with her macros laid in
+// as pseudo-abilities ('macro_0'…), so the bar, the wheel and the loadout treat a macro like any other button.
+let myActionBase = null, myMacroState = null;
+let macroRun = null;   // { id, timers } while a chain is casting
+function onMacrosState(msg) {
+  myMacroState = msg;
+  if (myActionBase) { myActionCatalog = withMacros(myActionBase, myMacroState); buildHotbar(); }
+  macrosPanel.onState(msg);
+}
+function cancelMacro() { if (macroRun) { for (const t of macroRun.timers) clearTimeout(t); macroRun = null; } }
+// Cast a chain: its ready steps, one ordinary cast after another. Pressing it again while it runs stops it.
+function runMacro(id, aim) {
+  const m = myActionCatalog && myActionCatalog[id];
+  if (!m || !myActionBase) return;
+  if (macroRun) { const same = macroRun.id === id; cancelMacro(); if (same) { setUnlockToast('⛓️ Stopped.'); return; } }
+  const ready = macroReady(m.steps, { has: (s) => !!myActionBase[s] && abilityOpen(s), cooling: actionOnCooldown });
+  if (!ready.length) { setUnlockToast(myActionMsgType === 'cast_spell' ? 'Your magic needs to recharge a moment.' : 'Still recovering — wait a moment.'); return; }
+  const gap = (myMacroState && myMacroState.gapMs) || 450;
+  const run = { id, timers: [] }; macroRun = run;
+  ready.forEach((step, i) => {
+    run.timers.push(setTimeout(() => {
+      if (macroRun !== run) return;
+      if (!me || me.isDead || !ws || ws.readyState !== WebSocket.OPEN) { cancelMacro(); return; }
+      castFromHotbar(step, i === 0 ? aim : undefined);
+      if (i === ready.length - 1) macroRun = null;
+    }, i * gap));
+  });
+}
+// when a button is ready again: an ability's own cooldown, or for a macro the last of its steps'
+function actionReadyAt(id) {
+  const a = myActionCatalog && myActionCatalog[id];
+  if (a && a.kind === 'macro') { let t = 0; for (const s of a.steps) t = Math.max(t, actionCooldownEndAt[s] || 0); return t; }
+  return actionCooldownEndAt[id] || 0;
+}
 
 // ---------------------------------------------------------------------------
 // Item / action tooltip — shared floating panel, positioned near the cursor
@@ -18978,7 +19024,7 @@ const MATERIAL_SOURCES = {
   ember_glass:    'Crafted here: 2× Emberbloom + 2× Cinder-Salt',
 };
 const SLOT_LABELS = { weapon: 'Weapon', head: 'Head', chest: 'Chest', feet: 'Feet', ring: 'Ring' };
-const KIND_LABELS  = { targeted: 'Targeted', aoe: 'Area of Effect', self: 'Self', building: 'Building' };
+const KIND_LABELS  = { targeted: 'Targeted', aoe: 'Area of Effect', self: 'Self', building: 'Building', macro: 'Macro' };
 
 function _positionTooltip(e) {
   if (!_tt) return;
@@ -19098,14 +19144,18 @@ function nextAbilityUnlock() {
 }
 function orderedAbilityIds() {
   if (!myActionCatalog) return [];
-  const all = defaultAbilityOrder(myActionCatalog).filter(abilityOpen);
+  // her macros lead: they are what she made the room for
+  const _def = defaultAbilityOrder(myActionCatalog).filter(abilityOpen);
+  const all = _def.filter(isMacroId).concat(_def.filter((id) => !isMacroId(id)));
   if (!myLoadout) return all;
   const seen = new Set();
   const out = [];
   for (const id of myLoadout) {
     if (myActionCatalog[id] && abilityOpen(id) && !seen.has(id)) { out.push(id); seen.add(id); }
   }
-  for (const id of all) if (!seen.has(id)) out.push(id); // newly added abilities land at the end
+  const fresh = all.filter((id) => !seen.has(id));
+  out.unshift(...fresh.filter(isMacroId));                      // a new macro goes to the front
+  for (const id of fresh) if (!isMacroId(id)) out.push(id);     // newly added abilities land at the end
   return out;
 }
 function saveLoadout(ids) {
@@ -19185,7 +19235,7 @@ function updateHotbarCooldown() {
   if (!hotbarSlotEls.length) return;
   const now = performance.now();
   for (const { id, slot, cooldown, cooldownText } of hotbarSlotEls) {
-    const remaining = (actionCooldownEndAt[id] || 0) - now;
+    const remaining = actionReadyAt(id) - now;
     const active = remaining > 0;
     slot.classList.toggle('onCooldown', active);
     if (active) {
@@ -19305,6 +19355,7 @@ function castFromHotbar(id, aim) {
   if (!myActionCatalog || !myActionMsgType) return;
   const atk = myActionCatalog[id];
   if (!atk) return;
+  if (atk.kind === 'macro') { runMacro(id, aim); return; }   // a chain of casts, not a cast
   lastCastAtk = atk; // remembered so the result handler voices the right sound
   lastCastId = id;   // ...and its id, so a per-ability sound can be chosen
   if (actionOnCooldown(id)) {
