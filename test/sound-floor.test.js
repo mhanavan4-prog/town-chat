@@ -19,6 +19,11 @@ const { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } =
   asked++;                                   // the action brought its own sound meanwhile
   timers.shift()[0]();
   check('an action with its own sound is not doubled', played.length === 1);
+  // an action that sounds at once, before the floor is even asked for (the portal)
+  const since = asked; asked++;
+  floor('interact_soft', INTERACT_QUIET_MS, 0.6, since);
+  timers.shift()[0]();
+  check('a sound made at once by the action itself is not doubled', played.length === 1);
   check('the wait for a server reply is longer than the wait for a button', INTERACT_QUIET_MS > CLICK_QUIET_MS && INTERACT_QUIET_MS >= 300);
 }
 
@@ -38,7 +43,7 @@ const { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } =
 
 {
   const main = read('client/main.js');
-  check('using a thing in the world goes through the floor', /function tryInteract\(\) \{[\s\S]{0,400}tryInteractNow\(\);[\s\S]{0,120}soundFloor\('interact_soft', INTERACT_QUIET_MS/.test(main));
+  check('using a thing in the world goes through the floor', /function tryInteract\(\) \{[\s\S]{0,400}const heardBefore = window\.__sfxAsked \|\| 0;[^\n]*\n\s*tryInteractNow\(\);[\s\S]{0,120}soundFloor\('interact_soft', INTERACT_QUIET_MS, 0\.6, heardBefore\)/.test(main));
   check('one listener covers every button', /document\.addEventListener\('click', \(e\) => \{ if \(e\.isTrusted !== false && clickWantsSound\(e\.target\)\) soundFloor\('ui_click', CLICK_QUIET_MS/.test(main));
   check('every ask is counted, even when muted', /window\.__sfxAsked = \(window\.__sfxAsked \|\| 0\) \+ 1;[^\n]*\n\s*if \(sfxMuted\) return;/.test(read('client/audio.js')));
   const man = JSON.parse(read('tools/audio/sfx.manifest.json'));

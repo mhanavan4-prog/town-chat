@@ -20390,8 +20390,9 @@ const soundFloor = createSoundFloor(() => window.__sfxAsked || 0, (id, vol) => {
 function tryInteract() {
   const hint = document.getElementById('interactHint');
   const inReach = !!(hint && !hint.classList.contains('hidden'));
+  const heardBefore = window.__sfxAsked || 0;   // counted before she acts: what she does may sound at once
   tryInteractNow();
-  if (inReach) soundFloor('interact_soft', INTERACT_QUIET_MS, 0.6);
+  if (inReach) soundFloor('interact_soft', INTERACT_QUIET_MS, 0.6, heardBefore);
 }
 // The same for every button, row and tab: one listener for the whole page.
 document.addEventListener('click', (e) => { if (e.isTrusted !== false && clickWantsSound(e.target)) soundFloor('ui_click', CLICK_QUIET_MS, 0.5); }, true);
