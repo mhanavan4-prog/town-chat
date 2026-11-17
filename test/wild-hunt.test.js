@@ -83,5 +83,33 @@ function world() {
   check('every rank has a title that exists and a wake that exists', HUNT.ranks.every((r) => TITLES[r.title] && HUNT_WAKES[r.wake]));
   check('the Hunt gives nothing but titles and wakes', !/grantXP|gold|balance|addItem/.test(fs.readFileSync(path.join(__dirname, '..', 'lib/wildHunt.js'), 'utf8')));
 }
+{
+  // The night company: a coven riding together.
+  const { COMPANY, COMPANY_LORE } = require('../data/wildHunt');
+  const accounts = { ada: {}, bea: {}, cyd: {} }, players = new Map(), sent = [], titles = [], told = [];
+  const coven = { id: 'c1', name: 'The Thorns', members: ['ada', 'bea'] };
+  let saved = 0, t = 5000000;
+  const W = require('../lib/wildHunt')({ players, send: (ws, m) => sent.push([ws.id, m]), isNight: () => true, nightId: () => 3, hasBesom: () => true,
+    accountOf: (p) => accounts[p.accountKey] || null, grantTitle: (p, tid) => titles.push(p.accountKey + ':' + tid), now: () => t,
+    covenOf: (p) => (coven.members.includes(p.accountKey) ? coven : null), saveCoven: () => { saved++; }, covenTell: (cv, m) => told.push(m) });
+  const mk = (id, key) => { const p = { id, name: key, accountKey: key, room: 'wilds', mounted: true, x: 0, y: 0, besomAlt: 0, ws: { id } }; players.set(id, p); return p; };
+  const ada = mk('1', 'ada'), bea = mk('2', 'bea'), cyd = mk('3', 'cyd');
+  const c = W.course(3);
+  const put = (p, r, dx = 0) => { p.x = r.x + dx; p.y = r.y; p.besomAlt = r.alt; };
+  put(ada, c[0]); put(bea, c[0], COMPANY.reach - 50); put(cyd, c[0], 300);
+  bea.besomAlt = 26;   // riding beside her, far below the horn
+  W.at(ada);
+  check('a horn one of the coven rides through counts for another of it riding close', W.state(bea).next === 1 && /counts for you/.test([...sent].reverse().find((e) => e[0] === '2')[1].message));
+  check('and not for someone of no coven riding just as close', W.state(cyd).next === 0);
+  put(ada, c[1]); put(bea, c[1], COMPANY.reach + 400); W.at(ada);
+  check('too far off, she must ride it herself', W.state(ada).next === 2 && W.state(bea).next === 1);
+  put(bea, c[1]); W.at(bea);
+  check('riding it herself does not count twice for the one ahead', W.state(ada).next === 2 && W.state(bea).next === 2);
+  for (let i = 2; i < c.length; i++) { put(ada, c[i]); put(bea, c[i], 100); t += 10000; W.at(ada); }
+  check('both finish, and the coven has ridden in company', accounts.ada.hunt.nights === 1 && accounts.bea.hunt.nights === 1 && coven.huntNights === 1 && saved === 1 && told.length === 1 && /in company/.test(told[0]));
+  check('each of the company is given its title, once', titles.filter((x) => /hunt_company/.test(x)).sort().join() === 'ada:hunt_company,bea:hunt_company');
+  check('the panel is told of the company', W.state(ada).company.coven === 'The Thorns' && W.state(ada).company.nights === 1 && W.state(ada).company.tonight === 2 && W.state(cyd).company.coven === null);
+  check('the company has its lore, and says what is the game\'s', COMPANY_LORE.tier === 'record' && /906/.test(COMPANY_LORE.source) && /the game's/.test(COMPANY_LORE.note) && TITLES[COMPANY.title]);
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -11577,6 +11577,15 @@ function renderHuntModal() {
   p('huntHead', 'Your nights');
   const best = st.best != null ? ` Quickest ride: ${Math.floor(st.best / 60)}m ${st.best % 60}s.` : '';
   p('huntLine', st.account ? `${st.nights} night${st.nights === 1 ? '' : 's'} ridden.${best}${st.nextRank ? ` The next honour comes at ${st.nextRank.nights}.` : ' Every honour of the Hunt is yours.'}` : 'You are here as a guest: you may ride, but the nights are only counted on an account.');
+  if (st.company) {
+    p('huntHead', 'The night company');
+    p('huntLine', st.company.coven
+      ? `${st.company.coven} has ridden in company ${st.company.nights || 0} night${st.company.nights === 1 ? '' : 's'}.${st.night ? ` Tonight ${st.company.tonight || 0} of you ${st.company.tonight === 1 ? 'has' : 'have'} finished; it takes ${st.company.needs}.` : ''} Ride close to your coven and a horn one of you rides through counts for all of you beside her.`
+      : `A coven that rides the Hunt together shares its horns, and ${st.company.needs} finishing in one night makes it a night in company. You are in no coven.`);
+    p('huntLore', st.company.lore.lore);
+    p('huntSource', `On record: ${st.company.lore.source}`);
+    p('huntNote', st.company.lore.note);
+  }
   if (st.account) {
     p('huntHead', 'The wake behind your besom');
     const row = document.createElement('div'); row.className = 'huntWakes';

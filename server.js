@@ -9298,8 +9298,11 @@ const besomMount = require('./lib/besomMount')({ send, levelOf: (p) => getProgre
 const wildHunt = require('./lib/wildHunt')({ players, send, isNight: () => isNightNow(), nightId: () => Math.floor(Date.now() / CYCLE_MS),
   hasBesom: (p) => (getProgress(p).level || 1) >= besomMount.MOUNT.level,
   accountOf: (p) => (p && p.accountKey ? accounts[p.accountKey] : null),
-  grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); },
-  save: () => saveAccounts(), width: WORLD2.width, height: WORLD2.height });
+  grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt && p.ws) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); },
+  save: () => saveAccounts(), width: WORLD2.width, height: WORLD2.height,
+  // the night company: a coven riding the Hunt together
+  covenOf: (p) => (p && p.accountKey ? covenOf(p.accountKey) : null), saveCoven: (id) => saveCoven(id),
+  covenTell: (cv, message) => { for (const q of players.values()) if (q.accountKey && cv.members.includes(q.accountKey)) send(q.ws, { type: 'toast', level: 'important', always: true, message }); } });
 { const _huntTimer = setInterval(() => { try { wildHunt.tick(); } catch (e) {} }, 5000); if (_huntTimer.unref) _huntTimer.unref(); }
 
 // The witch's daybook (lib/daybook.js): what she has done of what can be done, and when first.

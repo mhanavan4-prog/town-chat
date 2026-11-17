@@ -12,6 +12,7 @@ const TITLES = {
   hunt_rider: { id: 'hunt_rider', name: 'Rider of the Hunt', glyph: '🐎', desc: 'Rode through every horn of the Wild Hunt before dawn.', from: 'The Wild Hunt, one night' },
   hunt_horn: { id: 'hunt_horn', name: 'Horn-Blower', glyph: '📯', desc: 'Rode with the Wild Hunt three nights.', from: 'The Wild Hunt, three nights' },
   hunt_herla: { id: 'hunt_herla', name: "Of Herla's Company", glyph: '🌫️', desc: 'Rode with the Wild Hunt seven nights, and still came down.', from: 'The Wild Hunt, seven nights' },
+  hunt_company: { id: 'hunt_company', name: 'Of the Night Company', glyph: '🌙', desc: 'Rode with the Wild Hunt in the company of her coven.', from: 'The Wild Hunt, ridden as a coven' },
   hunt_master: { id: 'hunt_master', name: 'Master of the Night Ride', glyph: '🌑', desc: 'Rode with the Wild Hunt thirteen nights.', from: 'The Wild Hunt, thirteen nights' },
   hollow_vigil: {
     id: 'hollow_vigil', name: 'Keeper of the Hollow Vigil', glyph: '🕯️',
