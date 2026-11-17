@@ -104,6 +104,8 @@ function gracefulExit(signal) {
   // into a friendly heads-up (reusing the 'announce' toast — no client change).
   try { broadcastAll({ type: 'announce', message: '🔧 Thornreach is updating — you’ll reconnect automatically in a few seconds.' }); } catch (e) {}
   try { persistExportBackups(); } catch (e) {}
+  // Carry everyone across the restart: their reconnect finds them where they stood.
+  try { saveResumeCarry(); } catch (e) {}
   try { audit.close(); } catch (e) {}
   // Let the notice flush to sockets before exiting. systemd waits TimeoutStopSec
   // (set to 15s in the unit) before SIGKILL, so this short drain is always safe.
@@ -988,6 +990,19 @@ setInterval(() => {
   const now = Date.now();
   for (const [t, e] of resumeStashes) if (e.expiresAt < now) resumeStashes.delete(t);
 }, 60 * 1000);
+
+// Restart carry-over (lib/resumeCarry.js). Stashes written by the last process
+// on its way down are read back here, so a deploy restart resumes players in
+// place. Saved again once a minute while anyone is in town, so a hard crash
+// costs at most a minute of walking rather than the whole session.
+const resumeCarry = require('./lib/resumeCarry')({ fs, file: path.join(DATA_DIR, 'resumeCarry.json') });
+function saveResumeCarry() { return resumeCarry.save(resumeStashes, players, buildResumeStash, DISCONNECT_RESUME_TTL_MS); }
+{
+  const carried = resumeCarry.load(resumeStashes);
+  if (carried) console.log(`Restart carry-over: ${carried} player(s) can resume where they stood.`);
+}
+const _resumeCarryTimer = setInterval(() => { try { saveResumeCarry(); } catch (e) {} }, 60 * 1000);
+if (_resumeCarryTimer.unref) _resumeCarryTimer.unref();
 
 // Snapshot everything needed to rebuild a player on a later join-with-token.
 // Shared by the checkout departure (explicit, client-requested before the
@@ -19088,6 +19103,7 @@ setInterval(() => {
 // plumbing (e.g. simulate the kill that a real mob death would produce)
 // without standing up real wildlife/AI. Not used by any runtime code path.
 global.__testHooks = {
+  saveResumeCarry, resumeCarry, // restart carry-over
   afkSweep, noteActivity, AFK_MS, noteDeath,
   kickBlockedUntil, KICK_COOLDOWN_MS,
   server, // test-only: live http.Server so route tests can read the bound port
