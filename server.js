@@ -9331,6 +9331,16 @@ const online = require('./lib/online')({ players, send, sanitizeText,
 // Friends and the block list (lib/friends.js).
 const friends = require('./lib/friends')({ accounts, players, send, placeOf: (p) => online.placeOf(p),
   levelOf: (p) => (getProgress(p).level || 1), save: () => saveAccounts() });
+// Trading hand to hand (lib/trade.js): gold from the bank, things from the pack, nothing moves until both are ready.
+const trade = require('./lib/trade')({ players, send,
+  invOf: (p) => getInventory(p), bankOf: (p) => ensureBankAccount(p.accountKey),
+  addItem: (inv, id, qty) => addItemToAccount(inv, id, qty), removeItem: (inv, id, qty) => removeItemFromAccount(inv, id, qty), countItem: (inv, id) => countItemQty(inv, id),
+  itemName: (id) => (ITEM_CATALOG[id] && ITEM_CATALOG[id].name) || id,
+  blocks: (r, sn) => friends.blocks(r, sn),
+  save: () => { saveInventories(); saveBankAccounts(); },
+  pushStates: (p) => { pushInventoryStateIfOnline(p.accountKey); pushBankStateIfOnline(p.accountKey); },
+  log: (t) => audit.log({ level: 'info', type: 'trade', account: t.a.accountKey, name: t.a.name, detail: { with: t.b.accountKey, gave: t.gave, got: t.got } }) });
+{ const _tradeTimer = setInterval(() => { try { trade.tick(); } catch (e) {} }, 2000); if (_tradeTimer.unref) _tradeTimer.unref(); }
 // The witches' ring in the west of the Wastes (lib/witchRing.js): five voices by night, the elder, and the ring that sings for five.
 const witchRing = require('./lib/witchRing')({ send, grantXP, players, isNight: () => isNightNow(), cycleId: () => Math.floor(Date.now() / CYCLE_MS),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -15641,6 +15651,18 @@ wss.on('connection', (ws, req) => {
       }
       online.whisper(player, msg.targetId, msg.text); return;
     }
+    // Trading hand to hand (lib/trade.js).
+    if (msg.type === 'trade_ask' || msg.type === 'trade_answer' || msg.type === 'trade_offer' || msg.type === 'trade_ready' || msg.type === 'trade_cancel') {
+      if (audit.hit(player.accountKey || (ws && ws._ip) || player.id, 'trade', 10 * 1000) > 40) { send(ws, { type: 'trade_note', message: 'Slow down a little.' }); return; }
+      const r = msg.type === 'trade_ask' ? trade.ask(player, msg.targetId)
+        : msg.type === 'trade_answer' ? trade.answer(player, msg.fromId, !!msg.yes)
+        : msg.type === 'trade_offer' ? trade.offer(player, { gold: msg.gold, items: msg.items })
+        : msg.type === 'trade_ready' ? trade.ready(player, !!msg.ready)
+        : (trade.cancel(player), { ok: true });
+      if (r && r.error && msg.type !== 'trade_ready') send(ws, { type: 'trade_note', message: r.error });
+      else if (r && r.ok && msg.type === 'trade_ask') send(ws, { type: 'trade_note', message: `Asked ${r.name} to trade.` });
+      return;
+    }
     // Friends and the block list (lib/friends.js). Every reply is the whole state.
     if (msg.type === 'friends') { send(ws, friends.state(player)); return; }
     if (msg.type === 'friend_ask' || msg.type === 'friend_accept' || msg.type === 'friend_decline' || msg.type === 'friend_remove' || msg.type === 'block_player' || msg.type === 'unblock_player') {
@@ -18615,6 +18637,7 @@ wss.on('connection', (ws, req) => {
     // already happened — including the successor taking over — so this
     // close is just the old socket finally noticing.
     if (player && players.get(player.id) === player) {
+      try { trade.cancel(player, `${player.name} has gone, and the trade with them.`); } catch (e) {}
       try { friends.presence(player, false); } catch (e) {}
       // Stash the player for a seamless reconnect — a phone whose screen
       // turned off (or any dropped connection) can rejoin with the token
