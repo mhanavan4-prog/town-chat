@@ -504,6 +504,8 @@ function sfxEcho(freq, t, dur, vol, type, freqEnd) {
 function playSfx(name, vol) {
   // the last few sounds asked for, for the test harness to read back (cheap: a short ring of names)
   try { const l = (window.__sfxHeard = window.__sfxHeard || []); l.push(name); if (l.length > 20) l.shift(); } catch (_) {}
+  // every ask is counted, muted or not: client/sound-floor.js looks at this to see whether an action was silent
+  try { window.__sfxAsked = (window.__sfxAsked || 0) + 1; } catch (_) {}
   if (sfxMuted) return;
   ensureAudio();
   if (!audioCtx || !sfxGain) return;
