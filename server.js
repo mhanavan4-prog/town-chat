@@ -9252,6 +9252,13 @@ function tonightLines(player, t) {
 }
 const villageHouses = require('./lib/villageHouses')({ send, playerMaxHealth, gearWorn: (p) => repairCostFor(p), honeGear: (p) => honeAllGear(p), bankOf: (p) => (p.accountKey ? ensureBankAccount(p.accountKey) : null), acctOf: (p) => (p && p.accountKey && accounts[p.accountKey]) || null, wildsFinds: { payloadFor: (p) => wildsFinds.payloadFor(p) }, wildsData: require('./data/wildsFinds').WILDS_FINDS, abroad: mootBoardLines });
 
+// Macros: a chain of your own abilities on one button (lib/macros.js). Kept and checked here; the client casts.
+const macros = require('./lib/macros')({
+  accountOf: (p) => (p && p.accountKey ? accounts[p.accountKey] : null),
+  catalogFor: (charId) => abilityCatalogFor(charId), unlocksFor: (charId) => abilityUnlocksFor(charId),
+  levelOf: (p) => getProgress(p).level, balanceOf: (p) => msBalance(p.accountKey), spend: (p, n) => msAdjust(p.accountKey, -n),
+});
+
 // The besom you ride, from Level 20 (lib/besomMount.js).
 const besomMount = require('./lib/besomMount')({ send, levelOf: (p) => getProgress(p).level, openRooms: OPEN_WORLD_ROOMS, broadcastRoom: (room, m) => broadcastRoom(room, m) });
 
@@ -17886,6 +17893,25 @@ wss.on('connection', (ws, req) => {
     // locked to the moon tier at PLANTING, so rushing never pays better).
     // 💎 Moonstone time-savers (data/msBoons.js): each skips a wait already in the game. Nothing here grants
     // experience, gold or gear directly.
+    // Macros (lib/macros.js): what she has, saving one, and buying a longer size.
+    if (msg.type === 'macros') { send(ws, { type: 'macros_state', ...macros.state(player) }); return; }
+    if (msg.type === 'macro_save') {
+      const r = macros.save(player, msg.slot, { name: msg.name, icon: msg.icon, steps: msg.steps });
+      if (r.error) { send(ws, { type: 'macros_state', ...macros.state(player), error: r.error }); return; }
+      saveAccounts();
+      send(ws, { type: 'macros_state', ...macros.state(player), saved: Number(msg.slot) });
+      return;
+    }
+    if (msg.type === 'macro_upgrade') {
+      const r = macros.upgrade(player);
+      if (r.error) { send(ws, { type: 'macros_state', ...macros.state(player), error: r.error }); return; }
+      analytics.bump('buy.msn.macro:' + r.steps); analytics.bump('buy.msg.macro:' + r.steps, r.cost);
+      saveAccounts();
+      send(ws, { type: 'ms_state', balance: msBalance(player.accountKey) });
+      send(ws, { type: 'toast', level: 'important', always: true, message: `⛓️ Your macros can now hold ${r.steps} abilities. (${r.cost} 💎)` });
+      send(ws, { type: 'macros_state', ...macros.state(player) });
+      return;
+    }
     if (msg.type === 'ms_boons') { send(ws, { type: 'ms_boons_state', ...msBoonsBody(player) }); return; }
     if (msg.type === 'ms_boon') {
       const { MS_BOONS_BY_ID, ROUNDS, TORCH_HOLD_MS } = require('./data/msBoons');

@@ -4,7 +4,7 @@
 // Levelling itself is untouched.
 export const MENU_GATES = {
   2: ['menuWardrobe', 'menuTitles', 'menuFamiliar', 'menuTarot', 'menuBoard', 'menuCrier'],
-  4: ['menuGarden', 'menuHome', 'menuKitchen', 'menuBook', 'menuPath', 'menuPractices', 'menuCodex'],
+  4: ['menuGarden', 'menuHome', 'menuKitchen', 'menuBook', 'menuPath', 'menuPractices', 'menuCodex', 'menuMacros'],
   7: ['menuScry', 'menuPendulum', 'menuRunes', 'menuOgham', 'menuCords', 'menuOldWays', 'menuDaybook'],
   10: ['menuMoonWell', 'menuAncestor', 'menuRelease', 'menuGuise', 'menuCharmBook', 'menuCoven'],
   13: ['menuDelve', 'menuLoadout', 'menuAchievements'],

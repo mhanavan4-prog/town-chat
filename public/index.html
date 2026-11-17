@@ -20,6 +20,27 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet">
 <style>
+  /* Macros panel (client/macros-panel.js) */
+  #macrosCard { max-width:520px; width:calc(100vw - 28px); max-height:calc(100vh - 40px); overflow-y:auto; }
+  #macrosBody { display:flex; flex-direction:column; gap:12px; margin:10px 0 12px; text-align:left; }
+  .mcTop { display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content:space-between; }
+  .mcSize { font-weight:600; }
+  .mcNote, .mcFoot, .mcEmpty { font-size:13px; opacity:0.75; }
+  .mcCard { border:1px solid rgba(255,214,140,0.28); border-radius:12px; padding:10px; background:rgba(255,255,255,0.03); display:flex; flex-direction:column; gap:8px; }
+  .mcHead { display:flex; gap:8px; align-items:center; }
+  .mcIcon { width:42px; height:42px; border-radius:10px; font-size:22px; border:1px solid rgba(255,214,140,0.4); background:rgba(0,0,0,0.25); color:inherit; cursor:pointer; flex:none; }
+  .mcName { flex:1; min-width:0; height:42px; border-radius:10px; border:1px solid rgba(255,214,140,0.3); background:rgba(0,0,0,0.25); color:inherit; padding:0 12px; font-size:16px; }
+  .mcChain, .mcPick { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .mcPick { padding-top:8px; border-top:1px dashed rgba(255,214,140,0.25); }
+  .mcArrow { opacity:0.6; }
+  .mcStep, .mcChoice { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:4px 10px; border-radius:18px; border:1px solid rgba(255,214,140,0.4); background:rgba(60,40,90,0.55); color:inherit; font-size:14px; cursor:pointer; }
+  .mcChoice { background:rgba(0,0,0,0.3); }
+  .mcGi { width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; }
+  .mcGi svg { width:20px; height:20px; }
+  .mcRow { display:flex; gap:8px; flex-wrap:wrap; }
+  .mcRow .btn { margin:0; flex:1 1 0; min-width:0; padding-left:6px; padding-right:6px; font-size:14px; white-space:nowrap; }
+  .mcRow .mcAdd { flex:1.7 1 0; }
+  .mcRow .btn:disabled { opacity:0.45; }
   /* The gold coin emblem (client/gold-coin.js swaps every 🪙 on the page for one: the emoji is silver on Apple). */
   .coin { display:inline-block; width:0.95em; height:0.95em; vertical-align:-0.13em;
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3CradialGradient id='f' cx='0.36' cy='0.3' r='0.8'%3E%3Cstop offset='0' stop-color='%23fff7c8'/%3E%3Cstop offset='0.32' stop-color='%23ffd84f'/%3E%3Cstop offset='0.72' stop-color='%23df9f1c'/%3E%3Cstop offset='1' stop-color='%2394620a'/%3E%3C/radialGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff0b0'/%3E%3Cstop offset='0.45' stop-color='%23d79a1c'/%3E%3Cstop offset='1' stop-color='%235e3e05'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='15.4' fill='url(%23r)'/%3E%3Ccircle cx='16' cy='16' r='15.4' fill='none' stroke='%234a3004' stroke-width='0.9'/%3E%3Cg fill='%23fff1b6' opacity='0.7'%3E%3Ccircle cx='29.85' cy='16.00' r='0.78'/%3E%3Ccircle cx='29.38' cy='19.58' r='0.78'/%3E%3Ccircle cx='27.99' cy='22.92' r='0.78'/%3E%3Ccircle cx='25.79' cy='25.79' r='0.78'/%3E%3Ccircle cx='22.93' cy='27.99' r='0.78'/%3E%3Ccircle cx='19.58' cy='29.38' r='0.78'/%3E%3Ccircle cx='16.00' cy='29.85' r='0.78'/%3E%3Ccircle cx='12.42' cy='29.38' r='0.78'/%3E%3Ccircle cx='9.08' cy='27.99' r='0.78'/%3E%3Ccircle cx='6.21' cy='25.79' r='0.78'/%3E%3Ccircle cx='4.01' cy='22.92' r='0.78'/%3E%3Ccircle cx='2.62' cy='19.58' r='0.78'/%3E%3Ccircle cx='2.15' cy='16.00' r='0.78'/%3E%3Ccircle cx='2.62' cy='12.42' r='0.78'/%3E%3Ccircle cx='4.01' cy='9.08' r='0.78'/%3E%3Ccircle cx='6.21' cy='6.21' r='0.78'/%3E%3Ccircle cx='9.07' cy='4.01' r='0.78'/%3E%3Ccircle cx='12.42' cy='2.62' r='0.78'/%3E%3Ccircle cx='16.00' cy='2.15' r='0.78'/%3E%3Ccircle cx='19.58' cy='2.62' r='0.78'/%3E%3Ccircle cx='22.93' cy='4.01' r='0.78'/%3E%3Ccircle cx='25.79' cy='6.21' r='0.78'/%3E%3Ccircle cx='27.99' cy='9.07' r='0.78'/%3E%3Ccircle cx='29.38' cy='12.42' r='0.78'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='12.3' fill='url(%23f)' stroke='%237a5108' stroke-width='1'/%3E%3Cpath d='M18.4 9.3A7.2 7.2 0 1 0 18.4 22.7A5.7 5.7 0 1 1 18.4 9.3Z' fill='%23fff3c4' transform='translate(0.55 0.6)' opacity='0.75'/%3E%3Cpath d='M18.4 9.3A7.2 7.2 0 1 0 18.4 22.7A5.7 5.7 0 1 1 18.4 9.3Z' fill='%23a8700d'/%3E%3Cellipse cx='11.6' cy='9.6' rx='5.2' ry='2.6' fill='%23fff' opacity='0.28' transform='rotate(-32 11.6 9.6)'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -3178,6 +3199,7 @@
       <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
       <button class="menuRow" id="menuKit">⚔️ Abilities</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
+      <button class="menuRow" id="menuMacros">⛓️ Macros</button>
       <button class="menuRow" id="menuWardrobe">🎭 Wardrobe</button>
       <button class="menuRow" id="menuTitles">🎖️ Titles</button>
       <button class="menuRow" id="menuJournal">📜 Journal</button>
@@ -3381,8 +3403,19 @@
     <div id="loadoutSlots"></div>
     <div class="subtitle" style="margin-top:10px;" id="loadoutAllLabel">All abilities</div>
     <div id="loadoutAbilities"></div>
+    <button class="btn" id="loadoutMacrosBtn">⛓️ Macros: chain abilities onto one button</button>
     <button class="btn" id="loadoutResetBtn">↩️ Reset to default order</button>
     <button class="btn" id="loadoutCloseBtn">Done</button>
+  </div>
+</div>
+
+<!-- Macros (client/macros-panel.js): a chain of your own abilities on one button -->
+<div id="macrosModal" class="overlay hidden">
+  <div class="card" id="macrosCard">
+    <div class="title" style="font-size:20px;">⛓️ Macros</div>
+    <div class="subtitle">Chain your abilities onto one button, and get the others off your screen.</div>
+    <div id="macrosBody"></div>
+    <button class="btn" id="macrosCloseBtn">Done</button>
   </div>
 </div>
 
