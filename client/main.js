@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import { blockedNameSet, isFriendName, buildFriendsSection } from './friends-panel.js';
 import { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } from './sound-floor.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
 import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
@@ -286,7 +287,9 @@ try { chatHidden = localStorage.getItem('tc_chatHidden') === '1'; } catch (e) {}
 // present. Persisted so it survives reloads.
 const mutedNames = new Set();
 try { const a = JSON.parse(localStorage.getItem('tc_muted') || '[]'); if (Array.isArray(a)) a.forEach(n => mutedNames.add(String(n))); } catch (e) {}
-function isMutedName(name) { return !!name && mutedNames.has(String(name)); }
+// Muted here on this device, or blocked on the server (lib/friends.js): either way, not shown.
+let friendsState = null, blockedNames = new Set();
+function isMutedName(name) { return !!name && (mutedNames.has(String(name)) || blockedNames.has(String(name).toLowerCase())); }
 function persistMuted() { try { localStorage.setItem('tc_muted', JSON.stringify([...mutedNames])); } catch (e) {} }
 function setMuted(name, muted) {
   if (!name) return;
@@ -1457,6 +1460,7 @@ function onWsMessage(ev) {
     const wasStarted = gameStarted;
     myId = msg.id;
     try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'town_bonfire' })); } catch (e) {} // seed the square's bonfire state
+    try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'friends' })); } catch (e) {} // friends, and the names whose chat is not shown (lib/friends.js)
     if (Array.isArray(msg.worldChat)) {
       worldFeed.length = 0; for (const m of msg.worldChat) worldFeed.push(m);
       // Pop a just-posted host greeting on (re)connect. Seeding the backlog
@@ -3239,6 +3243,13 @@ function onWsMessage(ev) {
   if (msg.type === 'ember_lore_state') { emberLoreDone = new Set(msg.done || []); return; }   // the by-ways (data/byways.js)
   if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
+  if (msg.type === 'friends_state') {
+    friendsState = msg; blockedNames = blockedNameSet(msg);
+    if (msg.error) setUnlockToast(msg.error, { always: true });
+    else if (msg.note) setUnlockToast((msg.asked ? '🤍 ' : '') + msg.note, { always: !msg.quiet, level: msg.asked ? 'important' : undefined });
+    renderOnlinePanel(); renderChatLog();
+    return;
+  }
   if (msg.type === 'whisper') { receiveWhisper(msg); return; }
   if (msg.type === 'whisper_error') { setUnlockToast(msg.message, { level: 'important' }); return; }
   if (msg.type === 'ash_quest') { openQuestDialogue(msg.npcId, msg.npcName); return; } // the anchoress, once she has said her piece (lib/ashminster.js)
@@ -4700,7 +4711,7 @@ function openOnlinePanel(toId) {
   onlineInviteOpen = null;
   if (toId) onlineTo = { id: toId, name: (onlineList && (onlineList.players.find((p) => p.id === toId) || {}).name) || '' };
   renderOnlinePanel();
-  const ask = () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'online_list' })); };
+  const ask = () => { if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: 'online_list' })); ws.send(JSON.stringify({ type: 'friends' })); } };
   ask();
   if (onlineTimer) clearInterval(onlineTimer);
   onlineTimer = setInterval(ask, 5000);   // people come and go while it is open
@@ -4715,13 +4726,31 @@ function closeOnlinePanel() {
 }
 function onlineSend(type, extra) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type, ...extra })); }
 function renderOnlinePanel() {
-  const el = document.getElementById('onlineContent');
+  let el = document.getElementById('onlineContent');
   if (!el || !Modals.isOpen('onlineOpen')) return;
   const L = onlineList;
   const count = document.getElementById('onlineCount'); if (count) count.textContent = L ? `· ${L.count}` : '';
-  el.innerHTML = '';
-  if (!L) { el.innerHTML = '<div class="olEmpty">Looking about…</div>'; }
-  else if (!L.players.length) { el.innerHTML = '<div class="olEmpty">Nobody else is about just now. The candle in the window is yours alone.</div>'; }
+  // Two parts: friends above, everyone in below. The list below is redrawn every
+  // few seconds; the friends part only when it changes, so a name being typed
+  // into its box is left alone.
+  let fr = el.querySelector(':scope > .frWrap'), list = el.querySelector(':scope > .olList');
+  if (!fr || !list) {
+    el.innerHTML = '';
+    fr = document.createElement('div'); fr.className = 'frWrap';
+    list = document.createElement('div'); list.className = 'olList';
+    el.append(fr, list);
+  }
+  const frSig = JSON.stringify(friendsState);
+  if (fr.dataset.sig !== frSig) {
+    const askBox = document.getElementById('friendAskName'), askText = askBox ? askBox.value : '', askFocus = askBox && document.activeElement === askBox;
+    fr.dataset.sig = frSig; fr.innerHTML = '';
+    fr.appendChild(buildFriendsSection(friendsState, onlineSend, (to) => { onlineTo = to; renderOnlinePanel(); const t = document.getElementById('onlineComposeText'); if (t) t.focus(); }));
+    const nb = document.getElementById('friendAskName'); if (nb && askText) { nb.value = askText; if (askFocus) nb.focus(); }
+  }
+  el = list; el.innerHTML = '';
+  { const h = document.createElement('div'); h.className = 'frHead'; h.textContent = 'Everyone in'; el.appendChild(h); }
+  if (!L) { el.insertAdjacentHTML('beforeend', '<div class="olEmpty">Looking about…</div>'); }
+  else if (!L.players.length) { el.insertAdjacentHTML('beforeend', '<div class="olEmpty">Nobody else is about just now. The candle in the window is yours alone.</div>'); }
   const signedIn = !!(L && L.me && L.me.account), myCoven = L && L.me && L.me.coven;
   for (const p of (L ? L.players : [])) {
     const muted = isMutedName(p.name);
@@ -4736,7 +4765,8 @@ function renderOnlinePanel() {
     btns.append(
       mk('💬', 'Send ' + p.name + ' a message', () => { onlineTo = { id: p.id, name: p.name }; renderOnlinePanel(); const t = document.getElementById('onlineComposeText'); if (t) t.focus(); }),
       mk('✉️', 'Invite ' + p.name, () => { onlineInviteOpen = onlineInviteOpen === p.id ? null : p.id; renderOnlinePanel(); }),
-      mk('⋯', 'Mute or report ' + p.name, (e) => openPlayerMenu({ id: p.id, name: p.name }, e)),
+      ...(signedIn && p.account && !isFriendName(friendsState, p.name) ? [mk('🤍', 'Ask ' + p.name + ' to be your friend', () => onlineSend('friend_ask', { targetId: p.id }))] : []),
+      mk('⋯', 'Mute, block or report ' + p.name, (e) => openPlayerMenu({ id: p.id, name: p.name }, e)),
     );
     row.append(who, btns);
     el.appendChild(row);
@@ -9316,6 +9346,13 @@ function openPlayerMenu(m, ev) {
   muteBtn.textContent = muted ? '🔊 Unmute' : '🔇 Mute';
   muteBtn.addEventListener('click', (e) => { e.stopPropagation(); setMuted(m.name, !muted); appendSystemChatLine((muted ? '🔊 Unmuted ' : '🔇 Muted ') + m.name + '.'); closePlayerMenu(); });
   menu.appendChild(muteBtn);
+  // Block: kept on the server, so it also stops their whispers and invitations reaching you (lib/friends.js).
+  { const blocked = blockedNames.has(String(m.name).toLowerCase());
+    const bb = document.createElement('button');
+    bb.textContent = blocked ? '✅ Unblock' : '🚫 Block';
+    bb.title = blocked ? 'Let them message and invite you again' : 'They cannot message or invite you, and you will not see their chat. They are not told.';
+    bb.addEventListener('click', (e) => { e.stopPropagation(); if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(blocked ? { type: 'unblock_player', name: m.name } : { type: 'block_player', targetId: m.id, name: m.name })); closePlayerMenu(); });
+    menu.appendChild(bb); }
   const rlabel = document.createElement('div'); rlabel.className = 'playerMenuLabel'; rlabel.textContent = 'Report for…';
   menu.appendChild(rlabel);
   for (const reason of ['Spam', 'Harassment', 'Inappropriate']) {

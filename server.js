@@ -9328,6 +9328,9 @@ const online = require('./lib/online')({ players, send, sanitizeText,
   buildings: WORLD.buildings, villageHouses: require('./data/villageHouses').VILLAGE_HOUSES,
   levelOf: (p) => (getProgress(p).level || 1), classOf: (p) => CLASS_NAMES[p.charId] || '',
   covenNameOf: (p) => { const cv = p.accountKey && covenOf(p.accountKey); return cv ? cv.name : null; } });
+// Friends and the block list (lib/friends.js).
+const friends = require('./lib/friends')({ accounts, players, send, placeOf: (p) => online.placeOf(p),
+  levelOf: (p) => (getProgress(p).level || 1), save: () => saveAccounts() });
 // The witches' ring in the west of the Wastes (lib/witchRing.js): five voices by night, the elder, and the ring that sings for five.
 const witchRing = require('./lib/witchRing')({ send, grantXP, players, isNight: () => isNightNow(), cycleId: () => Math.floor(Date.now() / CYCLE_MS),
   acctOf: (p) => (p.accountKey && accounts[p.accountKey]) || null,
@@ -12406,6 +12409,7 @@ wss.on('connection', (ws, req) => {
           }
         } catch (e) { /* noop */ }
       }
+      if (!resume) { try { friends.presence(player, true); } catch (e) { /* noop */ } }
       // Catch the newcomer up on any masks currently being worn — the 70ms
       // state stream only carries names, the images travel once, here.
       for (const p of players.values()) {
@@ -15627,7 +15631,38 @@ wss.on('connection', (ws, req) => {
       return;
     }
     if (msg.type === 'online_list') { send(ws, online.list(player)); return; }
-    if (msg.type === 'whisper') { online.whisper(player, msg.targetId, msg.text); return; }
+    if (msg.type === 'whisper') {
+      // Blocked by them: to the sender it looks sent, and it goes nowhere.
+      const wt = players.get(String(msg.targetId || ''));
+      if (wt && friends.blocks(wt, player)) {
+        const text = sanitizeText(msg.text);
+        if (text) send(ws, { type: 'whisper', to: { id: wt.id, name: wt.name, color: wt.color }, text, ts: Date.now(), outgoing: true });
+        return;
+      }
+      online.whisper(player, msg.targetId, msg.text); return;
+    }
+    // Friends and the block list (lib/friends.js). Every reply is the whole state.
+    if (msg.type === 'friends') { send(ws, friends.state(player)); return; }
+    if (msg.type === 'friend_ask' || msg.type === 'friend_accept' || msg.type === 'friend_decline' || msg.type === 'friend_remove' || msg.type === 'block_player' || msg.type === 'unblock_player') {
+      if (audit.hit(player.accountKey || (ws && ws._ip) || player.id, 'friends', 10 * 1000) > 12) { send(ws, { ...friends.state(player), error: 'Slow down a little.' }); return; }
+      const who = msg.targetId != null && msg.targetId !== '' ? String(msg.targetId) : String(msg.name || '').slice(0, 40);
+      const act = (w) => (msg.type === 'friend_ask' ? friends.ask(player, w)
+        : msg.type === 'friend_accept' ? friends.accept(player, w)
+        : msg.type === 'friend_decline' ? friends.decline(player, w)
+        : msg.type === 'friend_remove' ? friends.remove(player, w)
+        : msg.type === 'block_player' ? friends.block(player, w)
+        : friends.unblock(player, w));
+      let r = act(who);
+      // named by an id that has since gone (they left): fall back to the name sent with it
+      if (r.error && who !== String(msg.name || '') && msg.name) r = act(String(msg.name).slice(0, 40));
+      const done = r.error ? null
+        : msg.type === 'friend_ask' ? (r.now ? `${r.name} is now your friend.` : `Asked ${r.name}. They will see it when they are in.`)
+        : msg.type === 'friend_accept' ? `${r.name} is now your friend.`
+        : msg.type === 'block_player' ? `${r.name} is blocked. They are not told.`
+        : null;
+      send(ws, { ...friends.state(player), ...(r.error ? { error: r.error } : {}), ...(done ? { note: done } : {}) });
+      return;
+    }
     if (msg.type === 'dungeon_exit') {
       if (!player.room || !player.room.startsWith('dungeon_')) return;
       // Inside a delve run the exit portal ends the run properly instead
@@ -16020,6 +16055,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'party_invite') {
       const target = players.get(String(msg.targetId || ''));
       if (!target || target.id === player.id) return;
+      if (friends.blocks(target, player)) return;   // blocked by them: the invite goes nowhere
       const partyId = getOrCreateParty(player.id);
       if (parties.get(partyId).leaderId !== player.id) {
         send(ws, { type: 'party_error', message: 'Only the leader can invite.' }); return;
@@ -16151,6 +16187,7 @@ wss.on('connection', (ws, req) => {
       if (!target || target.id === player.id) { send(ws, { type: 'coven_error', message: 'No such soul in town.' }); return; }
       if (!target.accountKey) { send(ws, { type: 'coven_error', message: `${target.name} wanders as a guest — they need an account to join a coven.` }); return; }
       if (covenOf(target.accountKey)) { send(ws, { type: 'coven_error', message: `${target.name} already belongs to a coven.` }); return; }
+      if (friends.blocks(target, player)) { send(ws, { type: 'coven_error', message: `Invitation carried to ${target.name}.` }); return; }   // blocked by them: it looks carried
       const inviteId = makeId();
       covenInvites.set(inviteId, { covenId: cv.id, targetKey: target.accountKey, expiresAt: Date.now() + 60000 });
       send(target.ws, { type: 'coven_invited', inviteId, covenName: cv.name, sigil: cv.sigil, fromName: player.name, members: cv.members.length });
@@ -18578,6 +18615,7 @@ wss.on('connection', (ws, req) => {
     // already happened — including the successor taking over — so this
     // close is just the old socket finally noticing.
     if (player && players.get(player.id) === player) {
+      try { friends.presence(player, false); } catch (e) {}
       // Stash the player for a seamless reconnect — a phone whose screen
       // turned off (or any dropped connection) can rejoin with the token
       // it got in init and carry on as the same character in the same

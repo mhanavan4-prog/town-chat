@@ -1057,6 +1057,12 @@
   .olInvite button[disabled] { opacity:0.4; cursor:default; }
   .olMuted .olName { text-decoration:line-through; opacity:0.6; }
   .olEmpty { color:#b8a98a; padding:18px 6px; text-align:center; }
+  .frHead { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#c9b68a; padding:10px 6px 4px 6px; }
+  .frBox .olEmpty { padding:8px 6px; text-align:left; font-size:13px; }
+  .frOut .olName { opacity:0.6; }
+  .frAsk { display:flex; gap:6px; padding:8px 6px 4px 6px; }
+  .frAsk .btn { flex:0 0 auto; width:auto; margin:0; padding:7px 16px; }
+  .frAsk input { flex:1 1 auto; min-width:0; background:rgba(0,0,0,0.3); border:1px solid rgba(230,190,120,0.35); color:#ffe9c2; border-radius:10px; padding:7px 10px; font-size:14px; }
   #onlineCompose { flex:0 0 auto; border-top:1px solid rgba(230,190,120,0.25); padding-top:8px; margin-top:6px; }
   #onlineCompose.hidden { display:none; }
   #onlineComposeTo { font-size:12px; color:#d8c8a8; margin-bottom:6px; }
@@ -3192,7 +3198,7 @@
     <div id="menuSheetTitle">Thornreach</div>
     <div id="menuGrid">
       <button class="menuRow" id="menuMap" title="The map — see where everything is (M)">🗺️ Map</button>
-      <button class="menuRow" id="menuOnline" title="Everyone online — message or invite them (O)">👥 Players online</button>
+      <button class="menuRow" id="menuOnline" title="Your friends and everyone online: message, invite or block them (O)">👥 Friends &amp; players online</button>
       <div class="menuSection">You</div>
       <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;"><span class="coin"></span> 0</span></button>
       <button class="menuRow" id="menuBesom">🧹 Ride the besom</button>
@@ -4315,7 +4321,7 @@
 <!-- Everyone online: message or invite them (client/main.js "Players online"; lib/online.js) -->
 <div id="onlineModal" class="floatPanel hidden">
   <div class="floatPanelHandle">
-    <span>👥 Players online <span id="onlineCount"></span></span><span class="floatPanelDrag">⠿</span>
+    <span>👥 Friends &amp; players online <span id="onlineCount"></span></span><span class="floatPanelDrag">⠿</span>
   </div>
   <div id="onlineContent"></div>
   <form id="onlineCompose" class="hidden" autocomplete="off">
