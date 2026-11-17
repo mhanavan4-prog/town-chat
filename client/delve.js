@@ -76,6 +76,22 @@ function renderDelveModal() {
     } else {
       top.innerHTML = '<div class="slNote">Nobody has gone below this week.</div>';
     }
+    // The Deep (data/delveDeep.js): the deepest ever, which no new week wipes.
+    const deep = getDelveState().deep, dn = document.getElementById('delveDeepNote'), dl = document.getElementById('delveDeepList');
+    if (deep && dn && dl) {
+      dn.textContent = getDelveState().isGuest ? `Below floor ${deep.deepFrom} is the Deep, where every floor is steeper than the last.`
+        : `${deep.best ? `Your deepest ever: ${deep.best}.` : 'You have not been down yet.'} Below floor ${deep.deepFrom} is the Deep, where every floor is steeper than the last.${deep.next ? ` A title waits at depth ${deep.next}.` : ' Every title of the Deep is yours.'}`;
+      dl.innerHTML = '';
+      if (deep.top && deep.top.length) {
+        deep.top.forEach((e, i) => {
+          const row = document.createElement('div'); row.className = 'slRow';
+          row.innerHTML = `<span class="slRank">${i === 0 ? '🥇' : i + 1 + '.'}</span>`;
+          const name = document.createElement('span'); name.className = 'slName'; name.textContent = e.name;
+          const val = document.createElement('span'); val.className = 'slVal'; val.textContent = 'depth ' + e.value;
+          row.appendChild(name); row.appendChild(val); dl.appendChild(row);
+        });
+      } else dl.innerHTML = '<div class="slNote">No one has left a mark yet.</div>';
+    }
   }
 }
 function renderDelveHud() {

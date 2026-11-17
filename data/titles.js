@@ -4,6 +4,10 @@
 // nameplate. Pure data; the server grants ids and the client renders from this
 // catalog. Keep ids stable — they're persisted on accounts.
 const TITLES = {
+  // The Deep (data/delveDeep.js): how far under the Delve she has been.
+  deep_ten: { id: 'deep_ten', name: 'Of the Tenth Dark', glyph: '🕳️', desc: 'Went ten floors down the Delve, to the edge of the Deep.', from: 'The Delve, depth 10' },
+  deep_twenty: { id: 'deep_twenty', name: 'Walker of the Deep', glyph: '⛓️', desc: 'Went twenty floors down, well into the Deep.', from: 'The Delve, depth 20' },
+  deep_thirty: { id: 'deep_thirty', name: 'Who Came Back Up', glyph: '🌒', desc: 'Went thirty floors down the Delve and saw daylight again.', from: 'The Delve, depth 30' },
   // The Wild Hunt (data/wildHunt.js): nights ridden with it.
   hunt_rider: { id: 'hunt_rider', name: 'Rider of the Hunt', glyph: '🐎', desc: 'Rode through every horn of the Wild Hunt before dawn.', from: 'The Wild Hunt, one night' },
   hunt_horn: { id: 'hunt_horn', name: 'Horn-Blower', glyph: '📯', desc: 'Rode with the Wild Hunt three nights.', from: 'The Wild Hunt, three nights' },
