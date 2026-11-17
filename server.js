@@ -764,7 +764,9 @@ app.get('/class/:id', (req, res) => {
 app.get('/api/class/:id', (req, res) => {
   const cls = classShowcase.byId(parseInt(req.params.id, 10));
   if (!cls) return res.status(404).json({ error: 'unknown class' });
-  res.json(Object.assign({ propMeshes: classShowcase.PROP_MESHES }, cls));
+  // each ability with the level that opens it (data/abilityUnlocks.js), so the page does not show a new player a kit she will not have yet
+  const lv = abilityUnlocksFor(cls.id) || {};
+  res.json(Object.assign({ propMeshes: classShowcase.PROP_MESHES }, cls, { abilities: (cls.abilities || []).map((a) => Object.assign({}, a, { level: lv[a.id] || 1 })) }));
 });
 app.get('/leaderboards', (req, res) => { logPageVisit(req, 'leaderboards'); return sendWithOg(req, res, 'leaderboards.html',
   { title: 'Leaderboards — Thornreach', desc: "This week's top players across every board in Thornreach." }); });
