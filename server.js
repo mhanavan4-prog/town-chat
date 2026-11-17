@@ -4400,6 +4400,7 @@ function checkAchievements(player) {
 function noteDelveDepth(player, depth) {
   if (!player || !(depth > 0)) return;
   try { const dp = getProgress(player); achievementsMod.noteMax(dp, 'delveDeepest', depth); } catch (e) { return; }
+  try { delveDeep.note(player, depth); } catch (e) { /* the record is not worth losing a run's end over */ }
   checkAchievements(player);
   storyEvent(player, 'delve_depth', { depth }); // Episode II ch7 — descend the Delve
 }
@@ -9222,6 +9223,9 @@ const playerParty = new Map();
 // Weekly Delve engine (Session M) — extracted to lib/delve.js (Tier 3.4 Phase B).
 const delveMod = require('./lib/delve')({ mulberry32, legendaryWeekIndex, weekKey, lbRankOf, lbTop, lbSetMax, LEGENDARY_EPOCH, LEGENDARY_WEEK_MS, players, send, getProgress, ensureBankAccount, saveBankAccounts, playerParty, parties, dungeonTierForLevel, nearestDungeonPlayer, PARTY_BOSS_HP_PER_ALLY, isEvading: dungeonUnseen, absorbIncomingDamage, noteAttacked, WORLD, WORLD2, DUNGEON_SIZE, statContrib, noteDelveDepth,
   noteDelveFloor: (run, fresh) => { for (const pid of run.members.keys()) { const p = players.get(pid); if (p) dungeonFinds.onEnter(p, { fresh }); } } });
+// The Deep (lib/delveDeep.js): the deepest each account has ever been down the Delve, and the titles for depth.
+const delveDeep = require('./lib/delveDeep')({ accounts, save: () => saveAccounts(),
+  grantTitle: (p, id) => { grantRiteTitle(p.accountKey, id); const tt = TITLES[id]; if (tt) send(p.ws, { type: 'toast', level: 'important', always: true, message: `${tt.glyph} You are now ${tt.name}.` }); } });
 // The Old Ways (data/oldWays.js, lib/oldWays.js): the besom, the poppet,
 // lead-pouring, the bees, the brownie, sin-eating, the toad-bone.
 const oldWays = require('./lib/oldWays')({ accounts, players, getInventory, countItemQty, removeItemFromAccount, addItemToAccount, ensureBankAccount, grantXP, isNightNow, playerParty, parties, playerMaxHealth, WORLD2,
@@ -15716,7 +15720,7 @@ wss.on('connection', (ws, req) => {
     // ── Session L: the Weekly Delve ─────────────────────────────────────────
     if (msg.type === 'delve_state') {
       const run = delveRunOf(player);
-      send(ws, run ? delveStatePayloadFor(run, player) : delveMenuPayload(player));
+      send(ws, run ? delveStatePayloadFor(run, player) : { ...delveMenuPayload(player), deep: delveDeep.menu(player) });
       return;
     }
 
