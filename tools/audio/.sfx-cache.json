@@ -193,5 +193,8 @@
   "key_drop.mp3": "498c51b35d9dd852",
   "jump_land.mp3": "44318dbaafe6660b",
   "besom_off.mp3": "d7f1784e4b814606",
-  "besom_wind.mp3": "33a22df294849361"
+  "besom_wind.mp3": "33a22df294849361",
+  "interact_soft.mp3": "84f439b564afdfde",
+  "hunt_horn.mp3": "4ee53b625cba2b7d",
+  "hunt_done.mp3": "d7684c4e7097034e"
 }

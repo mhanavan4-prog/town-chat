@@ -537,6 +537,18 @@
       "v": "6fb80512"
     }
   ],
+  "hunt_done": [
+    {
+      "f": "hunt_done.mp3",
+      "v": "2da6ce9a"
+    }
+  ],
+  "hunt_horn": [
+    {
+      "f": "hunt_horn.mp3",
+      "v": "23949c4e"
+    }
+  ],
   "hunters_read": [
     {
       "f": "hunters_read.mp3",
@@ -555,6 +567,12 @@
     {
       "f": "hurt-3.mp3",
       "v": "4152cdc4"
+    }
+  ],
+  "interact_soft": [
+    {
+      "f": "interact_soft.mp3",
+      "v": "7a261c3d"
     }
   ],
   "iron_pelt": [
