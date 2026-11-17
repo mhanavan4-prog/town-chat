@@ -171,12 +171,12 @@ function preloadSfx(ids) {
 // Play a recorded SFX for `name` if one is loaded; returns true if it did. Picks
 // a random variant (so repeats — footsteps, hits — don't sound identical) and
 // routes through the clean file bus with an optional per-id trim.
-function playSfxFile(name, vol) {
+function playSfxFile(name, vol, rate) {
   const bufs = sfxBuffers[name];
   if ((!bufs || !bufs.length) && sfxIndex && sfxIndex[name] && audioCtx) {
     // Not decoded yet: fetch it now and play it on arrival if that's prompt.
     const asked = performance.now();
-    loadSfxId(name).then((ok) => { if (ok && performance.now() - asked <= SFX_LATE_MS && !sfxMuted) playSfxFile(name, vol); });
+    loadSfxId(name).then((ok) => { if (ok && performance.now() - asked <= SFX_LATE_MS && !sfxMuted) playSfxFile(name, vol, rate); });
     return true; // claimed — don't also fire the synth fallback for this id
   }
   if (!bufs || !bufs.length || !sfxFileGain || !audioCtx) return false;
@@ -184,6 +184,8 @@ function playSfxFile(name, vol) {
   try {
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
+    // rate: play it higher or lower than recorded (the Hunt's rising note, client/wild-hunt.js)
+    if (rate && rate !== 1) src.playbackRate.value = Math.max(0.5, Math.min(2, rate));
     // Chain src → [high-cut] → [trim×vol] → bus. Each stage is optional per id.
     let node = src;
     const lp = SFX_FILE_LOWPASS[name];
@@ -501,7 +503,7 @@ function sfxEcho(freq, t, dur, vol, type, freqEnd) {
 }
 // The spooky songbook of one-shots — minor intervals, tritones, bells and
 // airy noise. Every game moment maps to one call: playSfx('summon'), etc.
-function playSfx(name, vol) {
+function playSfx(name, vol, rate) {
   // the last few sounds asked for, for the test harness to read back (cheap: a short ring of names)
   try { const l = (window.__sfxHeard = window.__sfxHeard || []); l.push(name); if (l.length > 20) l.shift(); } catch (_) {}
   // every ask is counted, muted or not: client/sound-floor.js looks at this to see whether an action was silent
@@ -513,7 +515,7 @@ function playSfx(name, vol) {
   // Prefer a recorded sound for this id; fall back to the synth voices below.
   // vol (0..1) attenuates recorded sounds — used for distance falloff on
   // remote players' actions; the synth fallback plays at its own level.
-  if (playSfxFile(name, vol)) return;
+  if (playSfxFile(name, vol, rate)) return;
   const t = audioCtx.currentTime;
   switch (name) {
     // ── Combat ──

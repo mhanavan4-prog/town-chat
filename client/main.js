@@ -2,7 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
-import createWildHuntView, { HUNT_WAKE_NAMES } from './wild-hunt.js';
+import createWildHuntView, { HUNT_WAKE_NAMES, huntNoteFor } from './wild-hunt.js';
 import { strangeWords, selfCheckReport } from './self-check.js';
 import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
@@ -11559,7 +11559,14 @@ const HUNT_SFX_STAND_IN = { hunt_horn: 'summon', hunt_done: 'quest_fanfare' };
 function askHunt() { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hunt' })); }
 function onHuntState(msg) {
   huntView.onState(msg);
-  if (msg.sfx && typeof playSfx === 'function') playSfx((typeof sfxAvailable === 'function' && sfxAvailable(msg.sfx)) ? msg.sfx : (HUNT_SFX_STAND_IN[msg.sfx] || msg.sfx));
+  // What is heard: a soft note that climbs with each horn ridden through, the many horns at the last one, and
+  // one far horn, kept low, when the Hunt begins at nightfall.
+  if (msg.sfx && typeof playSfx === 'function') {
+    const have = (id) => typeof sfxAvailable === 'function' && sfxAvailable(id);
+    if (msg.finished) playSfx(have('hunt_done') ? 'hunt_done' : HUNT_SFX_STAND_IN.hunt_done, 0.7);
+    else if (msg.passed) { const n = huntNoteFor(msg.passed, msg.total); if (have('hunt_note')) playSfx('hunt_note', n.vol, n.rate); else playSfx(have('hunt_horn') ? 'hunt_horn' : HUNT_SFX_STAND_IN.hunt_horn, n.vol * 0.45, n.rate); }
+    else playSfx(have('hunt_horn') ? 'hunt_horn' : HUNT_SFX_STAND_IN.hunt_horn, 0.4);
+  }
   if (msg.message) setUnlockToast(msg.message, { always: true, level: 'important' });
   if (!document.getElementById('huntModal').classList.contains('hidden')) renderHuntModal();
 }

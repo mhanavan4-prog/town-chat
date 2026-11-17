@@ -20,6 +20,19 @@ function huntLine(state, me, alt, riding) {
   return `📯 Horn ${state.next + 1} of ${state.total} · ${huntWayWords(Math.hypot(r.x - me.x, r.y - me.y), r.alt - alt, state.reach || 90)}`;
 }
 
+// The sound of a horn ridden through: one soft note that climbs a step with
+// each horn, so the ride is heard building to the last. A five-note scale
+// (no half-steps, so any two in a row sit well together), rising an octave and
+// a third over the eight horns before the last; a little louder each time, and
+// never loud. The last horn has its own sound.
+const HUNT_SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
+function huntNoteFor(passed, total) {
+  const n = Math.max(1, Math.min((total || 9) - 1, passed || 1));
+  const step = HUNT_SCALE[Math.min(HUNT_SCALE.length - 1, n - 1)];
+  const along = (total || 9) > 2 ? (n - 1) / ((total || 9) - 2) : 0;
+  return { rate: Math.pow(2, step / 12), vol: Math.round((0.32 + 0.3 * along) * 100) / 100 };
+}
+
 export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isRiding }) {
   let state = null, group = null, groupScene = null, builtFor = '';
   let glow = null;
@@ -58,7 +71,9 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
     builtFor = JSON.stringify(rings);
   }
 
-  function onState(msg) { state = msg; }
+  // The line that says she has ridden tonight is shown for a little while after the last horn, then put away.
+  let doneShownUntil = 0;
+  function onState(msg) { state = msg; if (msg && msg.finished) doneShownUntil = performance.now() + 8000; }
 
   // Each frame: the rings (in the Wilds, by night), and the line at the top.
   function step(now) {
@@ -75,7 +90,7 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
       else { o.visible = isNext || ahead; o.material.opacity = isNext ? 0.75 + 0.25 * pulse : 0.14; o.scale.setScalar(isNext ? 1 + 0.04 * pulse : 1); }
     }
     if (hud) {
-      const text = huntLine(state, me, getAlt(), isRiding());
+      const text = state.done && now > doneShownUntil ? '' : huntLine(state, me, getAlt(), isRiding());
       if (hud.textContent !== text) hud.textContent = text;
       hud.classList.toggle('hidden', !text);
     }
@@ -98,20 +113,24 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
         s.name = 'huntWakeGlow'; s.userData.born = -1e9; s.userData.floats = true; scene.add(s); w.sprites.push(s);
       }
     }
+    // A light is dropped only when she has moved on from the last one: hovering in one place leaves no wake
+    // (sixteen lights dropped on the same spot add up to a white blaze).
     if (now - w.last > 70) {
-      w.last = now;
-      const s = w.sprites[w.i++ % w.sprites.length];
       v.mountBesom.getWorldPosition(tmp);
-      s.position.copy(tmp); s.userData.born = now;
+      if (!w.at || tmp.distanceTo(w.at) > 14) {
+        w.last = now; w.at = (w.at || new THREE.Vector3()).copy(tmp);
+        const s = w.sprites[w.i++ % w.sprites.length];
+        s.position.copy(tmp); s.userData.born = now;
+      }
     }
     for (const s of w.sprites) {
       const age = (now - s.userData.born) / 1100;
-      s.material.opacity = age >= 1 ? 0 : (1 - age) * 0.55;
-      s.scale.setScalar(26 + age * 46);
+      s.material.opacity = age >= 1 ? 0 : (1 - age) * 0.32;
+      s.scale.setScalar(20 + age * 34);
     }
   }
 
   return { onState, step, wake, getState: () => state, clear };
 }
 
-export { HUNT_WAKE_COLORS, HUNT_WAKE_NAMES, huntLine, huntWayWords };
+export { HUNT_WAKE_COLORS, HUNT_WAKE_NAMES, huntLine, huntWayWords, huntNoteFor };
