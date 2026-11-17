@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
 import { blockedNameSet, isFriendName, buildFriendsSection } from './friends-panel.js';
 import { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } from './sound-floor.js';
@@ -6334,6 +6335,7 @@ function setUnlockToast(text, opts) {
 // section, so they live there now, in one place, with the graphics and control
 // rows moved in beside them (same element ids, so their handlers are unchanged).
 function openSettingsModal() {
+  keyListening = null; renderComfortSettings();
   Modals.set('settingsModalOpen', true);
   const el = document.getElementById('settingsModal');
   if (el) el.classList.remove('hidden');
@@ -7080,6 +7082,59 @@ function refreshDisguiseVisual(id) {
 // ---------------------------------------------------------------------------
 const keys = { up:false, down:false, left:false, right:false, strafeLeft:false, strafeRight:false };
 let typing = false;
+// Keys the player has chosen for herself (client/key-remap.js), kept on this device.
+let keyBinds = {};
+try { keyBinds = cleanBinds(JSON.parse(localStorage.getItem('tc_keys') || '{}')); } catch (e) { keyBinds = {}; }
+function saveKeyBinds(b) { keyBinds = cleanBinds(b); try { localStorage.setItem('tc_keys', JSON.stringify(keyBinds)); } catch (e) {} }
+let keyListening = null;   // the action waiting for a key to be pressed for it, in Settings
+installKeyRemap(() => (keyListening ? null : keyBinds), (e) => { const t = e.target, tag = t && t.tagName; return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!(t && t.isContentEditable); });
+// Text size, for anyone (a controller's TV text is a separate, larger setting): kept on this device.
+const TEXT_SIZES = [['normal', 'Normal'], ['large', 'Large'], ['larger', 'Larger']];
+let textSize = 'normal';
+try { const t = localStorage.getItem('tc_text_size'); if (TEXT_SIZES.some((x) => x[0] === t)) textSize = t; } catch (e) {}
+function applyTextSize(size) {
+  textSize = TEXT_SIZES.some((x) => x[0] === size) ? size : 'normal';
+  document.body.classList.toggle('textLarge', textSize === 'large');
+  document.body.classList.toggle('textLarger', textSize === 'larger');
+  try { localStorage.setItem('tc_text_size', textSize); } catch (e) {}
+}
+applyTextSize(textSize);
+function renderComfortSettings() {
+  const sizeBox = document.getElementById('textSizeRow');
+  if (sizeBox) {
+    sizeBox.innerHTML = '';
+    for (const [id, label] of TEXT_SIZES) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'keyBtn' + (textSize === id ? ' keyBtnOn' : ''); b.textContent = label;
+      b.addEventListener('click', () => { applyTextSize(id); renderComfortSettings(); });
+      sizeBox.appendChild(b);
+    }
+  }
+  const list = document.getElementById('keyBindList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const [def, label] of KEY_ACTIONS) {
+    const row = document.createElement('div'); row.className = 'keyRow';
+    const lab = document.createElement('span'); lab.textContent = label;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'keyBtn' + (keyBinds[def] ? ' keyBtnOn' : '');
+    b.textContent = keyListening === def ? 'Press a key…' : keyLabel(boundKey(keyBinds, def));
+    b.title = 'Choose another key for this';
+    b.addEventListener('click', () => { keyListening = keyListening === def ? null : def; renderComfortSettings(); });
+    row.append(lab, b); list.appendChild(row);
+  }
+}
+{ const kr = document.getElementById('keyResetBtn'); if (kr) kr.addEventListener('click', () => { keyListening = null; saveKeyBinds({}); renderComfortSettings(); setUnlockToast('⌨️ The keys are back as they were.', { always: true }); }); }
+// While Settings waits for a key, the next press is the answer (Escape leaves it as it was).
+window.addEventListener('keydown', (e) => {
+  if (!keyListening) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  const def = keyListening; keyListening = null;
+  if (e.key !== 'Escape') {
+    const r = rebind(keyBinds, def, e.key);
+    if (r.error) setUnlockToast('⌨️ ' + r.error, { always: true });
+    else { saveKeyBinds(r.binds); if (r.swapped) setUnlockToast(`⌨️ Swapped with “${(KEY_ACTIONS.find((a) => a[0] === r.swapped) || [])[1]}”.`, { always: true }); }
+  }
+  renderComfortSettings();
+}, true);
 
 // Catch-all so any text input/textarea anywhere (note composer, Hard Drive
 // password fields, auction bid amounts, etc.) suppresses hotbar/movement
@@ -20391,7 +20446,7 @@ function tryInteractNow() {
 // phone. Walking up to a kiosk/seat/NPC is still required either way; this
 // just gives touch players a physical-feeling button to tap once they have.
 function interactVerb() {
-  return isTouchDevice() ? 'Tap to' : 'Press F to';
+  return isTouchDevice() ? 'Tap to' : `Press ${keyLabel(boundKey(keyBinds, 'f'))} to`;
 }
 // On touch the prompt sits in the hollow of the action wheel (index.html), a
 // small space: the longer the words, the smaller they are set.
@@ -21439,10 +21494,17 @@ function pollGamepad(dt) {
     if (justPressed(2) && me && !me.isDead) strikeNearestEnemy();         // X → strike
     if (justPressed(3)) { const b = document.getElementById('btnKit'); if (b) b.click(); } // Y → kit
     if (justPressed(8)) { if (!Modals.isOpen('journalOpen')) openJournal(); }              // Back → journal
+    if (justPressed(6)) toggleBesomRide();                                // LT → the besom (Level 20)
     const qs = ['qs1', 'qs2', 'qs3'];
     [[4, 0], [5, 1], [7, 2]].forEach(([btn, slot]) => {                   // LB/RB/RT → quickslots
       if (justPressed(btn)) { const el = document.getElementById(qs[slot]); if (el && !el.classList.contains('hidden')) el.click(); }
     });
+  }
+  // Riding: d-pad up climbs and d-pad down sinks, as Space and Shift do (held, not tapped).
+  if (besomRide.on) {
+    const up = pressed(12), down = pressed(13);
+    if (up !== !!besomRide.padUp) { besomRide.padUp = up; besomRide.up = up; }
+    if (down !== !!besomRide.padDown) { besomRide.padDown = down; besomRide.down = down; }
   }
   gamepadButtonsPrev = pad.buttons.map(b => !!b.pressed);
 }
