@@ -17,7 +17,7 @@ for (const m of html.matchAll(/<(?:button|a) class="menuRow[^"]*" id="(menu[A-Za
 const doc = { getElementById: (id) => rows[id] || null };
 const gated = Object.values(G.MENU_GATES).flat();
 check('every gated entry is a real row of the menu, and none is listed twice', gated.every((id) => rows[id]) && new Set(gated).size === gated.length, gated.filter((id) => !rows[id]));
-check('the bands are levels 2, 4, 7, 10 and 13, and the besom at 20', Object.keys(G.MENU_GATES).join() === '2,4,7,10,13,20' && G.MENU_GATES[20].join() === 'menuBesom');
+check('the bands are levels 2, 4, 7, 10 and 13, and the besom at 20', Object.keys(G.MENU_GATES).join() === '2,4,7,10,13,20' && G.MENU_GATES[20].join() === 'menuBesom,menuHunt');
 const always = ['menuMap', 'menuOnline', 'menuInventory', 'menuSkills', 'menuKit', 'menuJournal', 'menuSettings', 'menuControls', 'menuMoonstones', 'menuPass', 'menuInvite', 'menuNotifs', 'menuBug', 'menuLogout'];
 check('what a new arrival needs, and the shop and the ways out, are never gated', always.every((id) => rows[id] && G.menuGateLevel(id) === 1), always.filter((id) => !rows[id]));
 G.applyMenuGates(1, doc);
@@ -26,7 +26,7 @@ check('at level 1 every gated entry is off the menu, and the rest are on it', ga
 const fresh = G.applyMenuGates(2, doc);
 check('reaching a band opens it, and says what is new', G.MENU_GATES[2].every(shown) && !shown('menuGarden') && fresh.length === 6 && fresh.some((t) => /Wardrobe/.test(t)));
 G.applyMenuGates(13, doc);
-check('at 13 the whole menu is open but the besom, and at 20 that too', gated.every((id) => id === 'menuBesom' ? !shown(id) : shown(id)) && (G.applyMenuGates(20, doc), gated.every(shown)));
+check('at 13 the whole menu is open but the besom, and at 20 that too', gated.every((id) => (id === 'menuBesom' || id === 'menuHunt') ? !shown(id) : shown(id)) && (G.applyMenuGates(20, doc), gated.every(shown)));
 G.applyMenuGates(1, doc);
 G.menuPointedAt('📖 Written in your daybook: the by-ways, walked.', doc);
 check('a notice that names an entry opens it early, and it stays open', shown('menuDaybook') && (G.applyMenuGates(1, doc), shown('menuDaybook')) && JSON.parse(store.tc_menu_early).includes('menuDaybook'));

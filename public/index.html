@@ -1057,6 +1057,13 @@
   .olInvite button[disabled] { opacity:0.4; cursor:default; }
   .olMuted .olName { text-decoration:line-through; opacity:0.6; }
   .olEmpty { color:#b8a98a; padding:18px 6px; text-align:center; }
+  #huntCard { width:min(560px, 94vw); max-height:88vh; overflow-y:auto; text-align:left; }
+  .huntLore { font-size:14px; line-height:1.5; color:#f0e3c0; margin-top:8px; }
+  .huntSource { font-size:12px; color:#c9b68a; margin-top:6px; }
+  .huntNote { font-size:12px; color:#b8a98a; font-style:italic; margin-top:6px; }
+  .huntHead { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#c9b68a; margin:14px 0 4px 0; }
+  .huntLine { font-size:14px; color:#ffe9c2; }
+  .huntWakes { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
   #tradeCard { width:min(640px, 94vw); max-height:88vh; overflow-y:auto; text-align:left; }
   .trTable { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
   .trSide { background:rgba(0,0,0,0.25); border:1px solid rgba(230,190,120,0.2); border-radius:12px; padding:10px; min-height:120px; }
@@ -3230,6 +3237,7 @@
       <div class="menuSection">You</div>
       <button class="menuRow" id="menuInventory">🎒 Inventory<span id="menuGoldVal" class="hidden" style="float:right;color:#ffd700;font-weight:800;"><span class="coin"></span> 0</span></button>
       <button class="menuRow" id="menuBesom">🧹 Ride the besom</button>
+      <button class="menuRow" id="menuHunt" title="By night, a course of horns in the sky over the Wilds">🐎 The Wild Hunt</button>
       <button class="menuRow" id="menuSkills">🌟 Skills<span id="menuSkillsBadge"></span></button>
       <button class="menuRow" id="menuKit">⚔️ Abilities</button>
       <button class="menuRow" id="menuLoadout">🎛️ Loadout</button>
@@ -3363,6 +3371,7 @@
   <div id="dungeonFindsHud" class="hidden" title="Bone keys you hold, braziers lit, seals broken"></div>
   <div id="eventTag" class="hidden"></div>
   <div id="bellTag" class="hidden"></div>
+  <div id="huntHud" class="hidden" title="The Wild Hunt: which horn is next, and where"></div>
   <div id="targetingBanner" class="hidden">
     <span id="targetingBannerText"></span>
   </div>
@@ -3444,6 +3453,14 @@
 </div>
 
 <!-- Macros (client/macros-panel.js): a chain of your own abilities on one button -->
+<div id="huntModal" class="overlay hidden">
+  <div class="card" id="huntCard">
+    <div class="title" style="font-size:20px;">🐎 The Wild Hunt</div>
+    <div class="subtitle">By night, horns in the sky over the Wilds. Ride through each, in the order they sound, before dawn.</div>
+    <div id="huntBody"></div>
+    <button class="btn" id="huntCloseBtn" style="margin-top:12px;">Close</button>
+  </div>
+</div>
 <div id="tradeModal" class="overlay hidden">
   <div class="card" id="tradeCard">
     <div class="title" style="font-size:20px;" id="tradeTitle">⚖️ Trading</div>
@@ -3720,6 +3737,7 @@
   /* The loading pill (above everything, at the very top, while graphics stream in) is the one thing over the lane:
      while it shows, the lane starts below it. */
   body:has(.loadPill.show) #hudLane { top:88px; }
+  #huntHud { pointer-events:none; background:rgba(20,16,10,0.72); border:1px solid rgba(242,230,184,0.45); color:#f6ecc8; border-radius:999px; padding:6px 16px; font-size:14px; font-weight:700; white-space:nowrap; text-shadow:0 1px 2px #000; }
   #hudLane > * {
     position:static !important; top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
     transform:none; flex:0 0 auto;

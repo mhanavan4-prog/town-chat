@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import createWildHuntView, { HUNT_WAKE_NAMES } from './wild-hunt.js';
 import { strangeWords, selfCheckReport } from './self-check.js';
 import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
@@ -3282,6 +3283,7 @@ function onWsMessage(ev) {
   if (msg.type === 'trap_warn') { dungeonTrapWarn(msg.trap, msg.ms); setUnlockToast('⚠️ The roof is going. Move!', { always: true }); return; }
   if (msg.type === 'macros_state') { onMacrosState(msg); return; }
   if (msg.type === 'besom_mount') { onBesomMount(msg); return; }
+  if (msg.type === 'hunt_state') { onHuntState(msg); return; }
   if (msg.type === 'besom_mount_seen') { if (players[msg.id] && msg.id !== myId) players[msg.id].mounted = !!msg.on; return; }
   if (msg.type === 'toast') {
     if (msg.sfx && typeof playSfx === 'function') playSfx(sfxOrStandIn(msg.sfx)); // a message may bring its own sound (tools/audio/sfx.manifest.json)
@@ -8228,6 +8230,7 @@ function hydrateMenuRows() {
   }, true);
   on('menuInventory', closeSheetAnd(() => { if (!Modals.isOpen('inventoryOpen')) toggleInventory(); }));
   on('menuBesom', closeSheetAnd(() => toggleBesomRide()));
+  on('menuHunt', closeSheetAnd(() => openHuntModal()));
   on('menuBtn', () => syncBesomMenu()); on('pcMenuBtn', () => syncBesomMenu());
   // Guest → account nudge: "Create a free account" reloads to the join screen
   // with a flag so it opens straight into the register form.
@@ -11550,10 +11553,50 @@ for (const [id, k] of [['besomUp', 'up'], ['besomDown', 'down']]) {
 
 // Everyone riding sits a hand off the ground on the broom, bobbing a little; a flight in or out takes over.
 // Off it in the air (knocked off, or got off up high), she comes down.
+// The Wild Hunt as it is seen (client/wild-hunt.js): the horns in the Wilds' night sky, and a rider's wake.
+const huntView = createWildHuntView({ THREE, getScene: () => (me && me.room === 'wilds' && activeScene === wildsScene ? wildsScene : null), getMe: () => me, getAlt: () => besomRide.alt, isRiding: () => besomRide.on });
+const HUNT_SFX_STAND_IN = { hunt_horn: 'summon', hunt_done: 'quest_fanfare' };
+function askHunt() { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hunt' })); }
+function onHuntState(msg) {
+  huntView.onState(msg);
+  if (msg.sfx && typeof playSfx === 'function') playSfx((typeof sfxAvailable === 'function' && sfxAvailable(msg.sfx)) ? msg.sfx : (HUNT_SFX_STAND_IN[msg.sfx] || msg.sfx));
+  if (msg.message) setUnlockToast(msg.message, { always: true, level: 'important' });
+  if (!document.getElementById('huntModal').classList.contains('hidden')) renderHuntModal();
+}
+function renderHuntModal() {
+  const body = document.getElementById('huntBody'), st = huntView.getState();
+  if (!body) return;
+  body.innerHTML = '';
+  const p = (cls, text) => { const d = document.createElement('div'); d.className = cls; d.textContent = text; body.appendChild(d); return d; };
+  if (!st) { p('huntNote', 'The Hunt is for those who have the besom, at Level 20.'); return; }
+  p('huntLore', st.lore.lore);
+  p('huntSource', `On record: ${st.lore.source}`);
+  p('huntNote', st.lore.note);
+  p('huntHead', 'Tonight');
+  p('huntLine', !st.night ? 'It is day. The horns sound at nightfall, over the Wilds.' : st.done ? 'You have ridden with the Hunt tonight.' : `The Hunt rides. Horn ${st.next + 1} of ${st.total} is next: go to the Wilds, get on your besom, and follow the thread of light up to it.`);
+  p('huntHead', 'Your nights');
+  const best = st.best != null ? ` Quickest ride: ${Math.floor(st.best / 60)}m ${st.best % 60}s.` : '';
+  p('huntLine', st.account ? `${st.nights} night${st.nights === 1 ? '' : 's'} ridden.${best}${st.nextRank ? ` The next honour comes at ${st.nextRank.nights}.` : ' Every honour of the Hunt is yours.'}` : 'You are here as a guest: you may ride, but the nights are only counted on an account.');
+  if (st.account) {
+    p('huntHead', 'The wake behind your besom');
+    const row = document.createElement('div'); row.className = 'huntWakes';
+    const mk = (id, label) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'keyBtn' + ((st.wake || null) === id ? ' keyBtnOn' : ''); b.textContent = label; b.addEventListener('click', () => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hunt_wake', wake: id })); }); row.appendChild(b); };
+    mk(null, 'None');
+    for (const w of st.wakes) mk(w, HUNT_WAKE_NAMES[w] || w);
+    body.appendChild(row);
+    if (!st.wakes.length) p('huntNote', 'Ride with the Hunt one night and the first wake is yours.');
+  }
+}
+function openHuntModal() { askHunt(); renderHuntModal(); document.getElementById('huntModal').classList.remove('hidden'); }
+{ const hc = document.getElementById('huntCloseBtn'); if (hc) hc.addEventListener('click', () => document.getElementById('huntModal').classList.add('hidden')); }
+let _huntAskedAt = 0, _huntAskedFor = '';
 function stepRiddenBesoms() {
   const now = performance.now();
   stepBesomAltitude(now);
   tickBesomWind(now);
+  // ask for the Hunt when she comes into the Wilds or gets on the besom there, and now and then while there (night falls)
+  if (me && me.room === 'wilds' && (me.level || 1) >= besomRide.level) { const key = me.room + (besomRide.on ? 1 : 0); if (key !== _huntAskedFor || now - _huntAskedAt > 30000) { _huntAskedFor = key; _huntAskedAt = now; askHunt(); } } else _huntAskedFor = '';
+  huntView.step(now);
   if (besomRide.on && me && !BESOM_OPEN_ROOMS.has(me.room)) { besomRide.on = false; if (players[myId]) players[myId].mounted = false; if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'besom_mount', on: false })); }
   for (const id in players) {
     const v = visuals[id], p = players[id];
@@ -11569,7 +11612,9 @@ function stepRiddenBesoms() {
       v._rideY = v._rideY == null ? want : v._rideY + (want - v._rideY) * (id === myId ? 1 : 0.12);   // others ease to what they last said
       v.flightY = v._rideY + Math.sin(now * 0.0035 + (id.length * 1.7)) * 3;
       if (v.mountBesom) { seatBroom(v, v.mountBesom); v.mountBesom.rotation.z = Math.sin(now * 0.003) * 0.05; }
+      huntView.wake(v, id === myId ? ((huntView.getState() || {}).wake || null) : (p.wake || null), true, activeScene, now);
     } else if (v.mountBesom) {
+      huntView.wake(v, null, false, null, now);
       if (v.mountBesom.parent) v.mountBesom.parent.remove(v.mountBesom);
       v.mountBesom = null;
       if (!flying) v._fallY = v.flightY || 0;
@@ -22185,6 +22230,8 @@ if (location.search.includes('testdrive=1')) {
       return out;
     },
     besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), floor: Math.round(besomFloor()), roost: besomRoost ? Math.round(besomRoost.top) : 0, top: me ? Math.round(besomTopAt(me.x, me.y)) : 0, on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
+    // put the ridden besom at a height, and read the Hunt's line (the tours cannot hold Space for a minute)
+    besomAlt(a) { if (besomRide.on) besomRide.alt = Math.max(besomRide.hover, Math.min(besomRide.top, a)); return besomRide.alt; },
     // everything solid in this scene that nothing holds up (client/float-audit.js)
     floaters(opts) { const r = me && me.room; return findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), ...(opts || {}) }); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },

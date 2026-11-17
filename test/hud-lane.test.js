@@ -12,8 +12,8 @@ const laneJs = fs.readFileSync(path.join(__dirname, '..', 'client', 'hud-lane.js
 const laneHtml = html.slice(html.indexOf('<div id="hudLane">'), html.indexOf('<div id="gatherHint"'));
 const inLane = [...laneHtml.matchAll(/^  <div id="([A-Za-z]+)"/gm)].map((m) => m[1]);
 
-test('the lane holds the delve line, the finds line, the event tag, the town bell and the targeting banner', () => {
-  assert.deepStrictEqual(inLane, ['delveHud', 'dungeonFindsHud', 'eventTag', 'bellTag', 'targetingBanner']);
+test('the lane holds the delve line, the finds line, the event tag, the town bell, the Hunt\'s line and the targeting banner', () => {
+  assert.deepStrictEqual(inLane, ['delveHud', 'dungeonFindsHud', 'eventTag', 'bellTag', 'huntHud', 'targetingBanner']);
   for (const id of inLane) assert.strictEqual((html.match(new RegExp('id="' + id + '"', 'g')) || []).length, 1, id + ' is in the page once');
 });
 

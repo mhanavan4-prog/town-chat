@@ -8,7 +8,7 @@ export const MENU_GATES = {
   7: ['menuScry', 'menuPendulum', 'menuRunes', 'menuOgham', 'menuCords', 'menuOldWays', 'menuDaybook'],
   10: ['menuMoonWell', 'menuAncestor', 'menuRelease', 'menuGuise', 'menuCharmBook', 'menuCoven'],
   13: ['menuDelve', 'menuLoadout', 'menuAchievements'],
-  20: ['menuBesom'],   // the besom you ride (lib/besomMount.js)
+  20: ['menuBesom', 'menuHunt'],   // the besom you ride (lib/besomMount.js), and the Wild Hunt it rides with (lib/wildHunt.js)
 };
 const KEY = 'tc_menu_early';
 const early = (() => { try { return new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (e) { return new Set(); } })();
