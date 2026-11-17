@@ -11276,7 +11276,7 @@ function seatBroom(v, broom) {
 // ── The besom you ride (lib/besomMount.js), from Level 20 ─────────────────────────────────────────────────────
 // G (or Ride the besom in the menu) gets on it out of doors; again gets off. The server says yes or no, and puts
 // you on your feet when you fight, are hit, or go under a roof.
-const besomRide = { on: false, level: 20, speed: 1.6, hover: 26, top: 1400, clear: 260, climb: 240, alt: 26, up: false, down: false, sentAlt: 0, sentAt: 0 };
+const besomRide = { on: false, level: 20, speed: 1.6, hover: 26, top: 1400, clear: 260, safe: 110, climb: 240, alt: 26, up: false, down: false, sentAlt: 0, sentAt: 0 };
 const BESOM_OPEN_ROOMS = new Set(['outside', 'wilds', 'ember_wastes']);
 function myLevelNow() { const p = players[myId]; return (p && p.level) || 1; }
 function toggleBesomRide() {
@@ -11295,8 +11295,9 @@ function onBesomMount(msg) {
   if (msg.hover) besomRide.hover = msg.hover;
   if (msg.top) besomRide.top = msg.top;
   if (msg.clear) besomRide.clear = msg.clear;
+  if (msg.safe) besomRide.safe = msg.safe;
   if (msg.climb) besomRide.climb = msg.climb;
-  if (besomRide.on && !was) besomRide.alt = besomRide.hover;
+  if (besomRide.on && !was) { besomRide.alt = besomRide.hover; besomRide.toldSafe = false; }
   showBesomPads(besomRide.on);
   if (besomRide.on && !was && typeof playSfx === 'function') playSfx('besom_ride');
   if (!besomRide.on && was && typeof playSfx === 'function') playSfx('besom_off', 0.7);   // off it: feet and bristles
@@ -11399,6 +11400,8 @@ function stepBesomAltitude(now) {
   if (!besomRide.on) return;
   const dir = (besomRide.up ? 1 : 0) - (besomRide.down ? 1 : 0);
   besomRide.alt = Math.max(besomFloor(), Math.min(besomRide.top, besomRide.alt + dir * besomRide.climb * dt));
+  // the first time she is up out of reach on a ride, she is told so
+  if (besomRide.alt >= besomRide.safe && !besomRide.toldSafe) { besomRide.toldSafe = true; setUnlockToast('🧹 Up here nothing on the ground can reach you.', { always: true }); }
   // tell the others how high she is, now and then, and when she stops
   if (ws && ws.readyState === WebSocket.OPEN && Math.abs(besomRide.alt - besomRide.sentAlt) > 4 && now - besomRide.sentAt > 200) {
     besomRide.sentAlt = besomRide.alt; besomRide.sentAt = now;

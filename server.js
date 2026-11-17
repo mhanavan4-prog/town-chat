@@ -3796,6 +3796,7 @@ function absorbIncomingDamage(target, dmg) {
   // a hare that is struck is a woman again, with the mark still on her
   if (dmg > 0 && oldWays.endHare(target)) send(target.ws, { type: 'toast', level: 'important', message: '🐇 Something has its teeth in the hare, and it is you it has hold of. You are yourself again.' });
   if (isImmune(target)) return 0; // Deep Meditation — all damage shrugged off (covers mob paths too)
+  if (besomMount.outOfReach(target)) return 0; // up on the besom, out of reach: whatever was swung, it did not get there
   // 'ward' is the class-neutral twin of 'pumpkin': identical halving, no
   // jack-o'-lantern head — used by the non-Witch classes' defensive
   // abilities (Iron Pelt, Ethereal Veil, Oath of Iron, Packmule's Guard)
@@ -7940,7 +7941,9 @@ const VOICE_SAY_RADIUS = VOICE_CM_RADIUS;
 const SNAP_RANGE = 140;
 const SNAP_COOLDOWN_MS = 15000;
 function isEvading(p) {
-  return p.evasionUntil && p.evasionUntil > Date.now();
+  // ...or she is up on the besom, out of reach of the ground (lib/besomMount.js outOfReach): every creature's
+  // senses and every player's blow already ask this, so one rule covers them all
+  return (p.evasionUntil && p.evasionUntil > Date.now()) || besomMount.outOfReach(p);
 }
 // Deep Meditation (Wanderer) grants total damage immunity for its duration —
 // every incoming blow, PvP or mob, is shrugged off. The trade is that a
@@ -7950,7 +7953,7 @@ function isImmune(p) {
 }
 function noteAttacked(p) {
   p.lastAttackedAt = Date.now();
-  if (p.mounted) besomMount.dismount(p, 'hit');   // knocked off the besom
+  if (p.mounted && !besomMount.outOfReach(p)) besomMount.dismount(p, 'hit');   // knocked off the besom, unless she is too high to reach
 }
 
 // Animals only react to (and mobs are only ever relevant to) players who
