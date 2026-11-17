@@ -10,9 +10,12 @@ const INTERACT_QUIET_MS = 450;   // long enough for the server's reply to bring 
 const CLICK_QUIET_MS = 140;      // a button's own sound is asked for at once, or not at all
 
 // asked(): how many sounds have been asked for so far. play(id, vol). later(fn, ms).
+// `since`: the count taken BEFORE the action ran. An action that plays its own
+// sound at once (a portal, a door) has already raised the count by the time the
+// floor is asked for, so counting from afterwards would miss it and double it.
 function createSoundFloor(asked, play, later) {
-  return function soundFloor(id, ms, vol) {
-    const before = asked();
+  return function soundFloor(id, ms, vol, since) {
+    const before = since != null ? since : asked();
     later(() => { if (asked() === before) play(id, vol); }, ms);
   };
 }
