@@ -67,7 +67,7 @@ test('the server and client are wired', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'client', 'main.js'), 'utf8');
   const gates = fs.readFileSync(path.join(__dirname, '..', 'client', 'menu-gates.js'), 'utf8');
   assert.match(server, /if \(msg\.type === 'besom_mount'\) \{ besomMount\.mount\(player, !!msg\.on\); return; \}/);
-  assert.match(server, /if \(p\.mounted\) besomMount\.dismount\(p, 'hit'\);/);
+  assert.match(server, /if \(p\.mounted && !besomMount\.outOfReach\(p\)\) besomMount\.dismount\(p, 'hit'\);/);
   assert.match(server, /mounted: besomMount\.seenAt\(p\) \|\| undefined,/);
   assert.match(server, /if \(msg\.type === 'besom_alt'\) \{ besomMount\.altitude\(player, msg\.alt\); return; \}/);
   assert.match(server, /besomMount\.onLevel\(player, prog\.level - 1, prog\.level\)/);
@@ -176,4 +176,24 @@ test('the besom and a jump are heard: getting off, the wind up high, and feet co
   assert.match(main, /playSfx\('besom_off', 0\.7\)/);
   assert.match(main, /startSfxLoop\('besom_wind', vol, 1\.5\)/);
   assert.match(main, /SFX_STAND_IN = \{ jump_land: 'footstep', besom_off: 'footstep',/);
+});
+
+test('riding high enough, nothing on the ground can reach her: no creature, no blow, no knocking off', () => {
+  const { m } = make();
+  const w = witch();
+  assert.strictEqual(m.outOfReach(w), false, 'on foot');
+  m.mount(w, true);
+  assert.strictEqual(m.outOfReach(w), false, 'at the hover a dog can have her');
+  m.altitude(w, m.MOUNT.safe - 1); assert.strictEqual(m.outOfReach(w), false);
+  m.altitude(w, m.MOUNT.safe); assert.strictEqual(m.outOfReach(w), true);
+  w.room = 'cafe'; assert.strictEqual(m.outOfReach(w), false, 'not riding there at all');
+  w.room = 'outside'; m.dismount(w, 'fight'); assert.strictEqual(m.outOfReach(w), false, 'off the broom she can be reached again');
+  assert.ok(m.MOUNT.safe > m.MOUNT.hover * 2 && m.MOUNT.safe < m.MOUNT.clear, 'above a creature\'s reach, below the roofs');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.match(server, /return \(p\.evasionUntil && p\.evasionUntil > Date\.now\(\)\) \|\| besomMount\.outOfReach\(p\);/, 'every creature and every blow asks isEvading');
+  assert.match(server, /if \(besomMount\.outOfReach\(target\)\) return 0;/, 'and whatever was swung does no harm');
+  assert.match(server, /if \(p\.mounted && !besomMount\.outOfReach\(p\)\) besomMount\.dismount\(p, 'hit'\);/, 'nor knocks her off');
+  // every creature's aggro asks isEvading (the pools that can meet a rider out of doors)
+  const asks = (server.match(/!isEvading\((nearestP|target)\)/g) || []).length;
+  assert.ok(asks >= 6, 'creature pools asking isEvading: ' + asks);
 });
