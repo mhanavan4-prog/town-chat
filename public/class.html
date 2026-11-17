@@ -90,6 +90,7 @@
     display:flex; align-items:center; justify-content:center; font-size:26px; cursor:pointer;
     transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;}
   .slot:hover,.slot.on{transform:translateY(-3px); border-color:rgba(185,138,255,0.65); box-shadow:0 8px 22px rgba(130,90,230,0.3)}
+  .slot .lv{position:absolute; bottom:-7px; right:-7px; padding:1px 5px; border-radius:6px; background:#120c24; border:1px solid var(--line); color:var(--mut); font-size:9px; font-weight:800; line-height:14px; white-space:nowrap;}
   .slot .key{position:absolute; top:-7px; left:-7px; width:19px; height:19px; border-radius:6px; background:#120c24; border:1px solid var(--line); color:var(--mut); font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center}
   .slot:focus{outline:2px solid var(--violet); outline-offset:2px}
 
@@ -146,7 +147,7 @@
       <div class="bar" id="bar"></div>
       <div class="detail" id="detail">
         <div class="dn"><span class="di" id="dIcon"></span><span id="dName">Hover or tap an ability</span></div>
-        <div class="dd" id="dDesc">Every ability in this class's kit is below. Point at one to read what it does.</div>
+        <div class="dd" id="dDesc">Every ability in this class's kit is below. Three are yours from the start; the rest open as you level. Point at one to read what it does.</div>
       </div>
       <div class="row">
         <a class="btn" href="/play" id="playBtn">Play as this class</a>
@@ -195,11 +196,12 @@
     var tip = document.getElementById('tip');
     // Stamp each ability with its custom icon SVG (by its own id).
     (cls.abilities||[]).forEach(function(a){ a._svg = (window.TR_ICONS && a.id) ? window.TR_ICONS[a.id] : null; });
-    function setDetail(a){ document.getElementById('dIcon').innerHTML=abIcon(a); document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description; }
+    function whenOpen(a){ return a.level > 1 ? ' Opens at Level ' + a.level + '.' : ' Yours from the start.'; }
+    function setDetail(a){ document.getElementById('dIcon').innerHTML=abIcon(a); document.getElementById('dName').textContent=a.name; document.getElementById('dDesc').textContent=a.description + whenOpen(a); }
     function showTip(a, el){
       document.getElementById('tipIcon').innerHTML=abIcon(a);
       document.getElementById('tipName').textContent=a.name;
-      document.getElementById('tipDesc').textContent=a.description;
+      document.getElementById('tipDesc').textContent=a.description + whenOpen(a);
       tip.classList.add('show');
       var r=el.getBoundingClientRect(), tr=tip.getBoundingClientRect();
       var left=Math.min(Math.max(8, r.left + r.width/2 - tr.width/2), window.innerWidth - tr.width - 8);
@@ -211,7 +213,7 @@
     (cls.abilities||[]).forEach(function(a, i){
       var el=document.createElement('button');
       el.className='slot'; el.type='button'; el.setAttribute('aria-label', a.name + ' — ' + a.description);
-      el.innerHTML = (i<KEYS.length? '<span class="key">'+KEYS[i]+'</span>':'') + abIcon(a);
+      el.innerHTML = (i<KEYS.length? '<span class="key">'+KEYS[i]+'</span>':'') + abIcon(a) + (a.level > 1 ? '<span class="lv">Lv '+a.level+'</span>' : '');
       el.addEventListener('mouseenter', function(){ setDetail(a); showTip(a, el); markOn(el); });
       el.addEventListener('mouseleave', hideTip);
       el.addEventListener('focus', function(){ setDetail(a); showTip(a, el); markOn(el); });
