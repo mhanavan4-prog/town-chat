@@ -85,6 +85,27 @@ try {
   throw new Error(`bundle-client: the bundle does not compile — ${e.message}. (Two client/ modules declaring the same top-level name is the usual cause: they share one scope.)`);
 }
 
+// Shrink what is sent: strip whitespace and comments (about a third off the
+// download). Names and the code itself are left exactly as written, so nothing
+// that reads a function's name or the bundle's text changes meaning, and lines
+// are kept short enough that an error's line and column still point somewhere.
+// esbuild is an optional dependency: without it, or if anything about the
+// result looks wrong, the plain bundle already on disk is what ships.
+// NO_MINIFY=1 skips this (handy when reading the bundle while debugging).
+let shipped = 'plain';
+if (!globalThis.process.env.NO_MINIFY) {
+  try {
+    const esbuild = (await import('esbuild')).default;
+    const out = esbuild.transformSync(bundle, { loader: 'js', target: 'es2020', minifyWhitespace: true, minifySyntax: false, minifyIdentifiers: false, legalComments: 'none', lineLimit: 240 });
+    if (!out.code || out.code.length < bundle.length * 0.3) throw new Error('the minified bundle is implausibly small');
+    new vm.Script(out.code, { filename: 'public/client.js' });
+    fs.writeFileSync(OUT, out.code);
+    shipped = `minified ${Math.round(bundle.length / 1024)} KB -> ${Math.round(out.code.length / 1024)} KB`;
+  } catch (e) {
+    console.warn(`build:client — not minified (${String(e && e.message).split('\n')[0]}); shipping the plain bundle`);
+  }
+}
+
 // Cache-busting is now applied at SERVE time, not build time: the server reads
 // public/client.js, hashes it, and injects `client.js?v=HASH` into the shell it
 // sends for /play (see gameShellHtml in server.js). That keeps public/index.html
@@ -102,4 +123,4 @@ if (!TAG_RE.test(html)) {
   throw new Error('bundle-client: public/index.html is missing its <script src="client.js"> tag (the server stamps the cache-bust hash onto it at serve time)');
 }
 
-console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines)`);
+console.log(`build:client — bundled ${included.size} module(s) -> ${path.relative(ROOT, OUT)} (${bundle.split('\n').length} lines, ${shipped})`);
