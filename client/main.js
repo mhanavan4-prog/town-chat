@@ -1,6 +1,7 @@
 import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-panel.js';
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
+import { findFloaters } from './float-audit.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
 import { applyMenuGates, menuPointedAt, openMenuEarly } from './menu-gates.js';
 import { bakeGeometry } from './bake-geometry.js';
@@ -22028,6 +22029,8 @@ if (location.search.includes('testdrive=1')) {
       return out;
     },
     besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), floor: Math.round(besomFloor()), roost: besomRoost ? Math.round(besomRoost.top) : 0, top: me ? Math.round(besomTopAt(me.x, me.y)) : 0, on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
+    // everything solid in this scene that nothing holds up (client/float-audit.js)
+    floaters(opts) { const r = me && me.room; return findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), ...(opts || {}) }); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },
     strikeState() { return { overlay: anyOverlayOpen(), typing, dead: !!(me && me.isDead), airSwings: _airSwings, foes: this.foes().slice(0, 2) }; },

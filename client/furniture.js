@@ -812,6 +812,7 @@ function buildFurniture(scene, type, roomW, roomD, seatsOut, kiosksOut) {
     // Books that never learned to sit still
     [0x6a3a8a, 0x2a5a7a, 0x8a2a3a, 0x3a6a4a].forEach((col, i) => {
       const book = new THREE.Group();
+      book.userData.floats = true;   // meant to hang in the air (client/float-audit.js)
       const bound = hallModel('cave_book', 13, 'height', 0, 0, 0, 0, col);
       if (bound) { bound.rotation.x = Math.PI / 2; bound.position.set(0, 0, -6.5); book.add(bound); }
       else {
