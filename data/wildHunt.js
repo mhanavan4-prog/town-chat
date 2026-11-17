@@ -33,4 +33,22 @@ const HUNT_WAKES = {
   moon:  { name: 'Moon wake',  color: 0xf4f0d8 },
 };
 
-module.exports = { HUNT, HUNT_LORE, HUNT_WAKES };
+// The night company: a coven riding the Hunt together.
+// Members of one coven who ride close together share the horns: when one rides
+// through a horn, it counts for every one of her coven riding within reach who
+// was after the same horn. When two or more of a coven finish the Hunt on the
+// same night, the coven has ridden in company: the night is counted for the
+// coven, and each who rode is given the company's title.
+const COMPANY = {
+  reach: 700,     // how near another of the coven must be riding for a horn to count for her too
+  needs: 2,       // how many of a coven must finish in one night for it to be a night in company
+  title: 'hunt_company',
+};
+const COMPANY_LORE = {
+  tier: 'record',
+  lore: 'The Canon Episcopi, set down by Regino of Pr\u00fcm about 906, speaks of women who believe that in the dead of night they ride on beasts with Diana, goddess of the pagans, in a countless company of women, and cross great distances of the earth in the silence of the night.',
+  source: 'Regino of Pr\u00fcm, Libri duo de synodalibus causis (c.906), the passage later called the Canon Episcopi.',
+  note: 'The canon records the belief in order to call it a delusion. That a coven riding close shares the horns, and that anything is given for riding in company, is the game\'s.',
+};
+
+module.exports = { HUNT, HUNT_LORE, HUNT_WAKES, COMPANY, COMPANY_LORE };
