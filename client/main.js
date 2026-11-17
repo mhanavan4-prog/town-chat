@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import createTradePanel from './trade-panel.js';
 import { blockedNameSet, isFriendName, buildFriendsSection } from './friends-panel.js';
 import { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } from './sound-floor.js';
 import { GEAR_IDS, LEGEND_GEAR_IDS, GEAR_SCALE, GEAR_SEAT, GEAR_CIRCLETS } from './gear-models.js';
@@ -3243,6 +3244,14 @@ function onWsMessage(ev) {
   if (msg.type === 'ember_lore_state') { emberLoreDone = new Set(msg.done || []); return; }   // the by-ways (data/byways.js)
   if (msg.type === 'needfire_state') { needfireUntil = msg.until || 0; renderStatusEffects(); return; }
   if (msg.type === 'online_list') { onlineList = msg; renderOnlinePanel(); return; }
+  if (msg.type === 'trade_asked') {
+    const n = document.getElementById('tradeAskNotif'), t = document.getElementById('tradeAskText');
+    if (n && t) { t.textContent = `⚖️ ${msg.fromName} would like to trade with you.`; n.dataset.from = msg.fromId; n.classList.remove('hidden'); setTimeout(() => { if (n.dataset.from === msg.fromId) n.classList.add('hidden'); }, 30000); }
+    if (typeof playSfx === 'function') playSfx('coin');
+    return;
+  }
+  if (msg.type === 'trade_state') { if (msg.open && Modals.isOpen('onlineOpen')) closeOnlinePanel(); tradePanel.onState(msg); return; }
+  if (msg.type === 'trade_note') { setUnlockToast('⚖️ ' + msg.message, { always: true }); return; }
   if (msg.type === 'friends_state') {
     friendsState = msg; blockedNames = blockedNameSet(msg);
     if (msg.error) setUnlockToast(msg.error, { always: true });
@@ -4776,6 +4785,7 @@ function renderOnlinePanel() {
       inv.append(
         ib('🤝 To your party', 'Fight alongside you and share the spoils', true, () => { inviteToParty(p.id); setUnlockToast(`Party invite sent to ${p.name}.`); }),
         ib('🌙 To your coven', p.coven ? 'They are in a coven already' : (myCoven ? 'Join your coven' : 'You are not in a coven'), !!myCoven && !p.coven && p.account, () => onlineSend('coven_invite', { targetId: p.id })),
+        ib('⚖️ Trade', signedIn && p.account ? 'Lay out gold and goods, hand to hand. You must be in the same place.' : 'You both need to be signed in', signedIn && p.account, () => onlineSend('trade_ask', { targetId: p.id })),
         ib('🏡 To your cottage', signedIn && p.account ? 'Come and see your cottage' : 'You both need to be signed in', signedIn && p.account, () => onlineSend('cottage_invite', { targetId: p.id })),
       );
       el.appendChild(inv);
@@ -8820,6 +8830,19 @@ const macrosPanel = createMacrosPanel({
   send: (m) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); },
   glyph: (id, icon) => glyphHTML(id, 'mcGi', icon), setUnlockToast: (t, o) => setUnlockToast(t, o), haptic: (n) => { try { haptic(n); } catch (_) {} },
 });
+// The trading table (lib/trade.js on the server, client/trade-panel.js).
+const tradePanel = createTradePanel({
+  send: (m) => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); },
+  getInventory: () => lastInventoryState, getBalance: () => (lastBankState && lastBankState.balance) || 0,
+  itemInfo: (id) => ITEM_CATALOG[id], glyph: (id, icon) => glyphHTML(id, 'trGiIn', icon), setUnlockToast: (t, o) => setUnlockToast(t, o),
+});
+(function wireTrade() {
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  on('tradeReadyBtn', () => tradePanel.toggleReady());
+  on('tradeCloseBtn', () => tradePanel.close(true));
+  on('tradeAskYes', () => { const n = document.getElementById('tradeAskNotif'); if (n) { n.classList.add('hidden'); if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: 'trade_answer', fromId: n.dataset.from, yes: true })); } } });
+  on('tradeAskNo', () => { const n = document.getElementById('tradeAskNotif'); if (n) { n.classList.add('hidden'); if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'trade_answer', fromId: n.dataset.from, yes: false })); } });
+})();
 const { openLoadoutModal, closeLoadoutModal, renderLoadoutModal } = createLoadout({
   MOBILE_UI, attachAbilityPeek, haptic, orderedAbilityIds, saveLoadout, setUnlockToast,
   getMyActionCatalog: () => myActionCatalog, getHotbarKeys: () => HOTBAR_KEYS, getHotbarKeyLabels: () => HOTBAR_KEY_LABELS,
