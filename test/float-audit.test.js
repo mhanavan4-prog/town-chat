@@ -81,5 +81,19 @@ const flat = () => 0;
   check('one instance in the air out of three', r.checked >= 2 && r.floating === 1 && r.list[0].x === 200 && r.list[0].gap === 60, r);
 }
 
+{
+  // A winged creature in the air is meant to be there, body and wings both.
+  const scene = new THREE.Scene();
+  const moth = new THREE.Group(); moth.name = 'embermoth';
+  const body = box(20, 20, 20, 0, 0, 0, 'body'); const wing = new THREE.Group(); wing.name = 'wing_R'; wing.add(box(20, 4, 20, 14, 8, 0));
+  moth.add(body, wing); moth.position.set(0, 60, 0); scene.add(moth);
+  scene.add(box(20, 20, 20, 300, 60, 0, 'crate'));
+  const r = findFloaters(THREE, scene, flat);
+  check('a winged creature is left alone, a crate beside it is not', r.floating === 1 && r.list[0].name === 'crate', r.list);
+}
+{
+  const ws = fs.readFileSync(path.join(__dirname, '..', 'client/wilds-scene.js'), 'utf8');
+  check('the wayside models are seated on the hill under them', /const wy = \(typeof wildsHeightAt === 'function' \? wildsHeightAt\(w\.x, w\.y\) : 0\);\s*if \(wg\) wg\.position\.y = wy - 3;/.test(ws));
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

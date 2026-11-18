@@ -18,6 +18,8 @@ function floatSkips(o) {
   for (let p = o; p; p = p.parent) {
     if (!p.visible) return true;
     if (p.isBone) return true;   // worn on a body: a hat, a blade in the hand
+    // a creature with wings is in the air on purpose: any part of a body that has a wing among its parts (found by a self-check in Safari)
+    if ((p.name && /^wing_[LR]$/.test(p.name)) || (p.children && p.children.some((c) => /^wing_[LR]$/.test(c.name)))) return true;
     if (p.userData && (p.userData.gfxSky || p.userData.floats)) return true;
     if (p.name && FLOAT_SKIP_NAME.test(p.name)) return true;
   }
