@@ -37,6 +37,8 @@ export function createLootBag({ send, doc = document, win = window, touch = () =
       const b = doc.createElement('button'); b.type = 'button'; b.className = 'lbRow'; b.dataset.i = String(it.i);
       const ic = doc.createElement('span'); ic.className = 'lbIcon'; ic.textContent = it.icon || '❔';
       const nm = doc.createElement('span'); nm.className = 'lbName'; nm.textContent = it.name + (it.qty > 1 ? ` ×${it.qty}` : ''); if (it.rarity && LB_RARITY[it.rarity]) nm.style.color = LB_RARITY[it.rarity];
+      // the rarity in a word as well: colour alone says nothing to someone who cannot tell these four apart
+      if (it.rarity && LB_RARITY[it.rarity]) { const rw = doc.createElement('span'); rw.className = 'lbRarity'; rw.textContent = ' · ' + it.rarity; rw.style.cssText = 'font-size:11px;opacity:0.85;font-weight:400;'; nm.appendChild(rw); }
       const tk = doc.createElement('span'); tk.className = 'lbTake'; tk.textContent = 'Take';
       b.append(ic, nm, tk); rows.appendChild(b);
     }

@@ -84,6 +84,8 @@ setTimeout(() => {
   say({ type: 'loot_corpse', targetType: 'mob2', targetId: mob.id });
   check('the old one-press loot still takes everything, and opens no bag', mob.pendingLoot === null && s.countOf('loot_bag') === before && s.lastOfType('loot_drop').items.length === 3);
 
+  check('rarity is said in a word as well as shown in a colour', /rw\.className = 'lbRarity'; rw\.textContent = ' · ' \+ it\.rarity;/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'client/loot-bag.js'), 'utf8')));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }, 400);
