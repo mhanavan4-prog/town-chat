@@ -4,7 +4,7 @@ import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
 import createWildHuntView, { HUNT_WAKE_NAMES, huntNoteFor } from './wild-hunt.js';
 import { strangeWords, selfCheckReport } from './self-check.js';
-import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap } from './key-remap.js';
+import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap, relabelKeys } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
 import { blockedNameSet, isFriendName, buildFriendsSection } from './friends-panel.js';
 import { INTERACT_QUIET_MS, CLICK_QUIET_MS, createSoundFloor, clickWantsSound } from './sound-floor.js';
@@ -7089,6 +7089,14 @@ let typing = false;
 let keyBinds = {};
 try { keyBinds = cleanBinds(JSON.parse(localStorage.getItem('tc_keys') || '{}')); } catch (e) { keyBinds = {}; }
 function saveKeyBinds(b) { keyBinds = cleanBinds(b); try { localStorage.setItem('tc_keys', JSON.stringify(keyBinds)); } catch (e) {} }
+// The "How to play" sheet names keys in bold: show the ones now in use, not the ones the game came with.
+function applyKeyLabels() {
+  for (const b of document.querySelectorAll('#controlsDesktop b')) {
+    if (b.dataset.keys == null) b.dataset.keys = b.textContent;
+    const now = relabelKeys(b.dataset.keys, keyBinds);
+    if (b.textContent !== now) b.textContent = now;
+  }
+}
 let keyListening = null;   // the action waiting for a key to be pressed for it, in Settings
 installKeyRemap(() => (keyListening ? null : keyBinds), (e) => { const t = e.target, tag = t && t.tagName; return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!(t && t.isContentEditable); });
 // Text size, for anyone (a controller's TV text is a separate, larger setting): kept on this device.
@@ -8936,6 +8944,7 @@ const { openLoadoutModal, closeLoadoutModal, renderLoadoutModal } = createLoadou
 // Auto-shows exactly once (per browser) on a player's first-ever join, and
 // is always one tap/keypress away after that (☰ → Controls, or H).
 function openControlsModal() {
+  applyKeyLabels();
   document.getElementById('controlsMobile').classList.toggle('hidden', !MOBILE_UI);
   document.getElementById('controlsDesktop').classList.toggle('hidden', MOBILE_UI);
   document.getElementById('controlsModal').classList.remove('hidden');
@@ -22249,6 +22258,8 @@ if (location.search.includes('testdrive=1')) {
     besom() { const v = visuals[myId]; const b = v && v.mountBesom; let hips = null; if (v && v._hips) { v._hips.getWorldPosition(_hipsAt); v.group.worldToLocal(_hipsAt); hips = Math.round(_hipsAt.y); } return { alt: Math.round(besomRide.alt), over: besomOverAll(), floor: Math.round(besomFloor()), roost: besomRoost ? Math.round(besomRoost.top) : 0, top: me ? Math.round(besomTopAt(me.x, me.y)) : 0, on: besomRide.on, camY: activeCamera ? Math.round(activeCamera.position.y) : null, bodyY: v && v.group ? Math.round(v.group.position.y) : null, shown: !!(v && v.group && v.group.visible), flightY: v ? Math.round(v.flightY || 0) : null, broom: !!b, broomY: b ? Math.round(b.position.y) : null, hips, level: myLevelNow() }; },
     // put the ridden besom at a height, and read the Hunt's line (the tours cannot hold Space for a minute)
     besomAlt(a) { if (besomRide.on) besomRide.alt = Math.max(besomRide.hover, Math.min(besomRide.top, a)); return besomRide.alt; },
+    // step into a room the tours cannot walk to quickly (the sweep's audit needs to stand in each)
+    go(place) { const f = { cottage: enterCottage, vault: enterVault, refuge: enterRefuge, wastes: enterEmberWastes }[place]; if (!f) return false; f(); return true; },
     // everything solid in this scene that nothing holds up (client/float-audit.js)
     floaters(opts) { const r = me && me.room; return findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), ...(opts || {}) }); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
