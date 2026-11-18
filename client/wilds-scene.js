@@ -13,11 +13,12 @@ import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
 import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
 import { hangGateVeil } from './gate-veil.js';
-import { glyphFire, glyphShow, raiseGlyphMotes } from './ground-glyphs.js';
+import { glyphShow, raiseGlyphMotes } from './ground-glyphs.js';
+import { TURF_RF, TURF_SIGNS, makeTurfAtlas, buildTurfSigns, turfIndex, turfRubble, turfGridHeight, turfChunks } from './turf-sigils.js';
 import { wildsWaters, refineGround, buildWildsWater } from './wilds-water.js';
 import { buildWildsRim } from './wilds-rim.js';
 
-export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
+export default function createWildsScene({ getVillageHouses, KK, createKayKitByKey, kkSetState, hasKK, GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS, WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z, getAddMobs2, getAddMobs3, addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid, kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide, makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite, makeFlowerPatch, makePlantBloom, makeGardenHerb, getDecorVisuals2, getAddAnimals2, setWildsScene, setWildsCamera, setLextonNpc, wildsHeightAt }) {
 // The village's bound fires (data/villageWard.js): the flame on each stone, and the server's last word on them.
 let wardFlames = {}, lastWard = null, packmanMarks = [];
 function applyVillageWard(msg) {
@@ -72,7 +73,7 @@ function buildWildsScene(w2) {
   const cx0 = w2.width / 2, cz0 = w2.height / 2;
   const groundGeo = new THREE.PlaneGeometry(w2.width + 200, w2.height + 200, 160, 160);
   groundGeo.rotateX(-Math.PI / 2);
-  let tinted = false;
+  let tinted = false, gridHeights = null;
   if (typeof wildsHeightAt === 'function') {
     const gp = groundGeo.attributes.position;
     let minY = Infinity, maxY = -Infinity;
@@ -83,6 +84,7 @@ function buildWildsScene(w2) {
     }
     gp.needsUpdate = true;
     groundGeo.computeVertexNormals();
+    gridHeights = new Float32Array(gp.count); for (let i = 0; i < gp.count; i++) gridHeights[i] = gp.getY(i);   // the drawn surface, for what lies on it
     // Height tinting — bog-dark/earthy in the hollows, brighter moss on the
     // rises. Vertex colors MULTIPLY the floor texture (so the whole floor still
     // reads as one surface, just shaded by elevation).
@@ -116,66 +118,17 @@ function buildWildsScene(w2) {
   ground.position.set(cx0, 0, cz0);
   scene.add(ground);
 
-  // ── Hexstone Roads — glowing witch-sigil paths linking the landmarks. Flat,
-  // walk-on planks (no colliders); a faint self-glow (emissiveMap) + green
-  // sigils read at night. Each plank bakes its own random rotated sigil mix, so
-  // no stretch repeats (sigil set: THORNREACH-HEXSTONE-SIGILS.html). Routed as a
-  // north-south spine from the portal to the village, with branches out to the
-  // giant tree, both faction camps, and the Witch's Cave. ──
-  // ── Scattered witch-glyphs — glowing sigils burned into the Wilds ground all
-  // over (no formal paths). Flat decals, unlit + additive so they glow green in
-  // the dark; a fixed seed so every player sees the same marks. ──
-  // Each glyph is now TWO stacked planes (see makeGroundSigilTextures): a
-  // dark scorch/char stain burned into the ground, and a molten witchfire
-  // glow riding just above it. The scorch is unlit + normal-blended so the
-  // mark reads as scorched dead earth in daylight and at night alike; the
-  // glow is additive + tinted so it still burns green/teal/violet in the
-  // dark. The glow breathes — but each glyph gets its OWN phase and speed so
-  // the whole map never pulses in unison (it'd look like one switch).
-  const sigilTex = makeGroundSigilTextures(); // [{ scorch, glow }, …]
-  const glyphCols = [0x7dffb0, 0x7dffb0, 0x7dffb0, 0x9be7ff, 0xc69bff]; // mostly green, some teal/violet
+  // ── The witch-signs, cut into the turf (client/turf-sigils.js). Chalk showing in the cut, the turf turned back
+  // along it, a path worn round, and by night a cold light lying in the line. Every sign is in one atlas and the
+  // whole scatter is two draws. A fixed seed, so every player sees the same signs in the same places. ──
+  // What lies on the ground lies on the surface you see: the grid's own triangles, not the smooth field between them.
+  const groundAt = gridHeights
+    ? turfGridHeight(gridHeights, 160, cx0 - (w2.width + 200) / 2, cz0 - (w2.height + 200) / 2, w2.width + 200, w2.height + 200)
+    : (typeof wildsHeightAt === 'function' ? wildsHeightAt : () => 0);
+  const sampleH = groundAt;
+  // the light in the cut: mostly a cold near-white, some pale green, blue or violet
+  const glyphCols = [0xd6fbff, 0xd6fbff, 0xb8ffdc, 0xaee9ff, 0xdac8ff];
   let gseed = 0x51611 >>> 0; const grand = () => { gseed = (gseed * 1664525 + 1013904223) >>> 0; return gseed / 4294967296; };
-
-  // A glyph is no longer a single flat quad — on rolling terrain a flat plane
-  // set to the ground height at its CENTRE gets swallowed by any rise across
-  // its footprint (reported: half the pentacle vanishing into a hill). So
-  // each decal is a subdivided grid draped over the heightfield: every vertex
-  // rides wildsHeightAt(worldX, worldZ) + a small lift, so the mark hugs the
-  // hills and conforms to slopes instead of cutting a flat slice through them.
-  // (We sample more densely than the terrain mesh's own segments, so the decal
-  // can only ride on or just above the surface, never below it.) The mesh sits
-  // at (gx, 0, gz); a vertex's local (x,z) carries the glyph's random spin, and
-  // its y is the absolute terrain height there plus `lift`.
-  const sampleH = (typeof wildsHeightAt === 'function') ? wildsHeightAt : () => 0;
-  const SEG = 12;
-  function conformingDecal(gx, gz, size, rot, lift) {
-    const cos = Math.cos(rot), sin = Math.sin(rot);
-    const n = SEG + 1, pos = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2);
-    for (let j = 0; j < n; j++) {
-      for (let k = 0; k < n; k++) {
-        const u = k / SEG, v = j / SEG;
-        const px = (u - 0.5) * size, pz = (v - 0.5) * size; // centred local plane
-        const rx = px * cos - pz * sin, rz = px * sin + pz * cos; // apply glyph spin
-        const idx = j * n + k;
-        pos[idx * 3] = rx;
-        pos[idx * 3 + 1] = sampleH(gx + rx, gz + rz) + lift;
-        pos[idx * 3 + 2] = rz;
-        uv[idx * 2] = u; uv[idx * 2 + 1] = v;
-      }
-    }
-    const index = [];
-    for (let j = 0; j < SEG; j++) {
-      for (let k = 0; k < SEG; k++) {
-        const a = j * n + k, b = a + 1, c = a + n, d = c + 1;
-        index.push(a, c, b, b, c, d);
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    geo.setIndex(index);
-    return geo;
-  }
 
   // Landmarks players actually stand on. The scattered glyphs used to burn
   // straight through the arrival clearing, the portals, the ritual altar, the
@@ -212,45 +165,65 @@ function buildWildsScene(w2) {
   };
   const glyphSpots = [];
   const glyphMoteList = [];
+  const turfGlyphs = [];
   for (let i = 0; i < 220; i++) {
     let gx = 300 + grand() * (w2.width - 600), gz = 300 + grand() * (w2.height - 600);
     [gx, gz] = nudgeOffLandmarks(gx, gz);
     const size = 55 + grand() * 120;
-    if (beck) [gx, gz] = beck.pushOff(gx, gz, size * 0.7);          // no glyph burns under water
-    glyphSpots.push({ x: gx, y: gz, r: size * 0.66, w: 0.9 });   // scorched earth under it: nothing grows on a glyph
+    if (beck) [gx, gz] = beck.pushOff(gx, gz, size * 0.7);          // no sign is cut under water
+    glyphSpots.push({ x: gx, y: gz, r: size * 0.66, w: 0.9 });
+    // the same draws from the seed, in the same order, as when each sign was two planes: so every one is where it was
     const rot = grand() * Math.PI * 2;
-    const pick = sigilTex[(grand() * sigilTex.length) | 0];
-    const col = glyphCols[(grand() * glyphCols.length) | 0];
-
-    // scorch stain — sits lowest, a touch wider than the glyph, darkens ground
-    const scorchMat = new THREE.MeshBasicMaterial({ map: pick.scorch, transparent: true, depthWrite: false, opacity: 0.82 + grand() * 0.14 });
-    const scorch = new THREE.Mesh(conformingDecal(gx, gz, size * 1.3, rot, 0.6), scorchMat);
-    scorch.position.set(gx, 0, gz);
-    scorch.renderOrder = 1;
-    scene.add(scorch);
-
-    // molten glow — additive, tinted, breathing on its own clock
-    const glowMat = new THREE.MeshBasicMaterial({ map: pick.glow, transparent: true, color: col, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.7 });
-    const glow = new THREE.Mesh(conformingDecal(gx, gz, size, rot, 1.0), glowMat);
-    glow.position.set(gx, 0, gz);
-    glow.renderOrder = 2;
-    const phase = grand() * Math.PI * 2;           // where in the breath it starts
-    const speed = 0.0009 + grand() * 0.0013;        // rad/ms — each glyph drifts
-    const baseOp = 0.5 + grand() * 0.22, amp = 0.2 + grand() * 0.08;
-    // the line burns (client/ground-glyphs.js): unevenly, the hot place creeping along the cut, and fainter by day
-    const fire = glyphFire(glowMat, phase * 7.3);
-    glow.onBeforeRender = () => {
-      const now = performance.now();
-      glowMat.opacity = baseOp + amp * Math.sin(now * speed + phase);
-      fire.value.y = (now / 1000) % 4000; fire.value.z = glyphShow(GFX && GFX.st ? GFX.st.lightAmount : 1);
-    };
-    scene.add(glow);
-    glyphMoteList.push({ x: gx, y: sampleH(gx, gz), z: gz, r: size * 0.4, col });
+    const sign = (grand() * TURF_SIGNS.length) | 0;
+    const colHex = glyphCols[(grand() * glyphCols.length) | 0];
+    grand();                                           // (was the scorch's opacity)
+    const phase = grand() * Math.PI * 2, speed = (0.0009 + grand() * 0.0013) * 600, base = 0.45 + grand() * 0.2;
+    grand();                                           // (was the breath's depth)
+    const col = new THREE.Color(colHex);
+    turfGlyphs.push({ x: gx, z: gz, R: size * TURF_RF, rot, sign, seed: phase * 7.3, phase, speed, base, col: [col.r, col.g, col.b] });
+    glyphMoteList.push({ x: gx, y: sampleH(gx, gz), z: gz, r: size * 0.4, col: colHex });
   }
-  // a mote lifts off a glyph now and then and goes out: all of them in one draw
-  { const mu = raiseGlyphMotes(THREE, scene, glyphMoteList, GFX && GFX.st ? GFX.st.quality : 'high');
-    if (mu) scene.userData.glyphMotes = () => { mu.uT.value = (performance.now() / 1000) % 4000; mu.uShow.value = glyphShow(GFX && GFX.st ? GFX.st.lightAmount : 1); }; }
+  const turfAtlas = makeTurfAtlas(THREE);
+  const turfDraw = buildTurfSigns(THREE, scene, turfAtlas, turfGlyphs, groundAt, { receiveShadow: true });
+  const turfCut = turfIndex(turfAtlas, turfGlyphs);
+  // crumbs of chalk thrown out along the cuts (not on the lowest tier)
+  const tier = GFX && GFX.st ? GFX.st.quality : 'high';
+  if (tier !== 'low') {
+    const lumps = turfRubble(turfGlyphs, tier === 'high' ? 0.34 : 0.16, turfAtlas);
+    const lg = new THREE.OctahedronGeometry(1, 0).toNonIndexed();
+    { const p = lg.attributes.position; let sd = 7; const r = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+      const seen = new Map();
+      for (let k = 0; k < p.count; k++) { const key = p.getX(k).toFixed(3) + p.getY(k).toFixed(3) + p.getZ(k).toFixed(3); if (!seen.has(key)) seen.set(key, 0.75 + r() * 0.5); const f = seen.get(key); p.setXYZ(k, p.getX(k) * f, p.getY(k) * f * 0.62, p.getZ(k) * f); }
+      lg.computeVertexNormals(); }
+    const rubMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const dm = new THREE.Object3D(), lc = new THREE.Color();
+    for (const part of turfChunks(lumps)) {          // a square of the map each, so what is out of view is not drawn
+      // this three has no InstancedMesh.computeBoundingSphere: culling reads the geometry's sphere, so each square
+      // gets its own copy of the lump with a sphere drawn round all of its lumps
+      let mx = Infinity, Mx = -Infinity, mz = Infinity, Mz = -Infinity, my = Infinity, My = -Infinity;
+      for (const li of part) { const l = lumps[li], y = groundAt(l.x, l.z); mx = Math.min(mx, l.x); Mx = Math.max(Mx, l.x); mz = Math.min(mz, l.z); Mz = Math.max(Mz, l.z); my = Math.min(my, y); My = Math.max(My, y); }
+      const pg = lg.clone();
+      pg.boundingSphere = new THREE.Sphere(new THREE.Vector3((mx + Mx) / 2, (my + My) / 2, (mz + Mz) / 2), Math.hypot(Mx - mx, My - my, Mz - mz) / 2 + 6);
+      const lm = new THREE.InstancedMesh(pg, rubMat, part.length);
+      part.forEach((li, k) => {
+        const l = lumps[li], h = Math.sin(li * 12.9898) * 43758.5453, f = h - Math.floor(h);
+        dm.position.set(l.x, groundAt(l.x, l.z) + l.s * 0.18, l.z); dm.rotation.set(f * 0.6, f * 6.28, (1 - f) * 0.5); dm.scale.set(l.s * (0.8 + f * 0.5), l.s, l.s * (1.25 - f * 0.4)); dm.updateMatrix();
+        lm.setMatrixAt(k, dm.matrix);
+        lm.setColorAt(k, l.clod ? lc.setRGB(0.16 + f * 0.05, 0.15 + f * 0.07, 0.07 + f * 0.02) : lc.setRGB(0.66 + f * 0.08, 0.65 + f * 0.07, 0.58 + f * 0.06));
+      });
+      lm.name = 'turfRubble'; lm.receiveShadow = true;
+      scene.add(lm);
+    }
+  }
+  // a mote lifts off a sign now and then and goes out: all of them in one draw. The light in the cuts is fed here too.
+  { const mu = raiseGlyphMotes(THREE, scene, glyphMoteList, tier);
+    scene.userData.glyphMotes = () => {
+      const t = (performance.now() / 1000) % 4000, show = glyphShow(GFX && GFX.st ? GFX.st.lightAmount : 1);
+      turfDraw.update(t, show);
+      if (mu) { mu.uT.value = t; mu.uShow.value = show; }
+    }; }
   scene.userData.glyphSpots = glyphSpots;
+  scene.userData.turfCut = turfCut;
 
   // The ground as country (client/wilds-ground.js): grass, heather, earth and rock mixed by the lie of the land,
   // trodden ways, and grass standing round you. On 'low' the old painted floor is left as it was.
@@ -277,12 +250,11 @@ function buildWildsScene(w2) {
         { x: V[0], y: V[1] + 120, r: 620, w: 0.5 }, { x: sp.x, y: sp.y, r: 260, w: 0.55 },
         { x: 2200, y: 5000, r: 330, w: 0.5 }, { x: 7800, y: 5000, r: 330, w: 0.5 },
         ...WILDS_CAMPFIRES.map((f) => ({ x: f.x, y: f.y, r: 105, w: 0.8 })),
-        ...glyphSpots,
         ...(beck ? beck.each.map((b) => ({ x: b.B.mere.x, y: b.B.mere.y, r: b.B.mere.r * 1.12, w: 1 })) : []),
         ...(w2.troyTown ? [{ x: w2.troyTown.hub[0], y: w2.troyTown.hub[1], r: w2.troyTown.radius + 30, w: 0.28 }] : []),
       ];
       richGround = dressWildsGround(THREE, ground, { world: w2, heightAt: wildsHeightAt, ways, places });
-      wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, quality: GFX && GFX.st ? GFX.st.quality : 'high', world: w2 });
+      wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, blocked: (x, z) => turfCut.blocked(x, z), quality: GFX && GFX.st ? GFX.st.quality : 'high', world: w2 });   // grass to the edge of a cut, not in it
       wildsGround = ground;
     } catch (e) { console.error('wilds ground: kept the old floor', e); richGround = null; wildsGrass = null; }
   }

@@ -248,7 +248,7 @@ export function grassRoom(r) {
 }
 
 // Grass round whoever is walking. `update(x, z, t, tint, frost)` each frame while the Wilds are shown.
-export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, quality, world }) {
+export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, quality, world, blocked }) {
   const RINGS = (WILDS_GRASS[quality] || []).map((r) => ({ ...r, max: grassRoom(r) })); if (!RINGS.length) return null;
   const TOTAL = RINGS.reduce((n, r) => n + r.max, 0);
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
@@ -297,6 +297,7 @@ export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, qua
     const x = (a + hash(a, b, sd + 1) - 0.5) * r.gap, z = (b + hash(a, b, sd + 2) - 0.5) * r.gap;
     // nothing grows past the edge of the ground (it used to: the far tufts stood out over the drop at the border)
     if (world && (x < -60 || z < -60 || x > world.width + 60 || z > world.height + 60)) { st.cells.set(key, null); return null; }
+    if (blocked && blocked(x, z)) { st.cells.set(key, null); return null; }   // the cut of a sign, its turned edge, its worn path
     const y = heightAt(x, z);
     const m = mixAt(noise, mask, x, z, hOf(x, z, y));
     const grows = (1 - m.earth) * (1 - m.heath * 0.6) * (1 - wgSS(0.12, 0.45, m.trod));

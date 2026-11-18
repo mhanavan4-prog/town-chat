@@ -5,11 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
-test('a glyph shows fully by night and only faintly by day', async () => {
+test('the light in a sign shows fully by night and hardly at all by day', async () => {
   const { glyphShow, GLYPH_DAY } = await import('../client/ground-glyphs.js');
   assert.strictEqual(glyphShow(0), 1);
   assert.strictEqual(glyphShow(1), GLYPH_DAY);
-  assert.ok(GLYPH_DAY > 0.2 && GLYPH_DAY < 0.6, 'seen by day, but not as a neon sign');
+  assert.ok(GLYPH_DAY > 0 && GLYPH_DAY < 0.12, 'by day it is the chalk you see, not a light');
   assert.ok(glyphShow(0.5) > GLYPH_DAY && glyphShow(0.5) < 1);
   assert.strictEqual(glyphShow(undefined), GLYPH_DAY, 'no clock: treated as day');
 });
@@ -21,25 +21,13 @@ test('motes thin out with the graphics tier, and the lowest has none', async () 
   assert.strictEqual(raiseGlyphMotes({}, {}, [{ x: 0, y: 0, z: 0, r: 10, col: 0xffffff }], 'low'), null);
 });
 
-test('the burning line is one shared program, fed a seed, a clock and a strength', async () => {
-  const { glyphFire } = await import('../client/ground-glyphs.js');
-  const mat = {}; const u = glyphFire(mat, 3.5);
-  assert.strictEqual(u.value.x, 3.5);
-  assert.strictEqual(mat.customProgramCacheKey(), 'glyph-fire');
-  const sh = { uniforms: {}, fragmentShader: 'void main() {\n#include <map_fragment>\n}' };
-  mat.onBeforeCompile(sh);
-  assert.strictEqual(sh.uniforms.uGlyph, u);
-  assert.match(sh.fragmentShader, /uniform vec3 uGlyph;/);
-  assert.match(sh.fragmentShader, /diffuseColor\.a = opacity \* \(gLine \+ gSpill\) \* uGlyph\.z;/);
-});
-
-test('the Wilds scene wires the fire and the motes, and the cut lies under the fire', () => {
-  const w = read('client/wilds-scene.js'), t = read('client/textures.js'), m = read('client/main.js');
-  assert.match(w, /const fire = glyphFire\(glowMat, /);
+test('the Wilds scene cuts the signs into the turf, and feeds their light and motes', () => {
+  const w = read('client/wilds-scene.js'), m = read('client/main.js'), t = read('client/textures.js');
+  assert.match(w, /const turfDraw = buildTurfSigns\(THREE, scene, turfAtlas, turfGlyphs, groundAt, /);
   assert.match(w, /raiseGlyphMotes\(THREE, scene, glyphMoteList, /);
+  assert.match(w, /turfDraw\.update\(t, show\);/);
   assert.match(m, /userData\.glyphMotes\(\)/);
-  assert.match(w, /conformingDecal\(gx, gz, size \* 1\.3, rot, 0\.6\)/, 'the scorch plane is 1.3x the glow plane');
-  assert.match(t, /const Rs = R \/ 1\.3;/, 'so its glyph is drawn that much smaller');
+  assert.doesNotMatch(t, /makeGroundSigilTextures/, 'the old canvas-drawn signs are gone');
 });
 
 test('the yard edge is walked all the way round, facing outward', async () => {
