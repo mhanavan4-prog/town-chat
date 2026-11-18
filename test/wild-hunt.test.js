@@ -126,6 +126,7 @@ function world() {
   const man = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools/audio/sfx.manifest.json'), 'utf8'));
   check('the line saying she has ridden is put away after a while', /if \(msg && msg\.finished\) doneShownUntil = performance\.now\(\) \+ 8000;/.test(src) && /state\.done && now > doneShownUntil \? ''/.test(src));
   check('hovering in one place leaves no wake', /if \(!w\.at \|\| tmp\.distanceTo\(w\.at\) > 14\)/.test(src));
+  check('its lights use the game\'s glow texture, never one drawn on a canvas (Safari drew that as coloured squares)', !/CanvasTexture|createElement\('canvas'\)/.test(src) && /const glowTex = \(\) => glowTexture\(\);/.test(src) && /glowTexture: \(\) => makeGlowTexture\(\)/.test(main));
   check('the soft note has a prompt', man.sfx.some((x) => x.id === 'hunt_note' && /soft/.test(x.prompt)));
 }
 console.log(`\n${pass} passed, ${fail} failed`);
