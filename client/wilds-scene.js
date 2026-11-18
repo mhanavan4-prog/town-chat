@@ -497,12 +497,16 @@ function buildWildsScene(w2) {
   }
   // The road north (data/wayside.js): the gibbet at the crossroads, the coin tree, the coffin stone.
   for (const w of (w2.wayside || [])) {
-    kkPlace(scene, w.model, w.x, w.y, w.size, w.id === 'cointree' ? 0.5 : w.id === 'coffinstone' ? -0.3 : 0, w.id === 'gibbet' ? 'height' : 'fit');
+    const wg = kkPlace(scene, w.model, w.x, w.y, w.size, w.id === 'cointree' ? 0.5 : w.id === 'coffinstone' ? -0.3 : 0, w.id === 'gibbet' ? 'height' : 'fit');
+    // They stand on rolling ground, not on a levelled patch: seat each on the hill under it (a little in, so
+    // no edge shows on the downhill side). Left at zero the gibbet hung 23 units over a dip.
+    const wy = (typeof wildsHeightAt === 'function' ? wildsHeightAt(w.x, w.y) : 0);
+    if (wg) wg.position.y = wy - 3;
     // A small core to walk round: the post, the trunk, the stone.
     const r = w.id === 'gibbet' ? 16 : w.id === 'coffinstone' ? 34 : 30;
     WILDS_WALLS.push({ x: w.x - r, y: w.y - r, w: r * 2, h: r * 2 });
     const lbl = makeSignSprite(`${w.icon} ${w.name}`);
-    lbl.position.set(w.x, w.id === 'gibbet' ? 205 : 120, w.y); scene.add(lbl);
+    lbl.position.set(w.x, wy + (w.id === 'gibbet' ? 205 : 120), w.y); scene.add(lbl);
     WILDS_KIOSKS.push({ x: w.x, z: w.y + (w.id === 'gibbet' ? 40 : 60), npc: 'wayside', waysideId: w.id, hint: w.hint, radius: 120 });
   }
   // By-ways (data/byways.js): the shoe in the chimney, the Devil's stone, Hob's hole.
