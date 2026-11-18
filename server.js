@@ -1018,6 +1018,7 @@ function buildResumeStash(player) {
     passUntil: player.passUntil || 0,
     activeQuest: player.activeQuest ? { ...player.activeQuest } : null,
     disguise: player.disguise ? { ...player.disguise } : null,
+    party: partyStashOf(player),   // which party she was in, to be put back in it (rejoinParty)
     // Guests: hold direct references — the player object is about to be
     // dropped on disconnect, and these keep its life alive.
     guestProgress: player.accountKey ? null : player.guestProgress || null,
@@ -11429,6 +11430,25 @@ function leaveParty(p) {
   broadcastPartyUpdate(partyId);
 }
 
+// A party outlives a dropped connection, and a restart: the resume stash carries which party she was in
+// (buildResumeStash), and coming back puts her in it again. After a restart nobody is in it yet, so the first
+// one back opens it under its old id and the rest find it there.
+function partyStashOf(player) {
+  const partyId = playerParty.get(player.id), party = partyId && parties.get(partyId);
+  if (!party) return null;
+  return { id: partyId, leader: party.leaderId === player.id };
+}
+function rejoinParty(player, kept) {
+  if (!kept || typeof kept.id !== 'string' || playerParty.has(player.id)) return false;
+  let party = parties.get(kept.id);
+  if (!party) { party = { leaderId: player.id, members: new Set() }; parties.set(kept.id, party); }
+  party.members.add(player.id);
+  playerParty.set(player.id, kept.id);
+  if (kept.leader) party.leaderId = player.id;
+  broadcastPartyUpdate(kept.id);
+  return true;
+}
+
 function broadcastPartyUpdate(partyId) {
   const party = parties.get(partyId);
   if (!party) return;
@@ -12434,6 +12454,7 @@ wss.on('connection', (ws, req) => {
           }
         } catch (e) { /* noop */ }
       }
+      if (resume && resume.party) { try { rejoinParty(player, resume.party); } catch (e) { /* she is in the game either way */ } }
       if (!resume) { try { friends.presence(player, true); } catch (e) { /* noop */ } }
       // Catch the newcomer up on any masks currently being worn — the 70ms
       // state stream only carries names, the images travel once, here.
@@ -16111,6 +16132,7 @@ wss.on('connection', (ws, req) => {
       if (!invite || Date.now() > invite.expiresAt) { send(ws, { type: 'party_error', message: 'Invite expired.' }); return; }
       partyInvites.delete(player.id);
       leaveParty(player);
+      if (!parties.get(invite.partyId)) { send(ws, { type: 'party_error', message: 'That party has broken up.' }); return; }
       playerParty.set(player.id, invite.partyId);
       parties.get(invite.partyId).members.add(player.id);
       broadcastPartyUpdate(invite.partyId);
