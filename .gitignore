@@ -55,3 +55,7 @@ public/tr-icons.js
 .deploy-wait.log
 .deploy.lock
 .deploying
+
+# Restart carry-over (lib/resumeCarry.js): written by a running server, never part of the repo
+resumeCarry.json
+resumeCarry.json.tmp
