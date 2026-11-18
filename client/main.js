@@ -15176,7 +15176,7 @@ function exitRefuge() {
 // THREE global; layout tables, prop makers, mob/decor helpers injected; scene/
 // camera + lextonNpc written back via setters. decorVisuals2 via getter (it's
 // declared later, so a by-ref pass here would TDZ at eval time). ──
-const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts } = createWildsScene({
+const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts, wildsScatterCounts } = createWildsScene({
   getVillageHouses: () => villageHouseCatalog,
   GFX, WILDS_CAMPFIRES, WILDS_KIOSKS, WILDS_NPCS, WILDS_WALLS, WILDS_WAYMARKERS,
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
@@ -22277,7 +22277,9 @@ if (location.search.includes('testdrive=1')) {
     // every placed thing the Wilds knows of, by name: [name, x, y, r] (flat zones, and whatever the server sent with a place)
     wildsPlaces() { const out = wildsFlatZones().map((z, i) => ['zone' + i, z.x, z.y, z.r]); const walk = (k, v, d) => { if (!v || typeof v !== 'object' || d > 3) return; if (typeof v.x === 'number' && typeof v.y === 'number') out.push([k, v.x, v.y, v.r || v.radius || 0]); if (Array.isArray(v)) v.forEach((e, i) => walk(k + '.' + (e && e.id ? e.id : i), e, d + 1)); else for (const q in v) walk(k + '.' + q, v[q], d + 1); }; if (world2) for (const k in world2) walk(k, world2[k], 0); return out; },
     dangerDoors() { return { tombs: (EMBER_STATIC_KIOSKS || []).filter((k) => k.portal === 'crypt_enter').map((k) => [Math.round(k.x), Math.round(k.z)]), crypt: WILDS_KIOSKS.filter((k) => k.portal === 'crypt_enter').slice(0, 3).map((k) => [Math.round(k.x), Math.round(k.z)]), ember: [Math.round(EMBER_PORTAL_KIOSK.x), Math.round(EMBER_PORTAL_KIOSK.z)] }; },
-    grass() { return wildsGrassCounts(); },   // how many tufts each ring of the Wilds' grass is drawing
+    grass() { return wildsGrassCounts(); },
+    scatter(kind) { const m = players[myId]; return wildsScatterCounts(kind, m && m.x, m && m.y); },
+    groundY(x, y) { return typeof wildsHeightAt === 'function' ? wildsHeightAt(x, y) : 0; },   // the Wilds' ground height there   // how many stones, heather cushions and tussocks are standing   // how many tufts each ring of the Wilds' grass is drawing
     legendGearLoaded() { return LEGEND_GEAR_IDS.filter((id) => KK.has('gear_' + id)).length; },
     gearLoaded() { return GEAR_IDS.filter((id) => KK.has('gear_' + id)).length + '/' + GEAR_IDS.length; },
     wear(eq) { wearOverride = eq || null; if (myId && players[myId]) applyEquipVisual(myId, players[myId]); const k = visuals[myId] && visuals[myId].kk; return k ? { hats: (k.embeddedHats || []).map((h) => h.name + ':' + h.visible), head: !!(visuals[myId].headMesh && visuals[myId].headMesh.userData.gear) } : null; },

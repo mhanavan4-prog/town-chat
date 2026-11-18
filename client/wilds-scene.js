@@ -11,7 +11,7 @@ import { makeCountlessRing } from './props-countless.js';
 import { makeTroyTown } from './props-troy-town.js';
 import { makeMenAnTol } from './props-menantol.js';
 import { layRoadStones } from './road-stones.js';
-import { dressWildsGround, createWildsGrass, wander, makeGroundNoise } from './wilds-ground.js';
+import { dressWildsGround, createWildsGrass, createWildsScatter, wander, makeGroundNoise } from './wilds-ground.js';
 import { hangGateVeil } from './gate-veil.js';
 import { glyphShow, raiseGlyphMotes } from './ground-glyphs.js';
 import { TURF_RF, TURF_SIGNS, makeTurfAtlas, buildTurfSigns, turfIndex, turfRubble, turfGridHeight, turfChunks } from './turf-sigils.js';
@@ -30,11 +30,12 @@ function applyVillageWard(msg) {
 // What is drawn for the Wilds' caches and balefires, by id, and the server's last word on them.
 let wildsFinds = {}, lastWildsFinds = null;
 // The grass standing round you, and the ground it takes its season from (client/wilds-ground.js); null on 'low'.
-let wildsGrass = null, wildsGround = null;
+let wildsGrass = null, wildsGround = null, wildsScatter = null;
 // The beck and the mere, as drawn (client/wilds-water.js), and where their sky colour comes from.
 let wildsWater = null, wildsWaterSky = null;
 function wildsGrassCounts() { return wildsGrass ? wildsGrass.counts() : null; }
-function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); if (wildsWater) wildsWater.update(t, wildsWaterSky && wildsWaterSky(), m ? m.color : null); }
+function wildsScatterCounts(kind, x, z) { return wildsScatter ? (kind ? wildsScatter.near(kind, x, z) : wildsScatter.counts()) : null; }
+function updateWildsGround(x, z, t) { const m = wildsGround && wildsGround.material; if (wildsGrass) wildsGrass.update(x, z, t, m ? m.color : null, m ? m.emissive : null); if (wildsScatter) wildsScatter.update(x, z, t, m ? m.color : null, m ? m.emissive : null); if (wildsWater) wildsWater.update(t, wildsWaterSky && wildsWaterSky(), m ? m.color : null); }
 function applyWildsFinds(msg) {
   lastWildsFinds = msg;
   const used = new Set(msg.used || []), lit = new Set(msg.lit || []);
@@ -227,7 +228,7 @@ function buildWildsScene(w2) {
 
   // The ground as country (client/wilds-ground.js): grass, heather, earth and rock mixed by the lie of the land,
   // trodden ways, and grass standing round you. On 'low' the old painted floor is left as it was.
-  wildsGrass = null;
+  wildsGrass = null; wildsScatter = null;
   let richGround = null;
   if (typeof wildsHeightAt === 'function' && !(GFX && GFX.st && GFX.st.quality === 'low')) {
     try {
@@ -255,6 +256,8 @@ function buildWildsScene(w2) {
       ];
       richGround = dressWildsGround(THREE, ground, { world: w2, heightAt: wildsHeightAt, ways, places });
       wildsGrass = createWildsGrass(THREE, scene, { ...richGround, heightAt: wildsHeightAt, blocked: (x, z) => turfCut.blocked(x, z), quality: GFX && GFX.st ? GFX.st.quality : 'high', world: w2 });   // grass to the edge of a cut, not in it
+      // stones, heather and tussocks: not where a sign is cut, and seated on the ground as drawn
+      try { wildsScatter = createWildsScatter(THREE, scene, { ...richGround, heightAt: wildsHeightAt, groundAt, blocked: (x, z) => turfCut.blocked(x, z), quality: GFX && GFX.st ? GFX.st.quality : 'high', world: w2 }); } catch (e) { console.error('wilds scatter: none', e); wildsScatter = null; }
       wildsGround = ground;
     } catch (e) { console.error('wilds ground: kept the old floor', e); richGround = null; wildsGrass = null; }
   }
@@ -1408,5 +1411,5 @@ function buildWildsNPCs(scene) {
   }
 }
 
-  return { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts };
+  return { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, wildsGrassCounts, wildsScatterCounts };
 }

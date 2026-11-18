@@ -132,7 +132,7 @@ const wgV3 = (a) => `vec3(${a.map((n) => n.toFixed(3)).join(', ')})`;
 
 // What the ground is at (x, z): how much earth and heather, and the colour of its grass. `h` is 0 in the
 // deepest hollow, 1 on the highest rise. The shader works the same sums per pixel.
-export function mixAt(noise, mask, x, z, h) {
+export function mixAt(noise, mask, x, z, h, slope) {
   const n = noise.sample;
   const A = (c) => n(x / WG_S.macro, z / WG_S.macro, c), B = (c) => n(x / WG_S.meso + 0.37, z / WG_S.meso + 0.37, c), Cn = (c) => n(x / WG_S.detail + 0.11, z / WG_S.detail + 0.11, c), D = (c) => n(x / WG_S.fine + 0.71, z / WG_S.fine + 0.71, c);
   const macro = A(0) * 0.6 + B(1) * 0.4;
@@ -145,7 +145,9 @@ export function mixAt(noise, mask, x, z, h) {
   const heath = wgSS(0.58, 0.72, A(1) * 0.5 + B(3) * 0.5) * 0.8;
   const trod = mask.at(x + (Cn(0) - 0.5) * 46, z + (Cn(1) - 0.5) * 46);
   const earth = Math.min(1, wgSS(0.22, 0.6, trod) + wgSS(0.80, 0.97, (1 - h) + (B(0) - 0.5) * 0.3) * 0.8 + wgSS(0.76, 0.9, B(1) * 0.6 + Cn(3) * 0.4) * 0.6);
-  return { earth, heath, grass: g, trod };
+  // rock where it is steep, as the shader has it (`slope` is 1 - the ground's normal.y; left out, no rock)
+  const rock = slope === undefined ? 0 : wgSS(0.036, 0.062, slope + (Cn(0) - 0.5) * 0.022) * (1 - wgSS(0.5, 0.9, trod));
+  return { earth, heath, grass: g, trod, rock };
 }
 
 const WG_FRAG = `
@@ -338,5 +340,209 @@ export function createWildsGrass(THREE, scene, { noise, mask, hOf, heightAt, qua
     },
     count: () => state.reduce((n, st) => n + st.n, 0),
     counts: () => state.map((st) => st.n),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// What lies and grows on the ground besides the grass: stones, heather, tussocks.
+//
+//   - Stones: where the ground is steep enough to be rock they lie thick and big, half sunk; on bare earth smaller
+//     and fewer; now and then one alone in the grass. Grey from the rock's own colours, some with lichen on.
+//   - Heather: low dark cushions on the heath, some of them in flower. Ling (Calluna vulgaris) is the heather of the
+//     British uplands, and flowers purple in late summer: that much is the record. Where it grows here is the game's.
+//   - Tussocks: tall, tufted grass in the hollows, where the ground lies wet, and a few out in the open. Straw-pale
+//     at the tips like purple moor-grass (Molinia) over the winter; darker and more upright, like rushes, deepest down.
+//
+// Each kind is one draw, laid in one ring round whoever is walking (like the grass) and kept for each cell of its
+// grid, so walking on only works out the new cells. A thing comes up out of the ground near the ring's edge rather
+// than appearing. 'low' has none; 'medium' fewer and not as far.
+// ---------------------------------------------------------------------------
+export const WILDS_SCATTER = {
+  high: { stone: { gap: 30, to: 1300 }, heather: { gap: 22, to: 1100 }, tussock: { gap: 20, to: 820 } },
+  medium: { stone: { gap: 44, to: 900 }, heather: { gap: 34, to: 760 }, tussock: { gap: 32, to: 520 } },
+};
+export const scatterRoom = (r) => { const out = r.to + r.gap * 4.5; return Math.ceil(Math.PI * out * out / (r.gap * r.gap) * 1.04) + 16; };
+
+// A stone: an icosahedron with its corners pushed in and out, flat-faced, darker underneath.
+function wgStone(THREE) {
+  const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position, r = wgMulberry(733), seen = new Map(), C = [];
+  for (let i = 0; i < p.count; i++) {
+    const key = p.getX(i).toFixed(3) + ',' + p.getY(i).toFixed(3) + ',' + p.getZ(i).toFixed(3);
+    if (!seen.has(key)) seen.set(key, [0.72 + r() * 0.5, (r() - 0.5) * 0.25]);
+    const [f, sh] = seen.get(key);
+    let y = p.getY(i) * f; if (y < 0) y *= 0.55;           // a flatter underside, to sit in the ground
+    p.setXYZ(i, p.getX(i) * f + sh * 0.3, y, p.getZ(i) * f);
+    const c = 0.5 + 0.5 * Math.max(0, Math.min(1, (p.getY(i) + 0.6) / 1.4)); C.push(c, c * 0.98, c * 0.95);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+// A cushion of heather: forty-four wiry sprigs from one root, the outer ones leaning out, so it makes a low rounded
+// bush and not a ball. Each sprig is a narrow blade crossed with another, woody-dark at the root and lighter toward
+// the tip, where the flowers are (the instance's colour carries how much it is in flower).
+function wgHeather(THREE) {
+  const r = wgMulberry(919), P = [], Nn = [], Cc = [], T = [];
+  for (let b = 0; b < 44; b++) {
+    const ring = Math.sqrt(r()), a = r() * Math.PI * 2, out = ring * 0.62, h = (1 - ring * ring * 0.55) * (0.75 + r() * 0.35);
+    const cx = Math.cos(a) * out, cz = Math.sin(a) * out, lean = 0.12 + ring * 0.38, tx = cx + Math.cos(a) * lean, tz = cz + Math.sin(a) * lean;
+    const w = 0.1 + r() * 0.08, up = 0.9 + r() * 0.2;
+    for (const t of [0, Math.PI / 2]) {
+      const px = Math.cos(a + t) * w, pz = Math.sin(a + t) * w;
+      P.push(cx - px, 0, cz - pz, cx + px, 0, cz + pz, tx, h * up, tz);
+      for (let k = 0; k < 3; k++) {
+        Nn.push(Math.cos(a) * ring * 0.6, 1, Math.sin(a) * ring * 0.6);
+        const c = k === 2 ? 1.25 + r() * 0.2 : 0.38; Cc.push(c, c * (k === 2 ? 0.92 : 1.05), c);
+        T.push(k === 2 ? 0.35 : 0);
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aTip', new THREE.Float32BufferAttribute(T, 1));
+  return g;
+}
+
+// A tussock: fourteen tall blades from one root, nearly upright, pale at the tips.
+function wgTussock(THREE) {
+  const r = wgMulberry(5151), P = [], Nn = [], Cc = [], T = [];
+  for (let b = 0; b < 14; b++) {
+    const a = b * Math.PI * 2 / 14 + r() * 0.5, out = 0.6 + r() * 2.2, h = 10 + r() * 9, lean = 1.2 + r() * 3.2, w = 0.45 + r() * 0.4;
+    const cx = Math.cos(a) * out, cz = Math.sin(a) * out, px = -Math.sin(a) * w, pz = Math.cos(a) * w;
+    P.push(cx - px, 0, cz - pz, cx + px, 0, cz + pz, cx + Math.cos(a) * lean, h, cz + Math.sin(a) * lean);
+    const shade = 0.85 + r() * 0.3;
+    for (let k = 0; k < 3; k++) { Nn.push(0, 1, 0); const c = (k === 2 ? 1.35 : 0.48) * shade; Cc.push(c, c, c * (k === 2 ? 0.86 : 1)); T.push(k === 2 ? 1 : 0); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aTip', new THREE.Float32BufferAttribute(T, 1));
+  return g;
+}
+
+// The material for one kind: it rises out of the ground near the edge of its ring, and the tussocks move in the wind.
+function wgScatterMat(THREE, U, wind) {
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: wind ? THREE.DoubleSide : THREE.FrontSide });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = (wind ? 'attribute float aTip;\n' : '') + 'uniform float uT; uniform vec2 uC; uniform float uTo;\n' + sh.vertexShader
+      .replace('#include <lights_lambert_vertex>', wind ? '#include <lights_lambert_vertex>\n  #ifdef DOUBLE_SIDED\n    vLightBack = vLightFront; vIndirectBack = vIndirectFront;\n  #endif' : '#include <lights_lambert_vertex>')
+      .replace('#include <project_vertex>', `
+  vec4 sW = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+    vec4 sO = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    sW = instanceMatrix * sW;
+    float sShow = 1.0 - smoothstep(uTo * 0.8, uTo, distance(sO.xz, uC));
+    sW.xyz = sO.xyz + (sW.xyz - sO.xyz) * sShow - vec3(0.0, (1.0 - sShow) * 2.0, 0.0);
+    ${wind ? `float sWind = sin(uT * 1.3 + sO.x * 0.019 + sO.z * 0.015) * 0.7 + sin(uT * 2.4 + sO.x * 0.04 - sO.z * 0.03) * 0.3;
+    sW.x += aTip * sWind * 1.8; sW.z += aTip * sWind * 0.9;
+    vec2 sAway = sO.xz - uC; float sNear = 1.0 - smoothstep(6.0, 26.0, length(sAway));
+    sW.xz += aTip * normalize(sAway + vec2(0.001)) * sNear * 6.0; sW.y -= aTip * sNear * 4.0;` : ''}
+  #endif
+  vec4 mvPosition = modelViewMatrix * sW;
+  gl_Position = projectionMatrix * mvPosition;`);
+  };
+  mat.customProgramCacheKey = () => (wind ? 'wildsScatterW' : 'wildsScatter');
+  return mat;
+}
+
+// What stands in a cell, for each kind: null, or [x, y, z, turn, width, height, r, g, b]. `m` is mixAt's answer with
+// the slope in; `y` the ground; `h` 0 in the deepest hollow to 1 on the highest rise; `q(k)` the cell's own hash.
+export const SCATTER_KINDS = {
+  stone(x, y, z, m, h, q) {
+    const keep = 1 - wgSS(0.15, 0.45, m.trod);
+    const onRock = m.rock, bare = m.earth * (1 - onRock);
+    const p = (onRock * 0.9 + bare * 0.2 + 0.025) * keep;
+    if (q(3) > p) return null;
+    const big = onRock > 0.3 && q(4) < 0.7;
+    const w = big ? 9 + q(5) * 14 : 3 + q(5) * q(5) * 8, ht = w * (0.42 + q(6) * 0.38);
+    const lerp = (a, b, t) => a + (b - a) * t, t = q(7), k = 1.05 + q(8) * 0.3, li = q(9) < 0.3 + onRock * 0.3 ? 0.25 + q(10) * 0.3 : 0;
+    const c = [0, 1, 2].map((i) => lerp(lerp(WG_C.rockA[i], WG_C.rockB[i], t * 0.55), WG_C.lichen[i], li) * k * 0.9);
+    return [x, y - ht * 0.32, z, q(11) * Math.PI * 2, w, ht, c[0], c[1], c[2]];
+  },
+  heather(x, y, z, m, h, q) {
+    const p = wgSS(0.22, 0.6, m.heath) * 0.9 * (1 - m.earth) * (1 - wgSS(0.1, 0.35, m.trod)) * (1 - m.rock);
+    if (q(3) > p) return null;
+    const w = 6 + q(5) * 6 + (q(4) < 0.08 ? 4 : 0), ht = 7 + q(6) * 6 + w * 0.2;   // knee-high, a stride or two across
+    // in flower, mauve; out of it, the dark olive-brown of ling the rest of the year
+    const bloom = q(7) < 0.4 ? 0.45 + q(8) * 0.4 : q(8) * 0.12, k = 1.35 + q(9) * 0.35;
+    const flower = [0.36, 0.235, 0.38];
+    const c = [0, 1, 2].map((i) => (WG_C.heathA[i] * 1.1 + (flower[i] - WG_C.heathA[i] * 1.1) * bloom) * k);
+    return [x, y - 0.6, z, q(11) * Math.PI * 2, w, ht, c[0], c[1], c[2]];
+  },
+  tussock(x, y, z, m, h, q) {
+    const wet = wgSS(0.42, 0.12, h);
+    const p = (wet * 0.55 + 0.035) * (1 - m.earth * 0.85) * (1 - m.heath * 0.8) * (1 - wgSS(0.1, 0.35, m.trod)) * (1 - m.rock);
+    if (q(3) > p) return null;
+    const s = 0.8 + q(5) * 0.6, rush = wet > 0.7 && q(4) < 0.5;
+    const straw = rush ? 0.05 : 0.3 + q(7) * 0.45, dark = rush ? 0.72 : 1.05 + q(8) * 0.2;
+    const c = [0, 1, 2].map((i) => (m.grass[i] + (WG_C.gDry[i] - m.grass[i]) * straw) * dark);
+    return [x, y - 0.5, z, q(11) * Math.PI * 2, s * (rush ? 0.75 : 1), s * (rush ? 1.35 : 1), c[0], c[1], c[2]];
+  },
+};
+
+// The stones, heather and tussocks round whoever is walking. `update(x, z, t, tint, frost)` each frame, like the grass.
+export function createWildsScatter(THREE, scene, { noise, mask, hOf, heightAt, groundAt, quality, world, blocked }) {
+  const plan = WILDS_SCATTER[quality]; if (!plan) return null;
+  const at = groundAt || heightAt;
+  const hash = (i, j, k) => { const s = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return s - Math.floor(s); };
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  const make = { stone: wgStone, heather: wgHeather, tussock: wgTussock };
+  const kinds = Object.keys(plan).map((name, ki) => {
+    const r = plan[name], max = scatterRoom(r), wind = name !== 'stone';
+    const U = { uT: { value: 0 }, uC: { value: new THREE.Vector2() }, uTo: { value: r.to } };
+    const mat = wgScatterMat(THREE, U, wind);
+    const mesh = new THREE.InstancedMesh(make[name](THREE), mat, max);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3);
+    mesh.count = 0; mesh.name = 'wildsScatter_' + name; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = !wind;
+    mesh.userData.noShadowCaster = true;
+    scene.add(mesh);
+    return { name, r, max, mesh, mat, U, cells: new Map(), fx: Infinity, fz: Infinity, sd: 50 + ki * 20, place: SCATTER_KINDS[name] };
+  });
+  function cellAt(K, a, b) {
+    const key = a * 65536 + b; let c = K.cells.get(key); if (c !== undefined) return c;
+    const G = K.r.gap, sd = K.sd, q = (k) => hash(a, b, sd + k);
+    const x = (a + q(1) - 0.5) * G, z = (b + q(2) - 0.5) * G;
+    c = null;
+    if (!(world && (x < 20 || z < 20 || x > world.width - 20 || z > world.height - 20)) && !(blocked && blocked(x, z))) {
+      const y = heightAt(x, z), e = 8;
+      const dx = (heightAt(x + e, z) - heightAt(x - e, z)) / (2 * e), dz = (heightAt(x, z + e) - heightAt(x, z - e)) / (2 * e);
+      const slope = 1 - 1 / Math.sqrt(1 + dx * dx + dz * dz), hh = hOf(x, z, y);
+      c = K.place(x, at(x, z), z, mixAt(noise, mask, x, z, hh, slope), hh, q);
+    }
+    if (K.cells.size > 40000) K.cells.clear();
+    K.cells.set(key, c);
+    return c;
+  }
+  function fill(K, cx, cz) {
+    K.fx = cx; K.fz = cz;
+    const G = K.r.gap, R = K.r.to + G * 3, N = Math.ceil(R / G), gi = Math.round(cx / G), gj = Math.round(cz / G);
+    let n = 0;
+    for (let j = -N; j <= N && n < K.max; j++) for (let i = -N; i <= N && n < K.max; i++) {
+      if ((i * i + j * j) * G * G > (R + G) * (R + G)) continue;
+      const c = cellAt(K, gi + i, gj + j); if (!c) continue;
+      dummy.position.set(c[0], c[1], c[2]); dummy.rotation.set(0, c[3], 0); dummy.scale.set(c[4], c[5], c[4]); dummy.updateMatrix();
+      K.mesh.setMatrixAt(n, dummy.matrix); K.mesh.setColorAt(n, col.setRGB(c[6], c[7], c[8])); n++;
+    }
+    K.mesh.count = n;
+    K.mesh.instanceMatrix.needsUpdate = true; K.mesh.instanceColor.needsUpdate = true;
+  }
+  return {
+    meshes: kinds.map((K) => K.mesh),
+    update(x, z, t, tint, frost) {
+      for (const K of kinds) {
+        if (Math.hypot(x - K.fx, z - K.fz) > K.r.gap * 3) fill(K, x, z);
+        K.U.uT.value = t; K.U.uC.value.set(x, z);
+        if (tint && K.name !== 'stone') K.mat.color.copy(tint);     // the season dyes what grows, not the stone
+        if (frost) K.mat.emissive.copy(frost).multiplyScalar(K.name === 'stone' ? 0.5 : 0.7);
+      }
+    },
+    counts: () => Object.fromEntries(kinds.map((K) => [K.name, K.mesh.count])),
+    // the nearest few of a kind to (x, z), as [x, z, width] (for the tours)
+    near(name, x, z, n = 3) {
+      const K = kinds.find((k) => k.name === name); if (!K) return [];
+      const out = []; for (const c of K.cells.values()) if (c) out.push([Math.round(c[0]), Math.round(c[2]), Math.round(c[4]), Math.hypot(c[0] - x, c[2] - z)]);
+      return out.sort((a, b) => a[3] - b[3]).slice(0, n).map((a) => a.slice(0, 3));
+    },
   };
 }
