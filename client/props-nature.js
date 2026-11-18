@@ -1,3 +1,4 @@
+import { weatherRock } from './rock-weather.js';
 // ---------------------------------------------------------------------------
 // Nature & plant props (Tier 3.4 Phase C, shared prop library). Pure THREE-
 // group builders — trees, shrubs, rocks, flower patches, and the three plant
@@ -66,6 +67,7 @@ export function makeRock(x, z, scale) {
     );
     rock.position.set((Math.random() - 0.5) * 10 * s, r * 0.55, (Math.random() - 0.5) * 10 * s);
     rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    weatherRock(THREE, rock, { cut: 1, split: 1, seed: i + 1 });   // broken and aged (client/rock-weather.js)
     g.add(rock);
   }
   g.position.set(x, 0, z);

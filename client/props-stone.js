@@ -6,6 +6,7 @@
 // couple of orange ones (the yellow wall-lichen that shares the rock), so the
 // stone reads as "something grows on this" from the path.
 // ---------------------------------------------------------------------------
+import { weatherRock } from './rock-weather.js';
 const STONE_MATS = new Map();
 function _stLam(color) {
   let m = STONE_MATS.get(color);
@@ -40,6 +41,8 @@ export function makeCrotalStone(x, z, scale) {
     disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
     g.add(disc);
   }
+  // the boulder itself aged like every other stone; its lichen rosettes stay as they are
+  weatherRock(THREE, rock, { cut: 0, lichen: 0.5 }); weatherRock(THREE, side, { cut: 0, lichen: 0.5 });
   g.position.set(x, 0, z);
   return g;
 }

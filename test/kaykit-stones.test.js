@@ -20,8 +20,8 @@ for (const f of ['Rock_6_D_Color1', 'Rock_3_E_Color1']) {
 const scene = read('client/wilds-scene.js');
 check('the Wilds hands KK to both places', /makeCountlessRing\(w2\.countless, WILDS_WALLS, KK\)/.test(scene) && /makeMenAnTol\(w2\.menAnTol, WILDS_WALLS, makeSignSprite, KK\)/.test(scene));
 
-// Build both, with a stand-in KK and without, through the real modules.
-const load = (p) => { const src = read(p).replace(/^export /gm, ''); const names = [...src.matchAll(/^function (\w+)/gm)].map((m) => m[1]); return new Function('THREE', src + '\nreturn {' + names.join(',') + '};')(global.THREE); };
+// Build both, with a stand-in KK and without, through the real modules (with the stones aged by client/rock-weather.js).
+const load = (p) => { let src = read(p).replace(/^export /gm, ''); if (/from '\.\/rock-weather\.js'/.test(src)) src = read('client/rock-weather.js').replace(/^export /gm, '') + '\n' + src.replace(/^import .*$/gm, ''); const names = [...src.matchAll(/^function (\w+)/gm)].map((m) => m[1]); return new Function('THREE', src + '\nreturn {' + names.join(',') + '};')(global.THREE); };
 const ring = load('client/props-countless.js'), men = load('client/props-menantol.js');
 const C = require('../data/countlessStones.js'), M = require('../data/menAnTol.js');
 const geo = { ...C.COUNTLESS, stones: C.COUNTLESS_STONES };

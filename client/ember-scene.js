@@ -9,6 +9,7 @@ import { makeGroundNoise } from './wilds-ground.js';
 import { dressEmberTiles, makeLavaPool } from './ember-ground.js';
 import { dressMinster, dressStone, lightTown, quickenRing } from './minster-light.js';
 import { hangGateVeil } from './gate-veil.js';
+import { reweatherRock } from './rock-weather.js';
 
 export default function createEmberScene({ makeGrassTexture, makeEmberFloorTexture, makeRock, makeTree, buildPortalMesh, EMBER_WORLD, emberHeightAt, KK, makeGlowTexture, setEmberAmbient, setEmberScene, setEmberCamera, getEmberStaticKiosks, setEmberStaticKiosks, setEmberKiosks, getEmberMobVisuals, setEmberMobVisuals, getEmberLandmarks, makeNpcNameSprite, createStaticNpc, GFX }) {
 const H = (x, z) => (typeof emberHeightAt === 'function' ? emberHeightAt(x, z) : 0);
@@ -25,6 +26,7 @@ function scorch(group, amt) {
       const cloned = mats.map(mm => {
         const m = mm.clone();
         if (m.color) { m.color.offsetHSL(-0.02, -0.18, -(amt || 0.14)); m.color.lerp(new THREE.Color(0x2a1810), 0.22); }
+        if (m.userData && m.userData.rockWeather) reweatherRock(m, { stone: 'basalt', lichen: 0, moss: 0 });   // burnt stone: nothing grows on it
         return m;
       });
       c.material = wasArr ? cloned : cloned[0];
