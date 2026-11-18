@@ -212,7 +212,9 @@ try {
       const depthOf = () => page.evaluate(() => (history.state && history.state.thornreachMenu) | 0);
       const before = await depthOf();
       await page.evaluate(() => document.getElementById('journalCloseBtn').click());
-      await sleep(400);
+      // Taking the step back off is history.back(), which lands when the browser gets to it: wait for it to
+      // land (up to 4s) instead of a fixed pause, which a slow runner sometimes outlasted.
+      await page.waitForFunction((want) => ((history.state && history.state.thornreachMenu) | 0) === want, before - 1, { timeout: 4000 }).catch(() => {});
       // (Anything else still open, such as the first-visit welcome, keeps its own step.)
       check('[char 0] a menu closed by its own button leaves no extra back step behind', before >= 1 && (await depthOf()) === before - 1, { before, after: await depthOf() });
     }
