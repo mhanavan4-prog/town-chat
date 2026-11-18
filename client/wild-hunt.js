@@ -33,18 +33,12 @@ function huntNoteFor(passed, total) {
   return { rate: Math.pow(2, step / 12), vol: Math.round((0.32 + 0.3 * along) * 100) / 100 };
 }
 
-export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isRiding }) {
+export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isRiding, glowTexture }) {
   let state = null, group = null, groupScene = null, builtFor = '';
-  let glow = null;
-  function glowTex() {
-    if (glow) return glow;
-    const c = document.createElement('canvas'); c.width = c.height = 64;
-    const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.4, 'rgba(255,255,255,0.45)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
-    glow = new THREE.CanvasTexture(c);
-    return glow;
-  }
+  // The soft round light used for the ring's heart and the wake is the game's own glow texture, built from
+  // numbers (client/textures.js). A texture drawn on a canvas here came out in Safari as a pale blot speckled
+  // with coloured squares.
+  const glowTex = () => glowTexture();
   function clear() { if (group && group.parent) group.parent.remove(group); group = null; groupScene = null; builtFor = ''; }
 
   function build(scene) {
@@ -63,7 +57,7 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
         new THREE.MeshBasicMaterial({ color: 0xf2e6b8, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide }));
       beam.position.set(r.x, r.alt / 2, r.y);
       const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xfff3c4, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-      spark.position.set(r.x, r.alt, r.y); spark.scale.setScalar(260);
+      spark.position.set(r.x, r.alt, r.y); spark.scale.setScalar(200);
       ring.userData.i = i; beam.userData.i = i; spark.userData.i = i;
       group.add(ring, beam, spark);
     });
@@ -85,7 +79,7 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
     const next = state.done ? -1 : state.next, pulse = 0.5 + 0.5 * Math.sin(now * 0.004);
     for (const o of group.children) {
       const i = o.userData.i, isNext = i === next, ahead = next >= 0 && i > next;
-      if (o.isSprite) o.material.opacity = isNext ? 0.5 + 0.35 * pulse : 0;
+      if (o.isSprite) o.material.opacity = isNext ? 0.3 + 0.25 * pulse : 0;
       else if (o.geometry.type === 'CylinderGeometry') o.material.opacity = isNext ? 0.16 + 0.1 * pulse : 0;
       else { o.visible = isNext || ahead; o.material.opacity = isNext ? 0.75 + 0.25 * pulse : 0.14; o.scale.setScalar(isNext ? 1 + 0.04 * pulse : 1); }
     }

@@ -11554,7 +11554,7 @@ for (const [id, k] of [['besomUp', 'up'], ['besomDown', 'down']]) {
 // Everyone riding sits a hand off the ground on the broom, bobbing a little; a flight in or out takes over.
 // Off it in the air (knocked off, or got off up high), she comes down.
 // The Wild Hunt as it is seen (client/wild-hunt.js): the horns in the Wilds' night sky, and a rider's wake.
-const huntView = createWildHuntView({ THREE, getScene: () => (me && me.room === 'wilds' && activeScene === wildsScene ? wildsScene : null), getMe: () => me, getAlt: () => besomRide.alt, isRiding: () => besomRide.on });
+const huntView = createWildHuntView({ THREE, getScene: () => (me && me.room === 'wilds' && activeScene === wildsScene ? wildsScene : null), getMe: () => me, getAlt: () => besomRide.alt, isRiding: () => besomRide.on, glowTexture: () => makeGlowTexture() });
 const HUNT_SFX_STAND_IN = { hunt_horn: 'summon', hunt_done: 'quest_fanfare' };
 function askHunt() { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hunt' })); }
 function onHuntState(msg) {
