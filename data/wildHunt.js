@@ -47,7 +47,7 @@ const COMPANY = {
 const COMPANY_LORE = {
   tier: 'record',
   lore: 'The Canon Episcopi, set down by Regino of Pr\u00fcm about 906, speaks of women who believe that in the dead of night they ride on beasts with Diana, goddess of the pagans, in a countless company of women, and cross great distances of the earth in the silence of the night.',
-  source: 'Regino of Pr\u00fcm, Libri duo de synodalibus causis (c.906), the passage later called the Canon Episcopi.',
+  source: 'Regino of Pr\u00fcm, Libri duo de synodalibus causis et disciplinis ecclesiasticis (c.906), the passage later called the Canon Episcopi.',
   note: 'The canon records the belief in order to call it a delusion. That a coven riding close shares the horns, and that anything is given for riding in company, is the game\'s.',
 };
 

@@ -37,3 +37,18 @@ test('the landing page shows the besom, the kit, macros and the Smithy, in a ful
   const world = land.slice(land.indexOf('<h3>Honest by design</h3>') - 200, land.indexOf('<h3>Play anywhere</h3>') + 300);
   assert.strictEqual((world.match(/class="feat"/g) || []).length % 3, 0, 'the world grid fills its rows of three');
 });
+
+test('the site covers the endgame, friends, blocking, trading, keys and text size', () => {
+  const faq = read('public/faq.html'), land = read('public/landing.html');
+  const { HUNT } = require('../data/wildHunt');
+  const { DEEP } = require('../data/delveDeep');
+  assert.match(faq, /<h3>What is there to do at Level 20\?<\/h3>/);
+  assert.match(faq, /nine rings of light/); assert.strictEqual(HUNT.rings, 9);
+  assert.match(faq, /Below the tenth floor/); assert.strictEqual(DEEP.from, 10);
+  assert.match(faq, /depths 10, 20 and 30 give a title/); assert.deepStrictEqual(DEEP.honours.map((h) => h.depth), [10, 20, 30]);
+  assert.match(faq, /titles and a wake that trails behind your besom, and nothing else/);
+  assert.match(faq, /<h3>Can I keep friends, block someone, or trade\?<\/h3>/);
+  assert.match(faq, /nothing moves until you have both said you are ready/);
+  assert.match(faq, /<h3>Can I change the keys or make the text bigger\?<\/h3>/);
+  for (const h of ['The Wild Hunt', 'The Deep', 'Friends and trade']) assert.ok(land.includes('<h3>' + h + '</h3>'), h);
+});
