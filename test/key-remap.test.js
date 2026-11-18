@@ -37,5 +37,12 @@ check('saved rubbish is thrown out', JSON.stringify(K.cleanBinds({ f: 'x', zz: '
   check('the remap is installed in front of the game', /installKeyRemap\(/.test(main));
   check('the use prompt names the bound key', /Press \$\{keyLabel\(boundKey\(keyBinds, 'f'\)\)\} to/.test(main));
 }
+{
+  const R = new Function(src + '\nreturn { relabelKeys };')().relabelKeys;
+  const b = { w: 'u', f: 'x' };
+  check('the help sheet shows the key in use', R('F', b) === 'X' && R('W/S', b) === 'U/S' && R('R', b) === 'R' && R('Space', { ' ': 'z' }) === 'Z');
+  check('and leaves alone what is not a rebindable key', R('1–9, 0, -, =', b) === '1–9, 0, -, =' && R('hold C', b) === 'hold C' && R('Drag', b) === 'Drag' && R('P', b) === 'P');
+  check('the sheet is re-worded each time it opens', /function openControlsModal\(\) \{\n  applyKeyLabels\(\);/.test(read('client/main.js')));
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

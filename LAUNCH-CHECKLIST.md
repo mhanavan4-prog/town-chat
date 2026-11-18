@@ -44,7 +44,7 @@ These cannot be seen from the repository.
 
 The automated tours run in Chromium only. In Safari, at desktop size:
 
-- [ ] Menu → Report a bug → **Run a self-check**, once in the town, the Wilds, the Ember Wastes and one building. Send each, or copy them back.
+- [x] Menu → Report a bug → **Run a self-check**, once in the town, the Wilds, the Ember Wastes and one building. Done 17 November (Safari 26.2): all four clean after the gibbet fix, 60 fps on High.
 - [ ] Escape with Caps Lock on opens and closes the menu once.
 - [ ] The gold coin shows as gold wherever gold is shown.
 - [ ] The besom: ride (G), climb and sink, land on a roof, the wind as you rise.
@@ -54,13 +54,14 @@ The automated tours run in Chromium only. In Safari, at desktop size:
 
 ## Swept, in Chromium
 
-- Nothing solid floats in the town, the six building interiors, the Manor hall, the Wilds or the Ember Wastes. Not swept: cottages, the crypt and dungeons, the bank vault, the Ember refuge.
+- Nothing solid floats in the town, the six building interiors, the Manor hall, the Wilds, the Ember Wastes, a cottage (unfurnished), the bank vault, the Ember refuge or a first Delve floor. Not swept: a furnished cottage, the story crypt, deeper Delve floors.
+- The Chromium tour does not see the Wilds' wayside models or its wildlife (they are not in the scene when it looks). The owner's self-check in Safari does, and found the gibbet 23 units off the ground; that is fixed.
 - No inner names (`snake_case`, `undefined`, `NaN`) in about 45 menu panels.
 - Every button and every use of a thing in the world makes a sound.
 
 ## Known gaps
 
 - No colour-blind option.
-- Texts that name a key (the Controls sheet, tooltips) show the default letter even when the key has been changed; the "Press F to" prompt is the exception.
+- Tooltips that name a key show the default letter even when the key has been changed. The "Press F to" prompt and the How to play sheet show the key in use.
 - A controller has not been tried on real hardware since the besom buttons were added.
 - Guests cannot keep friends or trade; they can block for the length of a visit.

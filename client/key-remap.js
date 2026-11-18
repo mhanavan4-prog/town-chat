@@ -54,6 +54,17 @@ function translateKey(binds, pressed) {
   return null;
 }
 
+// A key label as printed in the game's help ("W/S", "F", "Space"), re-worded for
+// the keys now in use. Text that is not made only of rebindable keys ("1–9",
+// "hold C", "Drag") is given back unchanged.
+function relabelKeys(text, binds) {
+  const known = new Set(KEY_ACTIONS.map((a) => a[0]));
+  const parts = String(text).split('/');
+  const keys = parts.map((p) => { const t = p.trim(); return /^space$/i.test(t) ? ' ' : t.length === 1 ? t.toLowerCase() : null; });
+  if (!keys.every((k) => k !== null && known.has(k))) return text;
+  return keys.map((k) => keyLabel(boundKey(binds, k))).join('/');
+}
+
 // Puts the translation in front of every other key handler on the page.
 function installKeyRemap(getBinds, isTyping) {
   const replay = (e, key) => {
@@ -75,4 +86,4 @@ function installKeyRemap(getBinds, isTyping) {
   window.addEventListener('keyup', onKey, true);
 }
 
-export { KEY_ACTIONS, normKey, keyLabel, keyAllowed, cleanBinds, boundKey, rebind, translateKey, installKeyRemap };
+export { KEY_ACTIONS, normKey, keyLabel, keyAllowed, cleanBinds, boundKey, rebind, translateKey, installKeyRemap, relabelKeys };
