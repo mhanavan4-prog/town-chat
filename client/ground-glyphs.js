@@ -1,50 +1,15 @@
 // ---------------------------------------------------------------------------
-// The witch-glyphs burned into the Wilds' ground, as fire and not as paint.
-// A glyph is a cut in the earth with something still alight in it: the line burns unevenly, hot in one stretch
-// and a dull ember in the next, the hot place creeping along the cut; a little of its light lies on the ground
-// beside it; and now and then a mote lifts off and goes out. By day the fire is hard to see and what you notice
-// is the burnt ground (client/textures.js makeGroundSigilTextures draws both).
-// glyphFire() is the burning line (a shader on the glow decal); raiseGlyphMotes() is every glyph's motes, in one draw.
+// The witch-signs' light and motes. The signs themselves are cut into the turf (client/turf-sigils.js): by day
+// you see the chalk; by night a cold light lies in the cut, and now and then a mote lifts off one and goes out.
+// glyphShow() is how strongly the light shows for the hour; raiseGlyphMotes() is every sign's motes, in one draw.
 // ---------------------------------------------------------------------------
 
-// how much of the fire shows by full day, against 1 at night
-export const GLYPH_DAY = 0.4;
+// how much of the light in a cut shows by full day, against 1 at night: by day it is the chalk you see
+export const GLYPH_DAY = 0.06;
 // motes per glyph, by graphics tier
 export const GLYPH_MOTES = { low: 0, medium: 2, high: 4 };
 
-const GLYPH_NOISE = `
-  float glyphHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float glyphNoise(vec2 p) {
-    vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(glyphHash(i), glyphHash(i + vec2(1.0, 0.0)), f.x), mix(glyphHash(i + vec2(0.0, 1.0)), glyphHash(i + vec2(1.0, 1.0)), f.x), f.y);
-  }`;
-
-// The glow decal's material: its texture's alpha says how near the middle of the cut a pixel is (1 in the cut,
-// falling away through the light spilled beside it). Returns the uniform to keep fed: x seed, y seconds, z how
-// strongly it shows (night and day).
-export function glyphFire(mat, seed) {
-  const u = { value: { x: seed, y: 0, z: 1 } };
-  mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uGlyph = u;
-    sh.fragmentShader = sh.fragmentShader
-      .replace('void main() {', 'uniform vec3 uGlyph;' + GLYPH_NOISE + '\nvoid main() {')
-      .replace('#include <map_fragment>', `#include <map_fragment>
-        {
-          float gS = texelColor.a;
-          float gBurn = smoothstep(0.3, 0.78, glyphNoise(vUv * 6.0 + uGlyph.x + vec2(uGlyph.y * 0.06, -uGlyph.y * 0.045)));
-          float gFlick = 0.78 + 0.44 * glyphNoise(vUv * 21.0 + uGlyph.x * 3.0 - uGlyph.y * 0.9);
-          float gCore = smoothstep(0.5, 0.95, gS);
-          float gLine = gCore * (0.3 + 1.25 * gBurn) * gFlick;       // a cooled stretch is a dull ember
-          float gSpill = (1.0 - gCore) * gS * (0.7 + 1.5 * gBurn);  // and throws less light on the ground beside it
-          diffuseColor.rgb = mix(diffuse, vec3(1.0), 0.2 * gBurn * gCore * gCore);   // only the liveliest of it goes white
-          diffuseColor.a = opacity * (gLine + gSpill) * uGlyph.z;
-        }`);
-  };
-  mat.customProgramCacheKey = () => 'glyph-fire';
-  return u;
-}
-
-// how strongly the fire shows for a given daylight (1 full day, 0 full night)
+// how strongly the light shows for a given daylight (1 full day, 0 full night)
 export function glyphShow(lightAmount) {
   const l = Math.max(0, Math.min(1, lightAmount == null ? 1 : lightAmount));
   return GLYPH_DAY + (1 - GLYPH_DAY) * (1 - l);

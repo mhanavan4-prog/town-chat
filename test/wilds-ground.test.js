@@ -50,7 +50,7 @@ check('on low the old floor is left exactly as it was', /!\(GFX && GFX\.st && GF
 check('if anything goes wrong making it, the old floor is kept', /catch \(e\) \{ console\.error\('wilds ground: kept the old floor', e\); richGround = null; wildsGrass = null; \}/.test(scene));
 check('one draw call for all the grass, and what grows in a cell is worked out once', /new THREE\.InstancedMesh\(geo, mat, TOTAL\)/.test(raw) && /cells: new Map\(\)/.test(raw) && /if \(c !== undefined\) return c;/.test(raw));
 check('it moves in the wind, parts where you walk, thins toward the edge of what is drawn', /gWind/.test(raw) && /gNear/.test(raw) && /smoothstep\(aRing\.z \* 0\.78, aRing\.z, gD\)/.test(raw));
-check('nothing grows on a glyph, a track, or the drove road', /glyphSpots\.push\(\{ x: gx, y: gz, r: size \* 0\.66, w: 0\.9 \}\)/.test(scene) && /\.\.\.glyphSpots,/.test(scene) && /ways\.push\(\{ pts: P, half: w2\.drove\.width \* 0\.36, w: 0\.3 \}\)/.test(scene) && /\(1 - wgSS\(0\.12, 0\.45, m\.trod\)\)/.test(raw));
+check('nothing grows in the cut of a sign, on a track, or on the drove road; inside a sign the grass grows', !/\.\.\.glyphSpots,/.test(scene) && /blocked: \(x, z\) => turfCut\.blocked\(x, z\)/.test(scene) && /if \(blocked && blocked\(x, z\)\) \{ st\.cells\.set\(key, null\); return null; \}/.test(raw) && /ways\.push\(\{ pts: P, half: w2\.drove\.width \* 0\.36, w: 0\.3 \}\)/.test(scene) && /\(1 - wgSS\(0\.12, 0\.45, m\.trod\)\)/.test(raw));
 check('the grass is moved each frame only while the Wilds are shown', /if \(activeScene === wildsScene && me\) updateWildsGround\(me\.x, me\.y, performance\.now\(\) \* 0\.001\);/.test(main));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

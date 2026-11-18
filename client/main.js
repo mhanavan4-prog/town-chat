@@ -55,7 +55,7 @@ import createTownProps from './props-town.js';
 import { makeTree, makeShrub, makeRock, makeFlowerPatch, makePlantBloom, makePlantMushroom, makePlantSprout, PLANT_VISUALS, makeWatchpine, makeDeadwood, makeMourningWillow, makeCapwood, makeHexoak, makePalebirch, makeBramblebush, makeNightberry, makeThornsnarl, makeFenfern, makeToadstoolRing } from './props-nature.js';
 import { OGHAM_GROVE_BUILDERS, OGHAM_GROVE_TYPES_CLIENT } from './props-ogham.js';
 import { STONE_BUILDERS, STONE_TYPES_CLIENT } from './props-stone.js';
-import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
+import { makeGrassTexture, makeGlowTexture, makeMoorTexture, makeWildsFloorTexture, makeEmberFloorTexture, makeSigilTextures, makeStoneTexture, makeWhiteStoneTexture, makeWoodSidingTexture, makeShingleTexture, makePentacleTexture, makeSigilFloorTexture } from './textures.js';
 import { ALTAR_DECOS, ALTAR_SLOTS, setAltarDecoModels } from './altar-decor.js';
 import { EMOTE_DEFS, uiIcon, hydrateIcons, glyphHTML, escHtml, moonPhaseIcon } from './ui-icons.js';
 import createCreatures from './creatures.js';
@@ -15182,7 +15182,7 @@ const { buildWildsScene, applyWildsFinds, applyVillageWard, updateWildsGround, w
   WITCH_CAVE_ENTRANCE_X, WITCH_CAVE_ENTRANCE_Z,
   KK, createKayKitByKey, kkSetState, hasKK: (key) => KK.has(key), addNatureDecor, addSpookyDecor, buildPortalMesh, createHumanoid,
   kkWildsDressing, kkWildsGroundDetail, kkPlace, makeSpookyTree, makeWaymarkerStone, makeWildsCampfire, wildsCollide,
-  makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGroundSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
+  makeMoorTexture, makeWildsFloorTexture, makeSigilTextures, makeGlowTexture, makeSignSprite, makeNpcNameSprite,
   makeFlowerPatch, makePlantBloom, makeGardenHerb, // Mother Yarrow's garden plot (the Green Path)
   getDecorVisuals2: () => decorVisuals2,
   getAddAnimals2: () => addAnimals2,
@@ -22264,6 +22264,8 @@ if (location.search.includes('testdrive=1')) {
     besomAlt(a) { if (besomRide.on) besomRide.alt = Math.max(besomRide.hover, Math.min(besomRide.top, a)); return besomRide.alt; },
     // step into a room the tours cannot walk to quickly (the sweep's audit needs to stand in each)
     go(place) { const f = { cottage: enterCottage, vault: enterVault, refuge: enterRefuge, wastes: enterEmberWastes }[place]; if (!f) return false; f(); return true; },
+    // what the last frame cost: draw calls and triangles (to measure a change to a scene)
+    draws() { const i = renderer.info; i.autoReset = false; i.reset(); return new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => { const r = { calls: i.render.calls, tris: i.render.triangles }; i.autoReset = true; res(r); }))); },
     // everything solid in this scene that nothing holds up (client/float-audit.js)
     floaters(opts) { const r = me && me.room; return findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), ...(opts || {}) }); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
