@@ -25,15 +25,33 @@ export const FIRST_STEP_HINTS = {
 };
 export function firstStepHint(id, touch) { const h = FIRST_STEP_HINTS[id]; return h ? (touch ? h.m : h.d) : ''; }
 
+// Which step to point at now. Creatures only come out after dark, so by day "fell a night creature" cannot be
+// done: someone who arrives in daylight is pointed past it to whatever else is left, and comes back to it at
+// nightfall. Only when it is the last thing left by day is it shown, with how long there is to wait.
+// when: { night, msToNight }
+export function firstStepNow(steps, when) {
+  const left = (steps || []).filter((s) => !s.done);
+  if (!left.length) return null;
+  if (when && !when.night && left[0].id === 'killed' && left.length > 1) return left.find((s) => s.id !== 'killed');
+  return left[0];
+}
+export function firstStepHintNow(id, touch, when) {
+  if (id === 'killed' && when && !when.night) {
+    const mins = Math.max(1, Math.round((when.msToNight || 0) / 60000));
+    return `Creatures only come out after dark. Night falls in about ${mins} minute${mins === 1 ? '' : 's'}: look around until then, and they will find you.`;
+  }
+  return firstStepHint(id, touch);
+}
+
 // The always-on line: the First Step in hand. null when there is nothing to say: First Steps is done or was never
 // given, or the card itself is on show (`card`: a desktop).
 // k: { steps: [{ id, label, icon, done }], done, touch, card }
 export function newcomerNextStep(k) {
   if (!k || k.done || k.card || !Array.isArray(k.steps) || !k.steps.length) return null;
-  const cur = k.steps.find((s) => !s.done);
+  const cur = firstStepNow(k.steps, k.when);
   if (!cur) return null;
   const n = k.steps.filter((s) => s.done).length;
-  return { id: cur.id, title: `🏮 First Steps · ${n}/${k.steps.length}`, text: `${cur.icon} ${cur.label}. ${firstStepHint(cur.id, k.touch)}`, action: cur.id === 'story' ? 'begin' : '' };
+  return { id: cur.id, title: `🏮 First Steps · ${n}/${k.steps.length}`, text: `${cur.icon} ${cur.label}. ${firstStepHintNow(cur.id, k.touch, k.when)}`, action: cur.id === 'story' ? 'begin' : '' };
 }
 
 // Should this door stop and warn first? Returns the warning, or null to let them through.

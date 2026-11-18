@@ -72,7 +72,7 @@ import createCallersInTown from './callers-in-town.js';
 import { nowNoteEl } from './now-note.js';
 import createTownScene from './town-scene.js';
 import { createPerch, perchTop } from './perch.js';
-import { newcomerNextStep, doorWarning, gentleDeathLine, firstStepHint } from './newcomer.js';
+import { newcomerNextStep, doorWarning, gentleDeathLine, firstStepNow, firstStepHintNow } from './newcomer.js';
 import createMobsTown from './mobs-town.js';
 import createMobMeshes from './mob-meshes.js';
 import createMobsWilds from './mobs-wilds.js';
@@ -4366,7 +4366,7 @@ const {
 // The step in hand, as the always-on line. A desktop shows the First Steps card itself, so it gets no line.
 function newcomerStep() {
   if (!me || !gameStarted || !firstStepsState) return null;
-  return newcomerNextStep({ steps: firstStepsState.steps, done: firstStepsState.done, touch: MOBILE_UI, card: !MOBILE_UI });
+  return newcomerNextStep({ steps: firstStepsState.steps, done: firstStepsState.done, touch: MOBILE_UI, card: !MOBILE_UI, when: fsWhen() });
 }
 function refreshNewcomer() {
   updateStoryTracker();
@@ -17788,7 +17788,11 @@ function fsSetExpanded(on, autoCollapseMs) {
 }
 // Concrete "how to actually do it" guidance for each First Step — this is what
 // turns the checklist into a guided first session. Phrased per input type.
-function fsHint(id) { return firstStepHint(id, MOBILE_UI); }
+// Is it night, and if not how long till it is: by day the guide points past the night-creature step (client/newcomer.js).
+function fsWhen() { const t = Date.now() % CYCLE_MS; return { night: t >= DAY_MS, msToNight: Math.max(0, DAY_MS - t) }; }
+function fsHint(id) { return firstStepHintNow(id, MOBILE_UI, fsWhen()); }
+// the wait shown counts down, and the step changes at nightfall and at dawn
+setInterval(() => { if (firstStepsState && !firstStepsState.done) renderFirstSteps(); }, 30000);
 function renderFirstSteps() {
   const chip = document.getElementById('firstStepsChip');
   if (!chip) return;
@@ -17796,7 +17800,7 @@ function renderFirstSteps() {
   chip.innerHTML = '';
   const steps = firstStepsState.steps || [];
   const doneCount = steps.filter(s => s.done).length;
-  const current = steps.find(s => !s.done) || null; // the one objective to guide toward right now
+  const current = firstStepNow(steps, fsWhen()); // the one objective to guide toward right now (by day, not the night creature)
   if (MOBILE_UI && !_fsExpanded) {
     chip.classList.add('fsMini');
     chip.textContent = `🏮 ${doneCount}/${steps.length}`;
