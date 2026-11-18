@@ -76,6 +76,7 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
       // back the moment they are not (update() below).
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
         if (!m || seen.has(m) || !m.color || !LEAFY.test(m.name || '')) continue;
+        if (m.userData && m.userData.rockWeather) continue;   // a stone shares the kit's palette, but the season does not dye stone (client/rock-weather.js)
         seen.add(m);
         if (m.userData.seasonBase === undefined) { m.userData.seasonBase = m.color.getHex(); m.userData.seasonGlowBase = m.emissive ? m.emissive.getHex() : 0; }
         m.color.setHex(m.userData.seasonBase);

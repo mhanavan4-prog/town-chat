@@ -11,7 +11,9 @@
 // the Nine-and-Twenty, so the two places read as one moor; the holed stone is
 // still drawn here (KayKit has no holed stone), in a grey to match. Without
 // them, plain boxes. Collision is the same either way.
+// The holed stone is broken and weathered like the rest (client/rock-weather.js).
 // ---------------------------------------------------------------------------
+import { weatherRock } from './rock-weather.js';
 const MEN_AN_TOL_GRANITE = 0x8a877c;
 const MEN_AN_TOL_KK_GREY = 0x7f8a90; // the KayKit rocks' grey, for the holed stone beside them
 
@@ -61,6 +63,9 @@ export function makeMenAnTol(geo, walls, makeSignSprite, KK) {
     const fallen = new THREE.Mesh(new THREE.BoxGeometry(70, 16, 26), granite);
     fallen.position.set(geo.x - geo.upright - 10, 8, geo.y + 34); fallen.rotation.y = 0.4; g.add(fallen);
   }
+  // the holed stone as old granite: chipped, lichened on what faces the sky, mossed at the foot (the pillars are aged as they load)
+  weatherRock(THREE, holed, { cut: 1, split: 1, seed: 29 });
+  g.traverse((m) => { if (m.isMesh && m !== holed && m.geometry && m.geometry.type === 'BoxGeometry') weatherRock(THREE, m, { cut: 0 }); });
   if (makeSignSprite) { const s = makeSignSprite('🪨 The Crick-stone'); if (s) { s.position.set(geo.x, 120, geo.y); g.add(s); } }
   // Walls: either side of the hole, and the uprights.
   if (walls) {

@@ -30,6 +30,8 @@
 // to where the fog takes the ground: see WILDS_GRASS.
 // ---------------------------------------------------------------------------
 
+import { weatherRock } from './rock-weather.js';
+
 const WG_N = 256;   // the noise is N x N, four channels, and wraps
 
 function wgMulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -496,6 +498,7 @@ export function createWildsScatter(THREE, scene, { noise, mask, hOf, heightAt, g
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3);
     mesh.count = 0; mesh.name = 'wildsScatter_' + name; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = !wind;
     mesh.userData.noShadowCaster = true;
+    if (name === 'stone') weatherRock(THREE, mesh, { cut: 1, split: 1, repaint: 0.3, seed: 41 });   // chipped and lichened (client/rock-weather.js)
     scene.add(mesh);
     return { name, r, max, mesh, mat, U, cells: new Map(), fx: Infinity, fz: Infinity, sd: 50 + ki * 20, place: SCATTER_KINDS[name] };
   });

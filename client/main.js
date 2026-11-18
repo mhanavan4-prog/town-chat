@@ -109,6 +109,7 @@ import createDayNight from './day-night.js';
 import createEquipVisuals from './equip-visuals.js';
 import createMoonstones from './moonstones.js';
 import installBackCloses from './back-closes.js';
+import { weatherRock, rockLike } from './rock-weather.js';
 // Batch the small decor (client/decor-batch.js); ?batch=0 draws it one by one, to compare.
 const DECOR_BATCHING = !(typeof location !== 'undefined' && /[?&]batch=0\b/.test(location.search));
 
@@ -334,6 +335,20 @@ const CHARACTER_PRESETS = [
 // Assets preload from /kk at page load; join waits briefly for them, and
 // anything that fails to load falls back to the classic procedural builders.
 // ═══════════════════════════════════════════════════════════════════════════
+// Which models are stone, and how each is aged as it loads (client/rock-weather.js). The natural rocks are broken
+// as well as aged; carved and dressed stones (a milestone's letters, a headstone's face) keep their shape.
+const ROCK_NATURAL = { cut: 1, split: 1 }, ROCK_DRESSED = { cut: 0, repaint: 0.35 };
+const ROCK_WEATHER = {
+  rock1: { ...ROCK_NATURAL, seed: 3 }, rock2: { ...ROCK_NATURAL, seed: 5 }, rock3: { ...ROCK_NATURAL, seed: 8 },
+  stone_low: { ...ROCK_NATURAL, seed: 11 }, stone_pillar: { cut: 1, split: 1, seed: 13 },
+  ruin_rocks: { ...ROCK_NATURAL, stone: 'cave', lichen: 0, moss: 0.5, seed: 17 }, ruin_rocks2: { ...ROCK_DRESSED, stone: 'cave', lichen: 0, moss: 0.5 },
+  dg_stalag: { ...ROCK_DRESSED, stone: 'cave', repaint: 0.3, lichen: 0, moss: 0 }, dg_column: { ...ROCK_DRESSED, stone: 'cave', repaint: 0.3, lichen: 0, moss: 0.3 },
+  dg_rockfall: { ...ROCK_DRESSED, stone: 'cave', repaint: 0.3, lichen: 0, moss: 0.3 }, dg_wall: { ...ROCK_DRESSED, stone: 'cave', repaint: 0.2, lichen: 0, moss: 0.2 },
+  wl_megalith: { ...ROCK_DRESSED }, wl_altarslab: { ...ROCK_DRESSED }, gv_crotal_stone: { ...ROCK_DRESSED, lichen: 0.4 },
+  wd_milestone: { ...ROCK_DRESSED }, wd_boundstone: { ...ROCK_DRESSED }, wd_coffinstone: { ...ROCK_DRESSED }, wd_devil_stone: { ...ROCK_DRESSED },
+  em_ring_stone: { ...ROCK_DRESSED }, em_sin_stone: { ...ROCK_DRESSED }, em_watch_stone: { ...ROCK_DRESSED },
+  tw_headstone: { ...ROCK_DRESSED }, prop_grave_a: { ...ROCK_DRESSED }, prop_grave_b: { ...ROCK_DRESSED }, rd_setts: { ...ROCK_DRESSED, moss: 0.5 }, rd_kerb: { ...ROCK_DRESSED, moss: 0.6 },
+};
 const KK = (() => {
   // Heavy 3D assets (the ~19MB of KayKit models) can load from a CDN / Render
   // Static Site instead of the game's web service, to keep first-load egress
@@ -708,6 +723,8 @@ const KK = (() => {
   const keyPromises = {}; // key → Promise (memoized; resolves on hit OR miss)
 
   const store = (key) => (gltf) => {
+    // the stones are aged as they come in, once, so every copy of them is (client/rock-weather.js)
+    if (ROCK_WEATHER[key]) { try { weatherRock(THREE, gltf.scene, ROCK_WEATHER[key], rockLike); } catch (e) { console.warn('rock weather', key, e); } }
     const box = new THREE.Box3().setFromObject(gltf.scene);
     models[key] = { scene: gltf.scene, animations: gltf.animations || [],
       bare: !(gltf.animations && gltf.animations.length), // shipped with no clips of its own: a borrower (see borrowAnims)
@@ -22267,6 +22284,8 @@ if (location.search.includes('testdrive=1')) {
     // what the last frame cost: draw calls and triangles (to measure a change to a scene)
     draws() { const i = renderer.info; i.autoReset = false; i.reset(); return new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => { const r = { calls: i.render.calls, tris: i.render.triangles }; i.autoReset = true; res(r); }))); },
     // everything solid in this scene that nothing holds up (client/float-audit.js)
+    // the aged stones in view: what each is, how big, and whether its shape came through whole (client/rock-weather.js)
+    rocks() { const out = []; const b = new THREE.Box3(); activeScene.traverse((o) => { const a = o.isMesh && o.geometry && o.geometry.attributes.rockH; if (!a) return; let nm = ''; for (let p = o; p && !nm; p = p.parent) nm = p.name; const pa = o.geometry.attributes.position; let bad = 0; for (let i = 0; i < pa.count; i++) if (!Number.isFinite(pa.getX(i) + pa.getY(i) + pa.getZ(i))) bad++; b.setFromObject(o); const mt = o.material; out.push([nm || o.geometry.type, Math.round(b.max.x - b.min.x), Math.round(b.max.y - b.min.y), Math.round(b.max.z - b.min.z), pa.count, bad, o.isInstancedMesh ? o.count : 1, mt && mt.type, !!(mt && mt.userData.rockWeather), !!(mt && mt.map), mt && mt.color && mt.color.getHexString()]); }); return out; },
     floaters(opts) { const r = me && me.room; return findFloaters(THREE, activeScene, (x, z) => getFloorHeight(r, x, z), { room: !(activeScene === outdoorScene || activeScene === wildsScene || activeScene === emberScene), ...(opts || {}) }); },
     bodyShown() { const v = visuals[myId]; return !!(v && v.inScene && v.group && v.group.visible && v.group.parent === activeScene); },
     wading() { return wadingNow(); },

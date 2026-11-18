@@ -11,6 +11,7 @@
 // the ring stays countable, one object per stone. Without them, the plain
 // low-poly granite below is drawn instead. Collision is the same either way.
 // ---------------------------------------------------------------------------
+import { weatherRock } from './rock-weather.js';
 const COUNTLESS_GREYS = [0x8a877c, 0x7d7a70, 0x96928a, 0x85826f];
 const COUNTLESS_STANDING_KEYS = ['stone_pillar', 'rock3'];
 
@@ -65,6 +66,7 @@ export function makeCountlessRing(geo, walls, KK) {
       if (kind === 'f') { m = new THREE.Mesh(new THREE.BoxGeometry(54, 12, 18), mat); m.position.set(x, 6, z); m.rotation.y = -a + 0.3; }
       else if (kind === 'l') { m = new THREE.Mesh(new THREE.DodecahedronGeometry(8, 0), mat); m.scale.set(1.2, 0.8, 1); m.position.set(x, 5, z); }
       else { m = new THREE.Mesh(new THREE.BoxGeometry(18 + (k % 3) * 3, h, 13), mat); m.position.set(x, h / 2 - 2, z); m.rotation.y = -a + Math.PI / 2 + ((k % 5) - 2) * 0.08; m.rotation.z = ((k % 4) - 1.5) * 0.04; }
+      weatherRock(THREE, m, { cut: kind === 'l' ? 1 : 0, split: 1, seed: k + 1 });   // weathered like the KayKit stones (client/rock-weather.js)
     }
     m.userData.countlessStone = kind;
     g.add(m);

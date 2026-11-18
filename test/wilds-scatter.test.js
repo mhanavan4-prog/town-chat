@@ -5,7 +5,7 @@ let pass = 0, fail = 0;
 function check(name, cond, extra) { if (cond) { pass++; console.log('PASS -', name); } else { fail++; console.log('FAIL -', name, extra != null ? `(${JSON.stringify(extra)})` : ''); } }
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const raw = read('client/wilds-ground.js'), scene = read('client/wilds-scene.js'), main = read('client/main.js');
-const src = raw.replace(/export const /g, 'const ').replace(/export function /g, 'function ');
+const src = raw.replace(/^import .*$/mg, '').replace(/export const /g, 'const ').replace(/export function /g, 'function ');
 const G = new Function(src + '\nreturn { makeGroundNoise, makeGroundMask, mixAt, SCATTER_KINDS, WILDS_SCATTER, scatterRoom, WG_C };')();
 
 // how often a kind stands on ground like this, over many cells
