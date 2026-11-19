@@ -2,7 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
-import createWildHuntView, { HUNT_WAKE_NAMES, huntNoteFor } from './wild-hunt.js';
+import createWildHuntView, { HUNT_WAKE_NAMES, huntWhisperFor } from './wild-hunt.js';
 import { strangeWords, selfCheckReport } from './self-check.js';
 import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap, relabelKeys } from './key-remap.js';
 import createTradePanel from './trade-panel.js';
@@ -11581,16 +11581,17 @@ for (const [id, k] of [['besomUp', 'up'], ['besomDown', 'down']]) {
 // Off it in the air (knocked off, or got off up high), she comes down.
 // The Wild Hunt as it is seen (client/wild-hunt.js): the horns in the Wilds' night sky, and a rider's wake.
 const huntView = createWildHuntView({ THREE, getScene: () => (me && me.room === 'wilds' && activeScene === wildsScene ? wildsScene : null), getMe: () => me, getAlt: () => besomRide.alt, isRiding: () => besomRide.on, glowTexture: () => makeGlowTexture() });
-const HUNT_SFX_STAND_IN = { hunt_horn: 'summon', hunt_done: 'quest_fanfare' };
+// until the whispers are recorded: the game's own short whisper, and a spectral swell for the last horn (never a horn)
+const HUNT_SFX_STAND_IN = { hunt_horn: 'summon', hunt_whisper: 'whispered_secret', hunt_chorus: 'spirit_walk' };
 function askHunt() { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'hunt' })); }
 function onHuntState(msg) {
   huntView.onState(msg);
-  // What is heard: a soft note that climbs with each horn ridden through, the many horns at the last one, and
-  // one far horn, kept low, when the Hunt begins at nightfall.
+  // What is heard: whispering at each horn ridden through, more voices joining as she goes (client/wild-hunt.js),
+  // the whole host whispering at the last one, and one far horn, kept low, when the Hunt begins at nightfall.
   if (msg.sfx && typeof playSfx === 'function') {
     const have = (id) => typeof sfxAvailable === 'function' && sfxAvailable(id);
-    if (msg.finished) playSfx(have('hunt_done') ? 'hunt_done' : HUNT_SFX_STAND_IN.hunt_done, 0.7);
-    else if (msg.passed) { const n = huntNoteFor(msg.passed, msg.total); if (have('hunt_note')) playSfx('hunt_note', n.vol, n.rate); else playSfx(have('hunt_horn') ? 'hunt_horn' : HUNT_SFX_STAND_IN.hunt_horn, n.vol * 0.45, n.rate); }
+    if (msg.finished) { if (have('hunt_chorus')) playSfx('hunt_chorus', 0.7); else { playSfx(HUNT_SFX_STAND_IN.hunt_chorus, 0.6); setTimeout(() => playSfx(HUNT_SFX_STAND_IN.hunt_whisper, 0.5), 250); } }
+    else if (msg.passed) { const id = have('hunt_whisper') ? 'hunt_whisper' : HUNT_SFX_STAND_IN.hunt_whisper; for (const v of huntWhisperFor(msg.passed, msg.total)) setTimeout(() => playSfx(id, v.vol, v.rate), v.delay); }
     else playSfx(have('hunt_horn') ? 'hunt_horn' : HUNT_SFX_STAND_IN.hunt_horn, 0.4);
   }
   if (msg.message) setUnlockToast(msg.message, { always: true, level: 'important' });
