@@ -112,22 +112,26 @@ function world() {
   check('the company has its lore, and says what is the game\'s', COMPANY_LORE.tier === 'record' && /906/.test(COMPANY_LORE.source) && /the game's/.test(COMPANY_LORE.note) && TITLES[COMPANY.title]);
 }
 {
-  // What is heard riding the course: a soft note that climbs, then the last horn's own sound.
+  // What is heard riding the course: whispering, more voices joining, then the whole host at the last horn.
   const src = fs.readFileSync(path.join(__dirname, '..', 'client/wild-hunt.js'), 'utf8');
-  const body = src.slice(src.indexOf('const HUNT_SCALE'), src.indexOf('export default function'));
-  const { huntNoteFor } = new Function(body + '\nreturn { huntNoteFor };')();
-  const notes = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => huntNoteFor(n, 9));
-  check('each horn sounds higher than the last', notes.every((n, i) => i === 0 || n.rate > notes[i - 1].rate) && notes[0].rate === 1);
-  check('and a little louder, and never loud', notes.every((n, i) => i === 0 || n.vol > notes[i - 1].vol) && notes[0].vol <= 0.35 && notes[7].vol <= 0.65);
-  check('it stays within what a recording can be bent to', notes.every((n) => n.rate >= 1 && n.rate <= 2.6));
+  const body = src.slice(src.indexOf('function huntWhisperFor'), src.indexOf('export default function'));
+  const { huntWhisperFor } = new Function(body + '\nreturn { huntWhisperFor };')();
+  const rides = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => huntWhisperFor(n, 9));
+  check('one whisper at the first horn, and more voices join as she goes (never more than three)', rides[0].length === 1 && rides.every((r, i) => i === 0 || r.length >= rides[i - 1].length) && rides[3].length === 2 && rides[7].length === 3);
+  check('a little louder each time, and never loud', rides.every((r, i) => i === 0 || r[0].vol > rides[i - 1][0].vol) && rides[0][0].vol <= 0.35 && rides[7][0].vol <= 0.6);
+  check('nothing is bent into a climb: a voice played fast squeaks, as a horn honked', rides.every((r) => r.every((v) => v.rate >= 0.96 && v.rate <= 1.04)) && !/HUNT_SCALE|huntNoteFor/.test(src));
+  check('the voices come a breath apart, not all at once', rides[7].every((v, i) => i === 0 ? v.delay === 0 : v.delay > rides[7][i - 1].delay));
+  check('the same horn whispers the same way every time', JSON.stringify(huntWhisperFor(5, 9)) === JSON.stringify(rides[4]));
   const main = fs.readFileSync(path.join(__dirname, '..', 'client/main.js'), 'utf8'), audio = fs.readFileSync(path.join(__dirname, '..', 'client/audio.js'), 'utf8');
-  check('the last horn has its own sound, and the nightfall horn is kept low', /if \(msg\.finished\) playSfx\(have\('hunt_done'\)/.test(main) && /HUNT_SFX_STAND_IN\.hunt_horn, 0\.4\);/.test(main));
+  check('no horn is heard riding through: whispers, with the game\'s own whisper standing in until they are recorded', /for \(const v of huntWhisperFor\(msg\.passed, msg\.total\)\) setTimeout\(\(\) => playSfx\(id, v\.vol, v\.rate\), v\.delay\);/.test(main) && /hunt_whisper: 'whispered_secret', hunt_chorus: 'spirit_walk'/.test(main) && !/hunt_note|quest_fanfare/.test(main.slice(main.indexOf('function onHuntState'), main.indexOf('function renderHuntModal'))));
+  check('the last horn is the whole host whispering, and the nightfall horn is kept low', /if \(msg\.finished\) \{ if \(have\('hunt_chorus'\)\) playSfx\('hunt_chorus', 0\.7\);/.test(main) && /HUNT_SFX_STAND_IN\.hunt_horn, 0\.4\);/.test(main));
   check('a recorded sound can be played higher', /function playSfx\(name, vol, rate\)/.test(audio) && /src\.playbackRate\.value = Math\.max\(0\.5, Math\.min\(2, rate\)\)/.test(audio));
   const man = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools/audio/sfx.manifest.json'), 'utf8'));
   check('the line saying she has ridden is put away after a while', /if \(msg && msg\.finished\) doneShownUntil = performance\.now\(\) \+ 8000;/.test(src) && /state\.done && now > doneShownUntil \? ''/.test(src));
   check('hovering in one place leaves no wake', /if \(!w\.at \|\| tmp\.distanceTo\(w\.at\) > 14\)/.test(src));
   check('its lights use the game\'s glow texture, never one drawn on a canvas (Safari drew that as coloured squares)', !/CanvasTexture|createElement\('canvas'\)/.test(src) && /const glowTex = \(\) => glowTexture\(\);/.test(src) && /glowTexture: \(\) => makeGlowTexture\(\)/.test(main));
-  check('the soft note has a prompt', man.sfx.some((x) => x.id === 'hunt_note' && /soft/.test(x.prompt)));
+  check('the whisper and the host have prompts, wordless and with no horn in them', ['hunt_whisper', 'hunt_chorus'].every((id) => man.sfx.some((x) => x.id === id && /wordless/.test(x.prompt) && /no horn/i.test(x.prompt))));
+  check('the lore says what is the record and what is the game\'s', /Record: the Wild Hunt is a host of the dead/.test(src) && /is the game's/.test(src));
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

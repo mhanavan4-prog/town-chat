@@ -20,17 +20,23 @@ function huntLine(state, me, alt, riding) {
   return `📯 Horn ${state.next + 1} of ${state.total} · ${huntWayWords(Math.hypot(r.x - me.x, r.y - me.y), r.alt - alt, state.reach || 90)}`;
 }
 
-// The sound of a horn ridden through: one soft note that climbs a step with
-// each horn, so the ride is heard building to the last. A five-note scale
-// (no half-steps, so any two in a row sit well together), rising an octave and
-// a third over the eight horns before the last; a little louder each time, and
-// never loud. The last horn has its own sound.
-const HUNT_SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
-function huntNoteFor(passed, total) {
-  const n = Math.max(1, Math.min((total || 9) - 1, passed || 1));
-  const step = HUNT_SCALE[Math.min(HUNT_SCALE.length - 1, n - 1)];
-  const along = (total || 9) > 2 ? (n - 1) / ((total || 9) - 2) : 0;
-  return { rate: Math.pow(2, step / 12), vol: Math.round((0.32 + 0.3 * along) * 100) / 100 };
+// The sound of a horn ridden through: whispering, not a note. A horn's recording played faster to make it climb
+// honked like a clown's; a voice played faster squeaks, so nothing here is bent. The ride builds instead by
+// company: one whisper at the first horn, and more voices joining in as she goes (two from the fourth, three from
+// the seventh), each a breath behind the last and a shade apart, a little louder each time and never loud. The last
+// horn has its own sound: the whole host whispering at once.
+// Record: the Wild Hunt is a host of the dead riding the night sky (Grimm gathered it; in Britain it is Herne's or
+// Wild Edric's, and the Gabriel Hounds). That it whispers as it gathers round you is the game's.
+function huntWhisperFor(passed, total) {
+  const T = total || 9, n = Math.max(1, Math.min(T - 1, passed || 1));
+  const along = T > 2 ? (n - 1) / (T - 2) : 0;
+  const voices = 1 + Math.min(2, Math.floor((n - 1) / 3));
+  const out = [];
+  for (let v = 0; v < voices; v++) {
+    const h = Math.sin(n * 12.9898 + v * 78.233) * 43758.5453, f = h - Math.floor(h);
+    out.push({ delay: v === 0 ? 0 : 120 + v * 170 + Math.round(f * 90), rate: Math.round((0.96 + f * 0.08) * 1000) / 1000, vol: Math.round((0.3 + 0.28 * along) * (v === 0 ? 1 : 0.7) * 100) / 100 });
+  }
+  return out;
 }
 
 export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isRiding, glowTexture }) {
@@ -127,4 +133,4 @@ export default function createWildHuntView({ THREE, getScene, getMe, getAlt, isR
   return { onState, step, wake, getState: () => state, clear };
 }
 
-export { HUNT_WAKE_COLORS, HUNT_WAKE_NAMES, huntLine, huntWayWords, huntNoteFor };
+export { HUNT_WAKE_COLORS, HUNT_WAKE_NAMES, huntLine, huntWayWords, huntWhisperFor };
