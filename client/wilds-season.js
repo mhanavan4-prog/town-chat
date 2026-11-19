@@ -18,8 +18,8 @@ export const WILDS_SEASON = {
   beltane:    { ground: 0xf0ffe0, frost: 0x081404, leaf: [0x98e868, 0.2],  leafGlow: 0x040c02, air: 'petals', airCol: 0xffffff, airN: 70,  note: 'The may is out, white on every hedge.' },
   litha:      { ground: 0xffffff, frost: 0x000000, leaf: [0xffffff, 0],    leafGlow: 0x000000, air: 'motes',  airCol: 0xffe9a0, airN: 60,  note: 'High summer. The air is full of seed and small wings.' },
   lughnasadh: { ground: 0xf4e4a8, frost: 0x2a2408, leaf: [0xe0d060, 0.5],  leafGlow: 0x181400, air: 'motes',  airCol: 0xf0d070, airN: 80,  note: 'The grass has gone to gold, and chaff rides the wind.' },
-  mabon:      { ground: 0xf0c890, frost: 0x301a06, leaf: [0xffa040, 0.9],  leafGlow: 0x4a1a00, air: 'leaves', airCol: 0xe08a30, airN: 130, note: 'The leaf has turned, and is coming down.' },
-  samhain:    { ground: 0xc4a880, frost: 0x1c1408, leaf: [0xb07840, 0.9],  leafGlow: 0x2a1400, air: 'leaves', airCol: 0x9a6c38, airN: 60,  note: 'The year is dying back. The last leaves are brown on the branch.' },
+  mabon:      { ground: 0xf0c890, frost: 0x301a06, leaf: [0xffa040, 0.9],  leafGlow: 0x4a1a00, air: 'leaves', airCol: 0xeab070, airN: 130, note: 'The leaf has turned, and is coming down.' },
+  samhain:    { ground: 0xc4a880, frost: 0x1c1408, leaf: [0xb07840, 0.9],  leafGlow: 0x2a1400, air: 'leaves', airCol: 0xd2b48a, airN: 60,  note: 'The year is dying back. The last leaves are brown on the branch.' },
   yule:       { ground: 0xe6ecf4, frost: 0x4a5560, leaf: [0xc0d0d8, 0.6],  leafGlow: 0x4a5458, air: 'snow',   airCol: 0xffffff, airN: 200, note: 'Snow lies over the Wilds, and more is falling.' },
 };
 export function wildsSeasonFor(key) { return (key && WILDS_SEASON[key]) || null; }
@@ -39,7 +39,10 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
   const BOX = { w: 900, h: 420, d: 900 };
   // small: a point close to the eye is drawn large, and a leaf the size of a plate is not a leaf
   const NEAR = 110;
-  const FLAKE_SIZE = { motes: 3, snow: 5, petals: 5, leaves: 6 };
+  const FLAKE_SIZE = { motes: 2.2, snow: 3.5, petals: 3, leaves: 3 };
+  // The most pixels across one can be, however close it comes: a leaf drifting past your face is a fleck, not a
+  // brown blot over the view (as the fireflies were capped). Snow may be a little bigger than the rest.
+  const FLAKE_MAX_PX = { motes: 4, snow: 7, petals: 5, leaves: 5 };
   // One soft round flake for whatever is in the air, made from numbers, not
   // drawn on a canvas: Safari salts canvas pixels with noise (a privacy
   // measure), which turned every flake into a speckled biscuit.
@@ -108,7 +111,10 @@ export default function createWildsSeason({ THREE, getWildsScene, getActiveScene
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    const mat = new THREE.PointsMaterial({ color: d.airCol, map: flakeTexture(), size: FLAKE_SIZE[d.air] || 5, transparent: true, opacity: d.air === 'motes' ? 0.7 : 0.9, depthWrite: false, fog: true });
+    const mat = new THREE.PointsMaterial({ color: d.airCol, map: flakeTexture(), size: FLAKE_SIZE[d.air] || 5, transparent: true, opacity: d.air === 'motes' ? 0.6 : d.air === 'snow' ? 0.9 : 0.75, depthWrite: false, fog: true });
+    const maxPx = (FLAKE_MAX_PX[d.air] || 5).toFixed(1);
+    mat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.0, ' + maxPx + ');'); };
+    mat.customProgramCacheKey = () => 'wildsAir-' + maxPx;
     const points = new THREE.Points(geo, mat);
     points.name = 'wildsSeasonAir'; points.frustumCulled = false;
     scene.add(points);
