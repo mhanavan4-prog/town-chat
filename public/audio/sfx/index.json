@@ -273,6 +273,12 @@
       "v": "ddf55dbb"
     }
   ],
+  "curlew_call": [
+    {
+      "f": "curlew_call.mp3",
+      "v": "f058df1a"
+    }
+  ],
   "curse": [
     {
       "f": "curse.mp3",
@@ -381,6 +387,12 @@
       "v": "37c196ff"
     }
   ],
+  "fieldfare_flock": [
+    {
+      "f": "fieldfare_flock.mp3",
+      "v": "1e89ef8e"
+    }
+  ],
   "fireball": [
     {
       "f": "fireball.mp3",
@@ -457,6 +469,12 @@
     {
       "f": "graveyard_chill.mp3",
       "v": "e731a852"
+    }
+  ],
+  "grouse_call": [
+    {
+      "f": "grouse_call.mp3",
+      "v": "0ccd4967"
     }
   ],
   "guardians_pledge": [
@@ -699,6 +717,12 @@
       "v": "e8a904c5"
     }
   ],
+  "midnight_bell": [
+    {
+      "f": "midnight_bell.mp3",
+      "v": "e6db6d36"
+    }
+  ],
   "monstrous_form": [
     {
       "f": "monstrous_form.mp3",
@@ -717,6 +741,18 @@
       "v": "6d54d1bd"
     }
   ],
+  "moor_day": [
+    {
+      "f": "moor_day.mp3",
+      "v": "f50f1792"
+    }
+  ],
+  "moor_night": [
+    {
+      "f": "moor_night.mp3",
+      "v": "d964e4ff"
+    }
+  ],
   "mushroom_pick": [
     {
       "f": "mushroom_pick.mp3",
@@ -727,6 +763,12 @@
     {
       "f": "needfire_kindle.mp3",
       "v": "7770ab08"
+    }
+  ],
+  "nightjar_churr": [
+    {
+      "f": "nightjar_churr.mp3",
+      "v": "83ced47d"
     }
   ],
   "nightwatch_cloak": [
@@ -849,6 +891,12 @@
       "v": "1d3c02db"
     }
   ],
+  "raven_croak": [
+    {
+      "f": "raven_croak.mp3",
+      "v": "b7e651f8"
+    }
+  ],
   "ravens_cloak": [
     {
       "f": "ravens_cloak.mp3",
@@ -943,6 +991,12 @@
       "v": "ef7f6523"
     }
   ],
+  "sheep_bell": [
+    {
+      "f": "sheep_bell.mp3",
+      "v": "51f25a33"
+    }
+  ],
   "shield_bash": [
     {
       "f": "shield_bash.mp3",
@@ -965,6 +1019,12 @@
     {
       "f": "siphon.mp3",
       "v": "1b8bee34"
+    }
+  ],
+  "skylark_song": [
+    {
+      "f": "skylark_song.mp3",
+      "v": "f190a24c"
     }
   ],
   "slash": [
@@ -1065,6 +1125,12 @@
       "v": "d3198d65"
     }
   ],
+  "tawny_owl": [
+    {
+      "f": "tawny_owl.mp3",
+      "v": "1561e76c"
+    }
+  ],
   "terrifying_roar": [
     {
       "f": "terrifying_roar.mp3",
@@ -1115,6 +1181,12 @@
     {
       "f": "unwitch.mp3",
       "v": "39ce6c53"
+    }
+  ],
+  "vixen_scream": [
+    {
+      "f": "vixen_scream.mp3",
+      "v": "1c2349a5"
     }
   ],
   "wade": [
