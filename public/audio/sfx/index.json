@@ -537,6 +537,12 @@
       "v": "6fb80512"
     }
   ],
+  "hunt_chorus": [
+    {
+      "f": "hunt_chorus.mp3",
+      "v": "b7ac8303"
+    }
+  ],
   "hunt_done": [
     {
       "f": "hunt_done.mp3",
@@ -553,6 +559,12 @@
     {
       "f": "hunt_note.mp3",
       "v": "282d7200"
+    }
+  ],
+  "hunt_whisper": [
+    {
+      "f": "hunt_whisper.mp3",
+      "v": "daa25e37"
     }
   ],
   "hunters_read": [
