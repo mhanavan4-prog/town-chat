@@ -171,12 +171,12 @@ function preloadSfx(ids) {
 // Play a recorded SFX for `name` if one is loaded; returns true if it did. Picks
 // a random variant (so repeats — footsteps, hits — don't sound identical) and
 // routes through the clean file bus with an optional per-id trim.
-function playSfxFile(name, vol, rate) {
+function playSfxFile(name, vol, rate, pan) {
   const bufs = sfxBuffers[name];
   if ((!bufs || !bufs.length) && sfxIndex && sfxIndex[name] && audioCtx) {
     // Not decoded yet: fetch it now and play it on arrival if that's prompt.
     const asked = performance.now();
-    loadSfxId(name).then((ok) => { if (ok && performance.now() - asked <= SFX_LATE_MS && !sfxMuted) playSfxFile(name, vol, rate); });
+    loadSfxId(name).then((ok) => { if (ok && performance.now() - asked <= SFX_LATE_MS && !sfxMuted) playSfxFile(name, vol, rate, pan); });
     return true; // claimed — don't also fire the synth fallback for this id
   }
   if (!bufs || !bufs.length || !sfxFileGain || !audioCtx) return false;
@@ -201,6 +201,11 @@ function playSfxFile(name, vol, rate) {
     if (mul !== 1) {
       const g = audioCtx.createGain(); g.gain.value = mul;
       node.connect(g); node = g;
+    }
+    // pan: from one side or the other (a call far off on the moor, client/wilds-sounds.js)
+    if (pan && audioCtx.createStereoPanner) {
+      const p = audioCtx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan));
+      node.connect(p); node = p;
     }
     node.connect(sfxFileGain);
     src.start(audioCtx.currentTime);
@@ -503,7 +508,7 @@ function sfxEcho(freq, t, dur, vol, type, freqEnd) {
 }
 // The spooky songbook of one-shots — minor intervals, tritones, bells and
 // airy noise. Every game moment maps to one call: playSfx('summon'), etc.
-function playSfx(name, vol, rate) {
+function playSfx(name, vol, rate, pan) {
   // the last few sounds asked for, for the test harness to read back (cheap: a short ring of names)
   try { const l = (window.__sfxHeard = window.__sfxHeard || []); l.push(name); if (l.length > 20) l.shift(); } catch (_) {}
   // every ask is counted, muted or not: client/sound-floor.js looks at this to see whether an action was silent
@@ -515,7 +520,7 @@ function playSfx(name, vol, rate) {
   // Prefer a recorded sound for this id; fall back to the synth voices below.
   // vol (0..1) attenuates recorded sounds — used for distance falloff on
   // remote players' actions; the synth fallback plays at its own level.
-  if (playSfxFile(name, vol, rate)) return;
+  if (playSfxFile(name, vol, rate, pan)) return;
   const t = audioCtx.currentTime;
   switch (name) {
     // ── Combat ──
