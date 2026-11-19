@@ -277,8 +277,8 @@
  "category": "wilds",
  "existing": false,
  "new": true,
- "duration_seconds": 2.6,
- "prompt": "A large beacon fire roaring up on a hill and other beacons answering far away: a deep whoomph and heavy crackle close by, then a hunting horn blown once in the distance and a second, fainter horn answering further off across open country. Triumphant but wild. No music, no voice."
+ "duration_seconds": 3.0,
+ "prompt": "A witch's ring of hill fires closing at night: a deep soft whoomph as the last fire takes, then a low eerie wind rising across the moor, a distant chorus of breathy wordless women's voices humming one long dark minor note, dry leaves skittering, and a single small iron bell tolling once, far off, as it all fades into a hush. Spooky, hushed, old and uncanny, not triumphant. No horns, no brass, no trumpet, no music melody, no words."
 },
 {
  "id": "cairn_open",
