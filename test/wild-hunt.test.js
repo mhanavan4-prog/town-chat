@@ -125,7 +125,7 @@ function world() {
   const main = fs.readFileSync(path.join(__dirname, '..', 'client/main.js'), 'utf8'), audio = fs.readFileSync(path.join(__dirname, '..', 'client/audio.js'), 'utf8');
   check('no horn is heard riding through: whispers, with the game\'s own whisper standing in until they are recorded', /for \(const v of huntWhisperFor\(msg\.passed, msg\.total\)\) setTimeout\(\(\) => playSfx\(id, v\.vol, v\.rate\), v\.delay\);/.test(main) && /hunt_whisper: 'whispered_secret', hunt_chorus: 'spirit_walk'/.test(main) && !/hunt_note|quest_fanfare/.test(main.slice(main.indexOf('function onHuntState'), main.indexOf('function renderHuntModal'))));
   check('the last horn is the whole host whispering, and the nightfall horn is kept low', /if \(msg\.finished\) \{ if \(have\('hunt_chorus'\)\) playSfx\('hunt_chorus', 0\.7\);/.test(main) && /HUNT_SFX_STAND_IN\.hunt_horn, 0\.4\);/.test(main));
-  check('a recorded sound can be played higher', /function playSfx\(name, vol, rate\)/.test(audio) && /src\.playbackRate\.value = Math\.max\(0\.5, Math\.min\(2, rate\)\)/.test(audio));
+  check('a recorded sound can be played higher', /function playSfx\(name, vol, rate(, pan)?\)/.test(audio) && /src\.playbackRate\.value = Math\.max\(0\.5, Math\.min\(2, rate\)\)/.test(audio));
   const man = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools/audio/sfx.manifest.json'), 'utf8'));
   check('the line saying she has ridden is put away after a while', /if \(msg && msg\.finished\) doneShownUntil = performance\.now\(\) \+ 8000;/.test(src) && /state\.done && now > doneShownUntil \? ''/.test(src));
   check('hovering in one place leaves no wake', /if \(!w\.at \|\| tmp\.distanceTo\(w\.at\) > 14\)/.test(src));

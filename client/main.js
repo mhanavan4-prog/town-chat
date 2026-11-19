@@ -2,6 +2,7 @@ import createMacrosPanel, { withMacros, isMacroId, macroReady } from './macros-p
 import { watchCoins } from './gold-coin.js';
 import { createPressOnce } from './key-once.js';
 import { findFloaters } from './float-audit.js';
+import createWildsSoundscape from './wilds-sounds.js';
 import createWildHuntView, { HUNT_WAKE_NAMES, huntWhisperFor } from './wild-hunt.js';
 import { strangeWords, selfCheckReport } from './self-check.js';
 import { KEY_ACTIONS, keyLabel, cleanBinds, boundKey, rebind, installKeyRemap, relabelKeys } from './key-remap.js';
@@ -21430,6 +21431,16 @@ function wadingNow() {
 }
 // The sound of the water running, louder as you come near it and gone a little way off (client/wilds-water.js). One
 // loop ('beck_run'); until it is recorded there is nothing to hear, and nothing breaks.
+// The rest of the moor: a bed of wind for the day and for the night, and a creature calling now and then
+// (client/wilds-sounds.js). Nothing is heard of a sound until it is recorded.
+const wildsSoundscape = createWildsSoundscape({
+  inWilds: () => activeScene === wildsScene && !!me && !me.isDead && me.room === 'wilds',
+  getDayNight: () => getDayNightState(),
+  getSeason: () => (TEST_SEASON || (calendarState && calendarState.season && calendarState.season.key) || null),
+  getAlt: () => (besomRide && besomRide.on ? besomRide.alt || 0 : 0),
+  have: (id) => typeof sfxAvailable === 'function' && sfxAvailable(id),
+  playSfx: (id, vol, rate, pan) => playSfx(id, vol, rate, pan), startSfxLoop, setSfxLoopVol, stopSfxLoop,
+});
 let _beckHeard = false, _beckCheckAt = 0;
 function tickBeckSound(now) {
   if (now < _beckCheckAt) return;
@@ -21842,6 +21853,7 @@ function update(dt) {
   updateFireballs();
   tickPracticeScarecrow(performance.now());
   tickBeckSound(performance.now());
+  wildsSoundscape.tick(performance.now());
   updateGroundTrapVisuals();
   updateHotbarCooldown();
   updateWerewolfNpc(dt);
