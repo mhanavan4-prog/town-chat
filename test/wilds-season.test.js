@@ -44,7 +44,9 @@ let active = scene, season = 'mabon', quality = 'high';
   check('what falls is in the air, as many as the season has at full quality', scene.added && scene.added.name === 'wildsSeasonAir' && scene.added.geometry.attributes.position.array.length === S.mabon.airN * 3 && scene.added.material.color === S.mabon.airCol);
   const tex = scene.added.material.map, src = read('client/wilds-season.js');
   check('the flake is made from numbers, never drawn on a canvas (Safari salts canvas pixels with noise), clear at the rim and solid in the middle', tex && tex.data.length === 32 * 32 * 4 && tex.data[3] === 0 && tex.data[(16 * 32 + 16) * 4 + 3] === 255 && !/createElement\('canvas'\)|CanvasTexture/.test(src));
-  check('what falls is small: a leaf is not the size of a plate', scene.added.material.size <= 6 && S.yule && /FLAKE_SIZE = \{ motes: 3, snow: 5, petals: 5, leaves: 6 \}/.test(src));
+  check('what falls is small: a leaf is not the size of a plate', scene.added.material.size <= 3.5 && S.yule && /FLAKE_SIZE = \{ motes: 2\.2, snow: 3\.5, petals: 3, leaves: 3 \}/.test(src));
+  check('and however near it drifts, it is a fleck on the screen, never a blot (a cap in pixels, as the fireflies have)', /FLAKE_MAX_PX = \{ motes: 4, snow: 7, petals: 5, leaves: 5 \}/.test(src) && /gl_PointSize = clamp\(gl_PointSize, 1\.0, ' \+ maxPx \+ '\);/.test(src) && typeof scene.added.material.onBeforeCompile === 'function');
+  check('the autumn leaves are pale, not dark brown blots against the sky', !/airCol: 0x9a6c38/.test(src) && /samhain:[^\n]*airCol: 0xd2b48a/.test(src));
   const ys0 = Array.from(scene.added.geometry.attributes.position.array).filter((_, i) => i % 3 === 1);
   ws.update(0.1);
   // nearly all of it is lower than it was (one that reached the ground has come round again to the top)
