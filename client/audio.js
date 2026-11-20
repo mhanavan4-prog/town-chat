@@ -56,6 +56,8 @@ sfxMuted = allMuted;
 const TAVERN_SCALE = [196.00, 220.00, 246.94, 293.66, 329.63, 392.00]; // G3 pentatonic-ish run
 const TAVERN_MELODY = [0, 2, 4, 2, 1, 3, 5, 3, 0, 4, 2, 0, 1, 3, 2, 0];
 
+// Asleep: anything but playing. 'suspended' everywhere; Safari also has 'interrupted'.
+function audioAsleep() { return !!audioCtx && audioCtx.state !== 'running' && audioCtx.state !== 'closed'; }
 function ensureAudio() {
   if (audioCtx) return;
   try {
@@ -385,7 +387,7 @@ function startMusic(trackId, opts) {
   if (roomTune && musicChoice !== 'off') return; // their playlist outranks the room's
   ensureAudio();
   if (!audioCtx) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioAsleep()) audioCtx.resume();
   const id = trackId || 'ember_jig';
   if (musicPlaying && musicTrackId === id) return;
   clearTimeout(musicTimer);
@@ -449,17 +451,21 @@ function cycleMusic() {
 // saved track. Later taps keep nudging it in case the browser re-suspends.
 function unlockAudio() {
   ensureAudio();
-  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+  if (audioCtx && audioAsleep()) { try { audioCtx.resume(); } catch (e) {} }
 }
 document.addEventListener('pointerdown', function firstGesture() {
   document.removeEventListener('pointerdown', firstGesture);
   unlockAudio();
   if (musicChoice !== 'off') startMusic(musicChoice);
 }, { once: true });
-// Safety net for browsers that re-suspend after focus loss / tab switches.
-document.addEventListener('pointerdown', () => {
-  if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
-});
+// Safety net for browsers that re-suspend after focus loss / tab switches. Safari also parks a context as
+// 'interrupted' (the Mac slept, another tab or app took the sound) and does not always give it back by itself,
+// so any state but running is woken; and a key counts as much as a click (most play is on the keyboard), and so
+// does coming back to the tab.
+function wakeAudio() { if (audioCtx && audioAsleep()) { try { const p = audioCtx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {} } }
+document.addEventListener('pointerdown', wakeAudio);
+document.addEventListener('keydown', wakeAudio);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) wakeAudio(); });
 
 function setMusicMuted(muted) {
   musicMuted = muted;
@@ -516,7 +522,7 @@ function playSfx(name, vol, rate, pan) {
   if (sfxMuted) return;
   ensureAudio();
   if (!audioCtx || !sfxGain) return;
-  if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (e) {} }
+  if (audioAsleep()) { try { audioCtx.resume(); } catch (e) {} }
   // Prefer a recorded sound for this id; fall back to the synth voices below.
   // vol (0..1) attenuates recorded sounds — used for distance falloff on
   // remote players' actions; the synth fallback plays at its own level.
