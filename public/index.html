@@ -3743,8 +3743,9 @@
     transform:none; flex:0 0 auto;
   }
   #hudLane > .tagFaded { display:none; }   /* a faded tag gives its place up */
-  #topStack { top:max(100px, calc(var(--hudLaneBottom, 0px) + 8px)); }
-  body.touchMode #topStack { top:max(max(96px, calc(env(safe-area-inset-top) + 88px)), calc(var(--hudLaneBottom, 0px) + 8px)); }
+  /* ...and below a quest or story tracker that the lane would cross (a phone): client/hud-lane.js, --hudSideBottom */
+  #topStack { top:max(100px, calc(var(--hudLaneBottom, 0px) + 8px), calc(var(--hudSideBottom, 0px) + 8px)); }
+  body.touchMode #topStack { top:max(max(96px, calc(env(safe-area-inset-top) + 88px)), calc(var(--hudLaneBottom, 0px) + 8px), calc(var(--hudSideBottom, 0px) + 8px)); }
   #attackHitNotification { top:max(72px, calc(var(--hudLaneBottom, 0px) + 8px)); }
   /* On a phone the middle of the screen is where you are looking, so the line
      is docked at the left edge under the XP strip instead (above ground it

@@ -40,9 +40,9 @@ test('nothing else is placed at the top middle on its own', () => {
 });
 
 test('the toasts and the banner begin where the lane ends', () => {
-  assert.match(html, /#topStack \{ top:max\(100px, calc\(var\(--hudLaneBottom, 0px\) \+ 8px\)\); \}/);
+  assert.match(html, /#topStack \{ top:max\(100px, calc\(var\(--hudLaneBottom, 0px\) \+ 8px\)/);
   assert.match(main, /watchHudLane\(\);/);
-  const L = new Function(laneJs.replace(/export function /g, 'function ') + '\nreturn { laneBottom, watchHudLane };')();
+  const L = new Function(laneJs.replace(/^export (const|function) /gm, '$1 ') + '\nreturn { laneBottom, watchHudLane };')();
   assert.strictEqual(L.laneBottom({ height: 0, bottom: 62 }), 0, 'an empty lane asks for no room');
   assert.strictEqual(L.laneBottom({ height: 58, bottom: 120.4 }), 120);
   const set = {}; let seen = null;
@@ -59,4 +59,24 @@ test('on a phone the lane is a column down the left under the vitals, under the 
   assert.match(html, /@media \(orientation:portrait\) \{ body\.touchMode\.chatPinned #hudLane \{ top:calc\(var\(--pinnedChatBottom, 236px\) \+ 6px\); \} \}/);
   assert.match(html, /body\.touchMode #chatNotifStack, body\.touchMode\.chatPinned #chatNotifStack \{ top:max\(calc\(max\(8px, env\(safe-area-inset-top\)\) \+ 86px\), calc\(var\(--hudLaneBottom, 0px\) \+ 6px\)\); \}/);
   assert.ok(!/findsHudUp #chatNotifStack/.test(html) && !/chatPinned #dungeonFindsHud/.test(html), 'the old one-pair-at-a-time rules are gone');
+});
+
+// The notices down the middle and the trackers at the top right (asked for after a new-ability notice landed on
+// The Ancient Harvest's tracker on a phone).
+test('a tracker the notice lane would cross pushes the lane below it; one clear of the lane moves nothing', () => {
+  const src = laneJs.replace(/^export (const|function) /gm, '$1 ');
+  const { sideBottom } = new Function(src + '\nreturn { sideBottom };')();
+  const phone = 412, desk = 1440;
+  const tracker = (vw) => ({ left: vw - 16 - 206, right: vw - 16, top: 112, bottom: 290, width: 206, height: 178 });
+  assert.strictEqual(sideBottom([tracker(phone)], phone), 290, 'on a phone the lane starts below the tracker');
+  assert.strictEqual(sideBottom([tracker(desk)], desk), 0, 'on a wide screen the tracker is out of the lane\'s way');
+  assert.strictEqual(sideBottom([{ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 }], phone), 0, 'a hidden tracker moves nothing');
+  assert.strictEqual(sideBottom([{ ...tracker(phone), top: 600, bottom: 780 }], phone), 0, 'one dragged down the screen does not drag the notices with it');
+  assert.strictEqual(sideBottom([tracker(phone), { ...tracker(phone), top: 300, bottom: 360 }], phone), 360, 'the quest and story trackers both count');
+});
+test('the stack of notices begins below whichever reaches lower, the lane or a tracker', () => {
+  assert.match(html, /#topStack \{ top:max\(100px, calc\(var\(--hudLaneBottom, 0px\) \+ 8px\), calc\(var\(--hudSideBottom, 0px\) \+ 8px\)\); \}/);
+  assert.match(html, /body\.touchMode #topStack \{ top:max\(max\(96px, calc\(env\(safe-area-inset-top\) \+ 88px\)\), calc\(var\(--hudLaneBottom, 0px\) \+ 8px\), calc\(var\(--hudSideBottom, 0px\) \+ 8px\)\); \}/);
+  assert.match(main, /watchSideTrackers\(\);/);
+  assert.match(laneJs, /attributeFilter: \['class', 'style'\]/, 'a tracker shown, hidden or dragged is measured again');
 });
